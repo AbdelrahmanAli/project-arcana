@@ -8,6 +8,7 @@ export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
 export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
+export const FLAME_SPEED = 330;
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
@@ -21,6 +22,11 @@ export const WEAPONS = {
 export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser'];
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function flameReach(x,y,dx,dy) {
+  const horizontal=dx>0?(W-x)/dx:dx<0?-x/dx:Infinity;
+  const vertical=dy>0?(H-y)/dy:dy<0?-y/dy:Infinity;
+  return Math.min(900,horizontal,vertical);
+}
 export function segmentDistance(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy || 1),0,1);
@@ -140,9 +146,14 @@ export class Match {
     t.shield=true;t.shieldPulse=.3;
     if(firstHit) {
       this.effects.push({id:this.id++,type:'towerImpact',x:impact.x,y:impact.y,age:0,life:.48,seed:this.random()});
-      const p=this.players[owner], len=distance(p,RIVER);
-      const dx=(p.x-RIVER.x)/len,dy=(p.y-RIVER.y)/len;
-      for(const sign of [1,-1]) this.flames.push({id:this.id++,dx:dx*sign,dy:dy*sign,age:0,reach:0,marked:0,life:3.5});
+      const p=this.players[owner],body=towerBodyBounds(t);
+      const muzzleY=body?(body.top+body.bottom)/2:TOWER_BASE_Y-42;
+      const len=Math.max(1,Math.hypot(p.x-RIVER.x,p.y-muzzleY));
+      const dx=(p.x-RIVER.x)/len,dy=(p.y-muzzleY)/len;
+      for(const sign of [1,-1]) {
+        const x=RIVER.x+sign*34,y=muzzleY,fx=dx*sign,fy=dy*sign;
+        this.flames.push({id:this.id++,x,y,dx:fx,dy:fy,age:0,reach:0,maxReach:flameReach(x,y,fx,fy),endAge:null,marked:0,life:4.2});
+      }
       this.emit('towerImpact',{x:impact.x});
       this.emit('retaliation');
     }
@@ -162,6 +173,8 @@ export class Match {
   updateTower(dt) {
     const t=this.tower;
     t.shieldPulse=Math.max(0,t.shieldPulse-dt);
+    // Keep the vents attached to the exposed shaft until both jets reach the arena edge.
+    if(t.phase==='lower'&&this.flames.some(f=>f.life>0&&f.endAge===null))return;
     if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.shield=false;t.cycle++;this.emit('rise');}
     if(t.phase==='rest') return;
     t.progress+=dt;
@@ -188,7 +201,7 @@ export class Match {
         if(b.type==='grenade'&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<70){tx=p.x+(p.x>b.tx?85:-85);ty=p.y+28;break;}
         if(b.y>p.y&&b.y-p.y<200&&Math.abs(b.x-p.x)<38){tx=p.x+(p.x>W/2?-100:100);break;}
       }
-      for(const f of this.flames){const end={x:RIVER.x+f.dx*650,y:RIVER.y+f.dy*650};if(segmentDistance(p,RIVER,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
+      for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
       const dx=tx-p.x,dy=ty-p.y,l=Math.hypot(dx,dy);
       this.aiMove=l>10?{x:dx/l,y:dy/l}:{x:0,y:0};
       const type=this.weapon(p);
@@ -257,19 +270,20 @@ export class Match {
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
     for(const f of this.flames){
-      f.age+=dt;f.reach=Math.min(650,f.reach+700*dt);f.life-=dt;
-      const end={x:RIVER.x+f.dx*f.reach,y:RIVER.y+f.dy*f.reach};
-      for(const p of this.players){if(segmentDistance(p,RIVER,end)<21){p.hp=Math.max(0,p.hp-16*dt);p.hurt=.05;}}
+      f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
+      if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
+      const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
+      for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-16*dt);p.hurt=.05;}}
       while(f.marked+70<f.reach){
         f.marked+=70;
-        const x=RIVER.x+f.dx*f.marked,y=RIVER.y+f.dy*f.marked;
+        const x=f.x+f.dx*f.marked,y=f.y+f.dy*f.marked;
         if(y<RIVER.top||y>RIVER.bottom){
           this.mark('scorch',x,y,.65);
           this.effects.push({id:this.id++,type:'smoke',x,y,age:0,life:1.8,seed:this.random()});
         }
       }
       if(f.life<=0)for(const d of [230,340,450]){
-        const x=RIVER.x+f.dx*d,y=RIVER.y+f.dy*d;
+        const x=f.x+f.dx*Math.min(d,f.maxReach),y=f.y+f.dy*Math.min(d,f.maxReach);
         if(y<RIVER.top||y>RIVER.bottom)this.effects.push({id:this.id++,type:'smoke',x,y,age:0,life:2.1,seed:this.random()});
       }
     }

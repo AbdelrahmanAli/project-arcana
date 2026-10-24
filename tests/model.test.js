@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_BASE_Y, DEATH_DURATION, towerShieldBounds, towerBodyBounds, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, towerShieldBounds, towerBodyBounds, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -49,6 +49,7 @@ test('tower retaliates once, shield absorbs more hits, submerged cap cannot bloc
   assert.equal(m.hitTower(0),true);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
   assert.ok(Math.abs(m.flames[0].dx+m.flames[1].dx)<1e-8);assert.ok(Math.abs(m.flames[0].dy+m.flames[1].dy)<1e-8);
   m.hitTower(1);m.tower.phase='lower';m.hitTower(1);assert.equal(m.flames.length,2);
+  m.flames=[]; // Isolate the submerged-cap check from the firing hold.
   m.tower.progress=TOWER_TIMING.lower-.01;m.updateTower(.02);assert.equal(m.tower.phase,'rest');assert.equal(m.tower.shield,false);assert.equal(m.hitTower(0),false);
 });
 
@@ -118,12 +119,12 @@ test('delivery hit triggers one fire retaliation, then the shield absorbs later 
   m.fire(p,1);
   assert.ok(m.beams.at(-1).endY>350&&m.beams.at(-1).endY<400);
   assert.equal(enemy.hp,100);
+  m.flames=[]; // Isolate the submerged-cap check from the firing hold.
   m.tower.phase='lower';m.tower.progress=TOWER_TIMING.lower-.4;m.tower.height=TOWER_ACTIVE_HEIGHT+.01;
   m.tower.shield=true;m.updateTower(1/120);
   assert.ok(m.tower.height<TOWER_ACTIVE_HEIGHT);
   assert.equal(m.tower.shield,false,'shield disappears once the tower head is submerged');
   assert.equal(m.hitTower(0),false);
-  m.flames=[]; // Isolate the projectile path from the already-triggered retaliation.
   p.x=enemy.x=RIVER.x+65;p.cooldown=0;p.selected=-1;
   m.fire(p);
   for(let i=0;i<90;i++)m.update(1/120);
@@ -141,16 +142,34 @@ test('tower moves continuously through a slower cycle and launches exactly once 
   assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
   while(m.tower.phase==='deliver')m.updateTower(1/120);
   m.hitTower(0);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
+  m.flames=[]; // Check the descent curve without an active firing hold.
   previous=1;
   while(m.tower.phase==='lower'){m.updateTower(1/120);assert.ok(m.tower.height<=previous+1e-10);assert.ok(previous-m.tower.height<.01);previous=m.tower.height;}
   assert.equal(m.tower.height,0);assert.equal(m.tower.shield,false);assert.equal(m.launches,1);
+});
+
+test('tower keeps its vents exposed until both slower fire fronts reach the edge',()=>{
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.tower.phase='lower';m.tower.height=.8;m.tower.progress=1;
+  m.hitTower(0);
+  m.update(1/120);
+  assert.equal(m.tower.progress,1);
+  assert.ok(m.flames.some(f=>f.endAge===null));
+  for(let i=0;i<300&&m.flames.some(f=>f.endAge===null);i++)m.update(1/120);
+  assert.ok(m.flames.every(f=>f.endAge!==null),'both fronts arrived before descent resumes');
+  m.update(1/120);
+  assert.ok(m.tower.progress>1);
 });
 
 test('tower flames advance through space instead of hitting entire banks instantly',()=>{
   const m=new Match();m.think=()=>{};m.nextDrop=Infinity;m.tower.phase='rise';m.tower.height=.5;
   m.hitTower(0);assert.equal(m.flames[0].reach,0);m.update(1/120);
   assert.ok(m.flames[0].reach>0&&m.flames[0].reach<10);assert.equal(m.players[0].hp,100);
-  for(let i=0;i<440;i++)m.update(1/120);
+  assert.equal(m.flames[0].reach,FLAME_SPEED/120);
+  assert.ok(m.flames.every(f=>f.x!==RIVER.x&&f.y<RIVER.y),'both shots start at visible tower vents');
+  for(let i=0;i<60;i++)m.update(1/120);
+  assert.ok(m.flames.every(f=>f.endAge===null),'the vents keep firing while the fronts travel');
+  for(let i=0;i<460;i++)m.update(1/120);
   assert.equal(m.flames.length,0);
   assert.ok(m.effects.some(e=>e.type==='smoke'),'smoke lingers after the jets expire');
   assert.ok(m.marks.some(mark=>mark.type==='scorch'),'the fire leaves marks on the banks');

@@ -10,7 +10,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
@@ -125,7 +125,7 @@ function updateHud(){
   if(performance.now()>toastUntil)$('toast').style.opacity=0;
 }
 function render(){
-  draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
+  draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
   waterTile.tilePosition.x=game.time*19;
   waterTile.tilePosition.y=Math.sin(game.time*.72)*1.5;
   // A few foam crests drift with the textured current.
@@ -244,22 +244,30 @@ function render(){
   }else shieldGlass.visible=false;
   let jetCount=0;
   for(const f of game.flames){
-    if(f.age>.95)continue;
-    const start=Math.max(14,f.reach-165),alpha=Math.max(0,1-f.age/.95);
-    for(let d=start;d<f.reach;d+=17){
-      const x=RIVER.x+f.dx*d,y=RIVER.y+f.dy*d;
+    const alpha=f.endAge===null?1:Math.max(0,1-(f.age-f.endAge)/.34);
+    if(alpha<=0)continue;
+    const side=Math.sign(f.x-RIVER.x),root=RIVER.x+side*15;
+    rect(muzzleDraw,Math.min(root,f.x),f.y-6,Math.abs(f.x-root),12,0x253136,.95*alpha);
+    rect(muzzleDraw,Math.min(root,f.x),f.y-7,Math.abs(f.x-root),2,0x88918a,.75*alpha);
+    muzzleDraw.ellipse(f.x,f.y,12,9).fill({color:0x101b1d,alpha:.98*alpha});
+    muzzleDraw.ellipse(f.x,f.y,8,6).fill({color:0xe36522,alpha:.96*alpha});
+    const tip=19+Math.sin(game.time*24)*4,nx=-f.dy,ny=f.dx;
+    muzzleDraw.moveTo(f.x+nx*7,f.y+ny*7).lineTo(f.x+f.dx*tip,f.y+f.dy*tip).lineTo(f.x-nx*7,f.y-ny*7).closePath().fill({color:0xff9c32,alpha:.8*alpha});
+    circle(muzzleDraw,f.x+f.dx*6,f.y+f.dy*6,4,0xffedab,alpha);
+    for(let d=8;d<=f.reach;d+=12){
+      const x=f.x+f.dx*d,y=f.y+f.dy*d;
       if(x<0||x>W||y<0||y>H)continue;
       let s=jetSprites[jetCount];
       if(!s){s=new Sprite(flameFrames[0]);s.anchor.set(.5,.65);s.width=25;s.height=34;jetLayer.addChild(s);jetSprites.push(s);}
       s.visible=true;s.texture=flameFrames[(Math.floor(game.time*17+d/17))%8];
       s.position.set(x+Math.sin(game.time*19+d)*3,y+Math.cos(game.time*16+d)*3);
-      s.rotation=Math.atan2(f.dy,f.dx)+Math.PI/2;s.alpha=alpha*(.55+.35*d/f.reach);jetCount++;
+      s.rotation=Math.atan2(f.dy,f.dx)+Math.PI/2;s.alpha=alpha*(.72+.22*d/f.maxReach);jetCount++;
     }
   }
   for(let i=jetCount;i<jetSprites.length;i++)jetSprites[i].visible=false;
   let flameCount=0;
   for(const f of game.flames)for(let d=40;d<f.reach;d+=19){
-    const x=RIVER.x+f.dx*d,y=RIVER.y+f.dy*d;
+    const x=f.x+f.dx*d,y=f.y+f.dy*d;
     if(x<0||x>W||y<0||y>H||!(y<RIVER.top-6||y>RIVER.bottom+6))continue;
     let s=flameSprites[flameCount];if(!s){s=new Sprite(flameFrames[0]);s.anchor.set(.5,.85);s.width=35;s.height=46;flameLayer.addChild(s);flameSprites.push(s);}
     s.visible=true;s.texture=flameFrames[(Math.floor(game.time*13+d/19))%8];s.position.set(x,y);s.alpha=Math.min(1,f.life*1.4);s.scale.x=(flameCount%2?-1:1)*.08;s.scale.y=.08;flameCount++;
@@ -418,11 +426,11 @@ async function boot(){
   openCap.mask=hatchMask;
   frontProjectileDraw=new Graphics();
   world.addChild(cap,openCap,hatchMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
-  towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,aerialProjectileDraw);
+  towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,aerialProjectileDraw);
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
   for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
   // The front surface of the bubble must veil a fighter or corpse behind it.
-  world.addChild(shieldGlass,shieldDraw);
+  world.addChild(shieldGlass,shieldDraw,muzzleDraw);
   // The same rocky escarpment closes both far edges. The southern copy is
   // mirrored horizontally so it reads as a matching barrier without a repeat.
   for(const [y,mirror] of [[-28,false],[H-69,true]]){
