@@ -218,6 +218,12 @@ function render(){
     baseWaterDraw.ellipse(x,BASE_Y+27,6+phase*8,2+phase*3).stroke({color:0xb8eee7,width:1.5,alpha:(1-phase)*foam*armEase});
     circle(baseWaterDraw,x+side*5,BASE_Y+19-Math.sin(phase*Math.PI)*7,1.5,0xd6fff1,(1-phase)*foam*armEase);
   }
+  for(const side of [-1,1]){
+    const x=RIVER.x+side*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
+    baseLightDraw.ellipse(x-side*3,y+2,17,11).fill({color:0x121d20,alpha:.96});
+    baseLightDraw.ellipse(x-side*3,y,13,8).stroke({color:0xa5793e,width:2,alpha:.9});
+    baseLightDraw.ellipse(x,y,8,5).fill({color:0x45291f,alpha:.95});
+  }
   if(t.phase==='rise'){
     const blink=(Math.sin(game.time*10)>0?1:.06)*Math.min(1,t.progress/.25);
     for(const [dx,dy] of [[-53,-16],[53,-16],[-30,2],[30,2],[-51,19],[0,20],[51,19]]){
@@ -247,11 +253,9 @@ function render(){
   for(const f of game.flames){
     const alpha=f.endAge===null?1:Math.max(0,1-(f.age-f.endAge)/.34);
     if(alpha<=0)continue;
-    const side=Math.sign(f.x-RIVER.x),root=RIVER.x+side*15;
-    rect(muzzleDraw,Math.min(root,f.x),f.y-6,Math.abs(f.x-root),12,0x253136,.95*alpha);
-    rect(muzzleDraw,Math.min(root,f.x),f.y-7,Math.abs(f.x-root),2,0x88918a,.75*alpha);
-    muzzleDraw.ellipse(f.x,f.y,12,9).fill({color:0x101b1d,alpha:.98*alpha});
-    muzzleDraw.ellipse(f.x,f.y,8,6).fill({color:0xe36522,alpha:.96*alpha});
+    // The fixed side vents belong to the base, so the rising shaft never drags
+    // the ignition point or leaves a barrel floating in front of it.
+    muzzleDraw.ellipse(f.x,f.y,8,5).fill({color:0xe36522,alpha:.96*alpha});
     const tip=19+Math.sin(game.time*24)*4,nx=-f.dy,ny=f.dx;
     muzzleDraw.moveTo(f.x+nx*7,f.y+ny*7).lineTo(f.x+f.dx*tip,f.y+f.dy*tip).lineTo(f.x-nx*7,f.y-ny*7).closePath().fill({color:0xff9c32,alpha:.8*alpha});
     circle(muzzleDraw,f.x+f.dx*6,f.y+f.dy*6,4,0xffedab,alpha);
@@ -452,7 +456,7 @@ async function boot(){
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
   for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
   // The front surface of the bubble must veil a fighter or corpse behind it.
-  world.addChild(shieldGlass,shieldDraw,muzzleDraw);
+  world.addChild(muzzleDraw,shieldGlass,shieldDraw);
   // The same rocky escarpment closes both far edges. The southern copy is
   // mirrored horizontally so it reads as a matching barrier without a repeat.
   for(const [y,mirror] of [[-28,false],[H-69,true]]){

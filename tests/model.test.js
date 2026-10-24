@@ -58,7 +58,6 @@ test('tower retaliates once, shield absorbs more hits, submerged cap cannot bloc
   assert.equal(m.hitTower(0),true);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
   assert.ok(Math.abs(m.flames[0].dx+m.flames[1].dx)<1e-8);assert.ok(Math.abs(m.flames[0].dy+m.flames[1].dy)<1e-8);
   m.hitTower(1);m.tower.phase='lower';m.hitTower(1);assert.equal(m.flames.length,2);
-  m.flames=[]; // Isolate the submerged-cap check from the firing hold.
   m.tower.progress=TOWER_TIMING.lower-.01;m.updateTower(.02);assert.equal(m.tower.phase,'rest');assert.equal(m.tower.shield,false);assert.equal(m.hitTower(0),false);
 });
 
@@ -176,23 +175,34 @@ test('tower moves continuously through a slower cycle and launches exactly once 
   assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
   while(m.tower.phase==='deliver')m.updateTower(1/120);
   m.hitTower(0);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
-  m.flames=[]; // Check the descent curve without an active firing hold.
   previous=1;
   while(m.tower.phase==='lower'){m.updateTower(1/120);assert.ok(m.tower.height<=previous+1e-10);assert.ok(previous-m.tower.height<.01);previous=m.tower.height;}
   assert.equal(m.tower.height,0);assert.equal(m.tower.shield,false);assert.equal(m.launches,1);
 });
 
-test('tower keeps its vents exposed until both slower fire fronts reach the edge',()=>{
+test('base vents keep firing while the shaft descends',()=>{
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
   m.tower.phase='lower';m.tower.height=.8;m.tower.progress=1;
   m.hitTower(0);
-  m.update(1/120);
-  assert.equal(m.tower.progress,1);
-  assert.ok(m.flames.some(f=>f.endAge===null));
-  for(let i=0;i<300&&m.flames.some(f=>f.endAge===null);i++)m.update(1/120);
-  assert.ok(m.flames.every(f=>f.endAge!==null),'both fronts arrived before descent resumes');
+  const sources=m.flames.map(({x,y})=>({x,y}));
   m.update(1/120);
   assert.ok(m.tower.progress>1);
+  assert.ok(m.flames.some(f=>f.endAge===null));
+  for(let i=0;i<300&&m.flames.some(f=>f.endAge===null);i++)m.update(1/120);
+  assert.deepEqual(m.flames.map(({x,y})=>({x,y})),sources,'fire remains attached to the stationary base');
+  assert.ok(m.flames.every(f=>f.endAge!==null),'both fronts reach the arena edge');
+  assert.ok(m.tower.height<.8,'shaft descent continues during retaliation');
+});
+
+test('retaliation uses the same base ports at every tower height',()=>{
+  for(const height of [.35,.7,1]){
+    const m=new Match(()=>.5);m.tower.phase='rise';m.tower.height=height;
+    assert.equal(m.hitTower(0),true);
+    assert.deepEqual(m.flames.map(({x,y})=>({x,y})),[
+      {x:RIVER.x+TOWER_GEOMETRY.fireVentOffsetX,y:TOWER_GEOMETRY.fireVentY},
+      {x:RIVER.x-TOWER_GEOMETRY.fireVentOffsetX,y:TOWER_GEOMETRY.fireVentY},
+    ]);
+  }
 });
 
 test('tower flames advance through space instead of hitting entire banks instantly',()=>{
@@ -200,7 +210,7 @@ test('tower flames advance through space instead of hitting entire banks instant
   m.hitTower(0);assert.equal(m.flames[0].reach,0);m.update(1/120);
   assert.ok(m.flames[0].reach>0&&m.flames[0].reach<10);assert.equal(m.players[0].hp,100);
   assert.equal(m.flames[0].reach,FLAME_SPEED/120);
-  assert.ok(m.flames.every(f=>f.x!==RIVER.x&&f.y<RIVER.y),'both shots start at visible tower vents');
+  assert.ok(m.flames.every(f=>f.x!==RIVER.x&&f.y===TOWER_GEOMETRY.fireVentY),'both shots start at fixed base vents');
   for(let i=0;i<60;i++)m.update(1/120);
   assert.ok(m.flames.every(f=>f.endAge===null),'the vents keep firing while the fronts travel');
   for(let i=0;i<460;i++)m.update(1/120);

@@ -11,6 +11,8 @@ export const TOWER_GEOMETRY = {
   shaftBaseY: RIVER.y+35,
   apertureTop: TOWER_BASE_Y-39,
   apertureBottom: RIVER.y+22,
+  fireVentOffsetX: 64,
+  fireVentY: TOWER_BASE_Y-18,
 };
 // The head remains visible inside the open hatch after the exposed shaft retracts.
 export const TOWER_ACTIVE_HEIGHT = .12;
@@ -176,12 +178,11 @@ export class Match {
     t.shield=true;t.shieldPulse=.3;
     if(firstHit) {
       this.effects.push({id:this.id++,type:'towerImpact',x:impact.x,y:impact.y,age:0,life:.48,seed:this.random()});
-      const p=this.players[owner],body=towerBodyBounds(t);
-      const muzzleY=body?(body.top+body.bottom)/2:TOWER_BASE_Y-42;
+      const p=this.players[owner],muzzleY=TOWER_GEOMETRY.fireVentY;
       const len=Math.max(1,Math.hypot(p.x-RIVER.x,p.y-muzzleY));
       const dx=(p.x-RIVER.x)/len,dy=(p.y-muzzleY)/len;
       for(const sign of [1,-1]) {
-        const x=RIVER.x+sign*34,y=muzzleY,fx=dx*sign,fy=dy*sign;
+        const x=RIVER.x+sign*TOWER_GEOMETRY.fireVentOffsetX,y=muzzleY,fx=dx*sign,fy=dy*sign;
         this.flames.push({id:this.id++,x,y,dx:fx,dy:fy,age:0,reach:0,maxReach:flameReach(x,y,fx,fy),endAge:null,marked:0,life:4.2});
       }
       this.emit('towerImpact',{x:impact.x});
@@ -203,8 +204,6 @@ export class Match {
   updateTower(dt) {
     const t=this.tower;
     t.shieldPulse=Math.max(0,t.shieldPulse-dt);
-    // Keep the vents attached to the exposed shaft until both jets reach the arena edge.
-    if(t.phase==='lower'&&this.flames.some(f=>f.life>0&&f.endAge===null))return;
     if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.shield=false;t.cycle++;this.emit('rise');}
     if(t.phase==='rest') return;
     t.progress+=dt;
