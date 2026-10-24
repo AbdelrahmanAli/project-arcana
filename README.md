@@ -38,6 +38,7 @@ The player's health is below the inventory. The opponent's health and equipped w
 - `docs/DESIGN.md`: decisions, tuning proposals, and future scope.
 - `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
 - `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
+- `docs/PHASE_2.md`: proposed nuclear launcher and destructible-arena rules, plus prepared sprites.
 
 ## Current limits
 

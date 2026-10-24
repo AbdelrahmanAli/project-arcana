@@ -1,0 +1,23 @@
+# Phase 2 sprite prompts
+
+Generated with the built-in image tool. Each output uses a genuinely transparent background. The resulting PNGs are in `public/art/phase2/`.
+
+## Nuclear launcher
+
+> Use case: stylized-concept. Asset type: one isolated game weapon sprite for The Tower Deal. Primary request: a modern nuclear grenade launcher, side view pointing right with a slight three-quarter incline, compact heavy military silhouette, thick drum or tube barrel, charcoal steel and worn brass-gold armor, distinctive contained neon toxic-green energy chamber and narrow green illuminated seams. Style: exceptionally crisp high-detail arcade pixel art, like a polished 1990s side-scrolling action game, visually compatible with detailed teal/red soldiers and golden futuristic tower. Composition: single weapon centered, generous transparent margins, no hand or character, no environment. Constraints: genuinely transparent background, clean silhouette at small UI icon size, no words, numbers, logos or watermark. Avoid: blue accents, oversaturated glow obscuring shape, primitive fantasy designs.
+
+## Nuclear grenade
+
+> Use case: stylized-concept. Asset type: one isolated projectile sprite for a browser fighting game. Primary request: a nuclear grenade fired by a modern grenade launcher, squat cylindrical military canister with charcoal metal shell, brass retaining ring, one bright but contained toxic-green glowing core and tiny tail fins; aimed diagonally up-right. Style: high-detail sharp arcade pixel art matching an expressive 1990s military action game, readable at 14 to 20 game pixels. Composition: ONE projectile centered with transparent margins. Constraints: genuinely transparent background, no trail, no blast, no ground, no text, no watermark. Avoid: realistic photograph, soft gradients, cartoon smiley or radiation symbol text.
+
+## Nuclear waste
+
+> Use case: stylized-concept. Asset type: four-frame looping radioactive ground-hazard sprite sheet for a browser arena game. Primary request: bright toxic-green nuclear waste pooled on dusty ground after a futuristic grenade burst. EXACTLY four equal cells in one horizontal row, each showing the SAME low irregular puddle footprint from a slightly angled top-down view, with subtle pixel-art bubbling and contained green light shifting between frames. Dark oily green rim, luminous lime highlights, a few tiny sparks, readable at roughly 70 game pixels across. Style: high-detail, crisp 1990s arcade military pixel art, compatible with a sandy riverbank arena and gold-charcoal machinery. Composition: each frame centered and aligned, separated by transparent gutters, no ground tile or square backdrop. Constraints: genuinely transparent background, no text, no symbol, no watermark, no mushroom cloud, no characters. Keep the puddle height shallow so fighters can visibly walk over it.
+
+## Breakable crate
+
+> Use case: stylized-concept. Asset type: breakable arena crate sprite sheet. Primary request: one rugged military supply crate represented in EXACTLY three equal cells in one horizontal row: frame 1 intact, frame 2 visibly cracked and splintering from gunfire, frame 3 collapsed into low broken planks and metal debris. Same object position and camera angle in every cell. Weathered tan wood panels, dark metal reinforcement and brass corner plates, slight three-quarter top-down perspective matching a detailed desert riverbank pixel-art fighting game. Style: crisp high-detail arcade pixel art with strong silhouettes, shadows painted only on the object. Composition: centered within each cell with transparent gutters. Constraints: genuinely transparent background, no environment, no labels, no text, no characters, no watermark. The intact crate should read clearly as temporary cover at 30 to 40 game pixels.
+
+## Oil barrel
+
+> Use case: stylized-concept. Asset type: explosive oil barrel sprite sheet for a browser arena fighting game. Primary request: one industrial oil barrel represented in EXACTLY three equal cells in one horizontal row: frame 1 intact upright sealed blackened steel barrel, frame 2 heavily dented with a small orange leak or spark at a bullet impact, frame 3 a low charred ruptured barrel wreck with scraps. The same object and camera angle in each cell. Charcoal metal, warm brass rims, restrained rusty orange hazard accents, slightly angled top-down view matching high-detail 1990s military arcade pixel art. Composition: centered consistently, separate cells with transparent gutters, no environmental ground. Constraints: genuinely transparent background, no explosion cloud in the sprite sheet because the existing game has explosion frames, no text, no logos, no watermark. Barrel should be readable at 28 to 36 game pixels.
