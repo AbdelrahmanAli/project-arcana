@@ -2,6 +2,8 @@
 
 A single-round, browser-based riverbank duel. Built with PixiJS 8, Howler.js, and Vite. The game currently runs against a computer opponent; it does not need a gameplay server.
 
+The Tower is inspired by Major Arcana XVI: sudden upheaval breaks a sense of certainty. In the duel, its paired but independently random weapon drops can change each player's plan, and striking it can set both banks on fire. The player starts on an assigned bank; bank selection is not a game mechanic.
+
 ## Run
 
 Node 22.12+ recommended. Install dependencies with `pnpm install`, then `pnpm dev`. Open the printed local URL. `pnpm build` creates a static deployment in `dist/`. `pnpm preview` serves that build. `pnpm test` runs the combat-rule tests.
