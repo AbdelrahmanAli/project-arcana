@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, BLAST_RADIUS, GRENADE_STUN_DURATION, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, BLAST_RADIUS, GRENADE_STUN_DURATION, WASTE_RADIUS, WASTE_DURATION, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -23,8 +23,8 @@ test('spending final shot frees the slot and restores unlimited pistol',()=>{
 });
 
 test('each launch creates a pair with independent rolls and valid bank positions',()=>{
-  let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match(()=>values[i++%values.length]);m.launch();
-  assert.equal(m.pickups.length,2);assert.equal(m.pickups[0].type,'rifle');assert.equal(m.pickups[1].type,'laser');
+  let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match(()=>values[i++%values.length]);i=0;m.launch();
+  assert.equal(m.pickups.length,2);assert.equal(m.pickups[0].type,'rifle');assert.equal(m.pickups[1].type,'nuclear');
   assert.ok(m.pickups[0].y>RIVER.bottom);assert.ok(m.pickups[1].y<RIVER.top);
   for(const item of m.pickups)assert.ok(item.y>=BANK_BOUNDS[item.owner].minY+20&&item.y<=BANK_BOUNDS[item.owner].maxY-20);
   assert.equal(m.pickups[0].sx,RIVER.x-51);assert.equal(m.pickups[1].sx,RIVER.x+51);
@@ -346,6 +346,79 @@ test('death clears live rounds and fades fire before the result appears',()=>{
   for(let i=0;i<100;i++)m.update(1/120);
   assert.equal(m.flames.length,0);
   assert.equal(m.finished,false,'the result still waits for the death animation');
+});
+
+test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid solid objects',()=>{
+  let seed=71;const random=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/4294967296;};
+  for(let round=0;round<40;round++){
+    const m=new Match(random);
+    assert.equal(m.obstacles.length,4);
+    for(const south of m.obstacles.filter(o=>o.owner===0)){
+      const north=m.obstacles.find(o=>o.owner===1&&o.type===south.type);
+      assert.equal(south.x+north.x,480);assert.equal(south.y+north.y,710);
+    }
+    for(const player of m.players)for(const obstacle of m.obstacles)assert.ok(Math.hypot(player.x-obstacle.x,player.y-obstacle.y)>55);
+    for(let launch=0;launch<6;launch++)m.launch();
+    for(const item of m.pickups)for(const obstacle of m.obstacles)assert.ok(Math.hypot(item.x-obstacle.x,item.y-obstacle.y)>=57);
+  }
+});
+
+test('crates stop movement and shots, then leave passable debris',()=>{
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  const p=m.players[0],enemy=m.players[1],crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===0);
+  crate.x=p.x+45;crate.y=p.y;
+  m.move(p,1,0,.3);assert.equal(p.x,190,'solid crate blocks walking');
+  crate.x=p.x;crate.y=p.y-70;enemy.x=p.x;
+  m.fire(p);for(let i=0;i<90;i++)m.update(1/120);
+  assert.equal(crate.destroyed,true);assert.equal(enemy.hp,100,'first round is absorbed');
+  assert.ok(m.events.some(e=>e.type==='crateBreak'));
+  p.cooldown=0;m.fire(p);for(let i=0;i<110;i++)m.update(1/120);
+  assert.equal(enemy.hp,95,'later round passes through debris');
+  crate.x=p.x+45;crate.y=p.y;m.move(p,1,0,.3);assert.ok(p.x>190,'debris does not block walking');
+});
+
+test('barrels explode once, hurt either fighter, and chain into nearby objects',()=>{
+  const m=new Match(()=>.5),barrel=m.obstacles.find(o=>o.type==='barrel'&&o.owner===0);
+  const other=m.obstacles.find(o=>o.type==='barrel'&&o.owner===1),crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===0);
+  barrel.x=210;barrel.y=520;other.x=240;other.y=520;crate.x=220;crate.y=545;
+  m.players[0].x=195;m.players[0].y=520;m.players[1].x=245;m.players[1].y=520;
+  assert.equal(m.destroyObstacle(barrel),true);
+  assert.equal(barrel.destroyed,true);assert.equal(other.destroyed,true);assert.equal(crate.destroyed,true);
+  assert.ok(m.players.every(p=>p.hp<100));
+  assert.equal(m.events.filter(e=>e.type==='barrelBlast').length,2);
+  assert.equal(m.destroyObstacle(barrel),false);
+  assert.equal(m.events.filter(e=>e.type==='barrelBlast').length,2);
+  assert.equal(BARREL_BLAST_RADIUS,45);
+});
+
+test('blast areas and laser destroy cover at the first intersection',()=>{
+  const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
+  const crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===1);crate.x=p.x;crate.y=190;enemy.x=p.x;
+  p.slots[0]={type:'laser',ammo:2};p.selected=0;m.fire(p,1);
+  assert.equal(crate.destroyed,true);assert.equal(enemy.hp,100);
+  assert.ok(m.beams.at(-1).endY>enemy.y);
+  const barrel=m.obstacles.find(o=>o.type==='barrel'&&o.owner===1);barrel.x=260;barrel.y=130;
+  m.explode({owner:0,type:'grenade',x:260,y:130,damage:0,life:1});
+  assert.equal(barrel.destroyed,true,'grenade blast ignites barrel');
+});
+
+test('nuclear grenade arcs over the tower, then waste harms either fighter for four seconds',()=>{
+  const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
+  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
+  p.slots[0]={type:'nuclear',ammo:2};p.selected=0;m.fire(p);
+  assert.equal(p.slots[0].ammo,1);assert.equal(m.bullets[0].type,'nuclear');
+  for(let i=0;i<130;i++)m.update(1/120);
+  assert.equal(m.bullets.length,0);assert.ok(enemy.hp<90&&enemy.hp>80);
+  assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
+  assert.equal(m.waste.length,1);assert.ok(m.events.some(e=>e.type==='nuclearBlast'));
+  const hp=enemy.hp;for(let i=0;i<120;i++)m.update(1/120);
+  assert.ok(enemy.hp<=hp-WASTE_DAMAGE_PER_SECOND*.9);
+  m.waste.push({id:999,x:p.x,y:p.y,age:0,life:WASTE_DURATION});
+  const ownHp=p.hp;for(let i=0;i<120;i++)m.update(1/120);
+  assert.ok(p.hp<=ownHp-WASTE_DAMAGE_PER_SECOND*.9,'own fighter is not exempt');
+  for(let i=0;i<500;i++)m.update(1/120);
+  assert.equal(m.waste.length,0);const after=p.hp;m.update(1/120);assert.equal(p.hp,after);
+  assert.equal(WASTE_RADIUS,24);assert.ok(DROP_TYPES.includes('nuclear'));
 });
 
 test('seeded autonomous match runs to a result without invalid positions or unbounded entities',()=>{

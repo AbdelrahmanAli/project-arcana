@@ -17,8 +17,10 @@ export const TOWER_GEOMETRY = {
 // The head remains visible inside the open hatch after the exposed shaft retracts.
 export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
-export const BLAST_RADIUS = { grenade: 78, missile: 58 };
+export const BLAST_RADIUS = { grenade: 78, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
+export const WASTE_RADIUS = 24, WASTE_DURATION = 4, WASTE_DAMAGE_PER_SECOND = 6;
+export const BARREL_BLAST_RADIUS = 45, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330;
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
@@ -29,8 +31,9 @@ export const WEAPONS = {
   grenade: { name: 'STUN LAUNCHER', ammo: 3, damage: 8, cooldown: 1.1, frame: 10, color: 0x59bbff },
   missile: { name: 'SMART MISSILE', ammo: 2, damage: 30, speed: 430, cooldown: 1, frame: 11, color: 0xff7548 },
   laser: { name: 'LASER GUN', ammo: 2, damage: 16, cooldown: .75, frame: 12, color: 0xff414c },
+  nuclear: { name: 'NUCLEAR LAUNCHER', ammo: 2, damage: 10, cooldown: 1.4, color: 0x9bf53d },
 };
-export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser'];
+export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'nuclear'];
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 function flameReach(x,y,dx,dy) {
@@ -97,17 +100,63 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
+}
+const OBSTACLE_HALF={crate:{x:22,y:20},barrel:{x:17,y:20}};
+export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
+function blocksFighter(o,x,y){
+  if(o.destroyed)return false;
+  const b=obstacleBounds(o),nearX=clamp(x,b.left,b.right),nearY=clamp(y,b.top,b.bottom);
+  return Math.hypot(x-nearX,y-nearY)<15;
 }
 export class Match {
   constructor(random = Math.random) {
     this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,569),soldier(1,290,141)];
-    this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;
+    this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
+    this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
     this.nextDrop=2.5; this.aiClock=0; this.aiMove={x:0,y:0}; this.aiFire=false; this.aiCharge=0;
     this.finished=false; this.winner=null; this.ending=0; this.launches=0;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
+  makeObstacles(){
+    const crateLeft=this.random()<.5,left=95+this.random()*58,right=327+this.random()*58;
+    const near=500+this.random()*30,far=609+this.random()*28;
+    const south=[{type:crateLeft?'crate':'barrel',x:left,y:near},{type:crateLeft?'barrel':'crate',x:right,y:far}];
+    return [...south.map(o=>({...o,id:this.id++,owner:0,destroyed:false,flash:0})),
+      ...south.map(o=>({...o,id:this.id++,owner:1,x:W-o.x,y:2*RIVER.y-o.y,destroyed:false,flash:0}))];
+  }
+  nearestObstacleHit(a,b){
+    let nearest=null;
+    for(const obstacle of this.obstacles){
+      if(obstacle.destroyed)continue;
+      const hit=segmentRectHit(a,b,obstacleBounds(obstacle));
+      if(hit&&(!nearest||distance(a,hit)<distance(a,nearest.hit)))nearest={obstacle,hit};
+    }
+    return nearest;
+  }
+  damageAreaObjects(x,y,radius){
+    for(const obstacle of this.obstacles)if(!obstacle.destroyed&&Math.hypot(obstacle.x-x,obstacle.y-y)<radius+Math.min(OBSTACLE_HALF[obstacle.type].x,OBSTACLE_HALF[obstacle.type].y))this.destroyObstacle(obstacle);
+  }
+  destroyObstacle(obstacle){
+    if(obstacle.destroyed)return false;
+    obstacle.destroyed=true;obstacle.flash=.15;
+    if(obstacle.type==='crate'){
+      this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
+      this.emit('crateBreak',{x:obstacle.x});
+    }else{
+      this.effects.push({id:this.id++,type:'barrelBlast',x:obstacle.x,y:obstacle.y,age:0,life:.6,seed:this.random()});
+      this.effects.push({id:this.id++,type:'smoke',x:obstacle.x,y:obstacle.y,age:0,life:2,seed:this.random()});
+      this.mark('scorch',obstacle.x,obstacle.y,1.15);
+      for(const player of this.players){
+        const d=Math.hypot(player.x-obstacle.x,player.y-obstacle.y);
+        if(d<BARREL_BLAST_RADIUS)this.damage(player,BARREL_DAMAGE*(1-.4*d/BARREL_BLAST_RADIUS),obstacle.x,obstacle.y);
+      }
+      this.emit('barrelBlast',{x:obstacle.x});
+      this.damageAreaObjects(obstacle.x,obstacle.y,BARREL_BLAST_RADIUS);
+    }
+    return true;
+  }
   mark(type,x,y,size=1) {
     if(y>=RIVER.top&&y<=RIVER.bottom)return;
     this.marks.push({type,x,y,size,seed:this.random()});
@@ -120,8 +169,10 @@ export class Match {
     if(p.stun>0){p.moving=false;return;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
     p.moving=l>.08;
-    p.x=clamp(p.x+x*scale*170*dt,38,W-38);
-    p.y=clamp(p.y+y*scale*170*dt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
+    const nextX=clamp(p.x+x*scale*170*dt,38,W-38);
+    if(!this.obstacles.some(o=>blocksFighter(o,nextX,p.y)))p.x=nextX;
+    const nextY=clamp(p.y+y*scale*170*dt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
+    if(!this.obstacles.some(o=>blocksFighter(o,p.x,nextY)))p.y=nextY;
     if(p.moving) p.walk+=dt;
   }
   collect(p,item) {
@@ -141,12 +192,16 @@ export class Match {
       const end={x:origin.x,y:p.id===0?0:H};
       const shieldHit=this.tower.shield?segmentEllipseHit(origin,end,towerShieldBounds(this.tower)):null;
       const bodyHit=!shieldHit?segmentTowerHit(origin,end,this.tower):null;
-      if(shieldHit)this.hitTower(p.id,shieldHit);
-      else if(bodyHit)this.hitTower(p.id,bodyHit);
-      else if(segmentDistance(enemy,origin,end)<17){this.damage(enemy,def.damage+Math.round(power*30));p.hits++;}
-      this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:shieldHit?.y??bodyHit?.y??end.y,owner:p.id,age:0,life:.34});
-    } else if(type==='grenade') {
-      this.bullets.push({id:this.id++,owner:p.id,type,x:origin.x,y:origin.y,sx:origin.x,sy:origin.y,tx:enemy.x,ty:enemy.y,t:0,duration:.9,damage:def.damage,color:def.color,life:1.3});
+      const obstacleHit=this.nearestObstacleHit(origin,end);
+      const victimHit=enemy.hp>0?segmentRectHit(origin,end,{left:enemy.x-16,right:enemy.x+16,top:enemy.y-16,bottom:enemy.y+16}):null;
+      const hits=[shieldHit&&{kind:'tower',hit:shieldHit},bodyHit&&{kind:'tower',hit:bodyHit},obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit}].filter(Boolean);
+      const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
+      if(first?.kind==='tower')this.hitTower(p.id,first.hit);
+      else if(first?.kind==='obstacle')this.destroyObstacle(first.obstacle);
+      else if(first?.kind==='player'){this.damage(enemy,def.damage+Math.round(power*30));p.hits++;}
+      this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,age:0,life:.34});
+    } else if(type==='grenade'||type==='nuclear') {
+      this.bullets.push({id:this.id++,owner:p.id,type,x:origin.x,y:origin.y,sx:origin.x,sy:origin.y,tx:enemy.x,ty:enemy.y,t:0,duration:type==='nuclear'?1:.9,damage:def.damage,color:def.color,life:1.4});
     } else {
       let dx=0,dy=dir;
       if(type==='missile') { const d=Math.hypot(enemy.x-origin.x,enemy.y-origin.y); dx=(enemy.x-origin.x)/d; dy=(enemy.y-origin.y)/d; }
@@ -166,17 +221,22 @@ export class Match {
     this.emit('hit',{player:p.id});
   }
   explode(b) {
-    const stunGrenade=b.type==='grenade';
-    this.effects.push({id:this.id++,type:stunGrenade?'stunBlast':'explosion',x:b.x,y:b.y,age:0,life:stunGrenade?.65:.55,seed:this.random()});
-    this.effects.push({id:this.id++,type:'smoke',x:b.x,y:b.y,age:0,life:stunGrenade?1.2:2.4,seed:this.random()});
-    this.mark('scorch',b.x,b.y,stunGrenade?.6:1.3);
-    const enemy=this.players[1-b.owner];
-    const radius=BLAST_RADIUS[b.type], d=distance(enemy,b);
-    if(d<radius){
-      this.damage(enemy,b.damage*(1-.4*d/radius));this.players[b.owner].hits++;
-      if(stunGrenade&&enemy.hp>0){enemy.stun=Math.max(enemy.stun,GRENADE_STUN_DURATION);enemy.charge=0;enemy.moving=false;this.emit('stun',{player:enemy.id});}
+    const stunGrenade=b.type==='grenade',nuclear=b.type==='nuclear';
+    const effect=nuclear?'nuclearBlast':stunGrenade?'stunBlast':'explosion';
+    this.effects.push({id:this.id++,type:effect,x:b.x,y:b.y,age:0,life:nuclear?.7:stunGrenade?.65:.55,seed:this.random()});
+    this.effects.push({id:this.id++,type:'smoke',x:b.x,y:b.y,age:0,life:nuclear?1.5:stunGrenade?1.2:2.4,seed:this.random()});
+    this.mark('scorch',b.x,b.y,nuclear?.8:stunGrenade?.6:1.3);
+    const radius=BLAST_RADIUS[b.type];
+    this.damageAreaObjects(b.x,b.y,radius);
+    const targets=nuclear?this.players:[this.players[1-b.owner]];
+    for(const target of targets){
+      const d=distance(target,b);
+      if(d>=radius)continue;
+      this.damage(target,b.damage*(1-.4*d/radius));if(target.id!==b.owner)this.players[b.owner].hits++;
+      if(stunGrenade&&target.hp>0){target.stun=Math.max(target.stun,GRENADE_STUN_DURATION);target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
-    this.emit(stunGrenade?'stunBlast':'explosion'); b.life=0;
+    if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y,age:0,life:WASTE_DURATION});
+    this.emit(effect,{x:b.x}); b.life=0;
   }
   hitTower(owner,impact=RIVER) {
     const t=this.tower;
@@ -203,7 +263,18 @@ export class Match {
     for(let owner=0;owner<2;owner++) {
       const sx=RIVER.x+(owner===0?-51:51),sy=RIVER.y-78;
       const bounds=BANK_BOUNDS[owner],margin=20;
-      this.pickups.push({id:this.id++,owner,type:DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)],sx,sy,x:55+this.random()*(W-110),y:bounds.minY+margin+this.random()*(bounds.maxY-bounds.minY-2*margin),flight:.75,ttl:12});
+      const type=DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)];
+      let x,y,clear=false;
+      for(let attempt=0;attempt<16;attempt++){
+        x=55+this.random()*(W-110);y=bounds.minY+margin+this.random()*(bounds.maxY-bounds.minY-2*margin);
+        clear=!this.obstacles.some(o=>!o.destroyed&&Math.hypot(x-o.x,y-o.y)<57);
+        if(clear)break;
+      }
+      if(!clear){
+        const safe=[{x:240,y:bounds.minY+margin+15},{x:240,y:bounds.maxY-margin-15},{x:W/2,y:(bounds.minY+bounds.maxY)/2}];
+        ({x,y}=safe.find(point=>!this.obstacles.some(o=>!o.destroyed&&distance(point,o)<57))||safe[0]);
+      }
+      this.pickups.push({id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:12});
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
     this.emit('launch');
@@ -233,16 +304,26 @@ export class Match {
       let tx=enemy.x,ty=(bank.minY+bank.maxY)/2+Math.sin(this.time*.6)*(bank.maxY-bank.minY)*.28;
       const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0).sort((a,b)=>distance(a,p)-distance(b,p));
       if(p.slots.includes(null)&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
+      for(const obstacle of this.obstacles){
+        if(obstacle.owner!==1||obstacle.destroyed||distance(p,obstacle)>170)continue;
+        if(segmentDistance(obstacle,p,{x:tx,y:ty})<39){
+          const upper=obstacle.y-44,lower=obstacle.y+44;
+          ty=upper>=bank.minY+16&&(p.y<obstacle.y||lower>bank.maxY-16)?upper:lower;
+          tx=obstacle.x+(p.x<obstacle.x?-42:42);
+          break;
+        }
+      }
       for(const b of this.bullets) {
         if(b.owner===1)continue;
-        if(b.type==='grenade'&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS.grenade+12){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
+        if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
         if(b.y>p.y&&b.y-p.y<200&&Math.abs(b.x-p.x)<38){tx=p.x+(p.x>W/2?-100:100);break;}
       }
+      for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
       const dx=tx-p.x,dy=ty-p.y,l=Math.hypot(dx,dy);
       this.aiMove=l>10?{x:dx/l,y:dy/l}:{x:0,y:0};
       const type=this.weapon(p);
-      this.aiFire=['grenade','missile'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29);
+      this.aiFire=['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29);
     }
     this.move(p,this.aiMove.x,this.aiMove.y,dt);
     if(this.weapon(p)==='laser') {
@@ -254,6 +335,8 @@ export class Match {
     dt=Math.min(dt,1/30); this.time+=dt;
     if(this.ending>0){
       this.ending-=dt;
+      for(const waste of this.waste)waste.age+=dt;
+      this.waste=this.waste.filter(w=>w.age<w.life);
       for(const p of this.players)if(p.hp<=0)p.deathAge+=dt;
       for(const f of this.flames){f.age+=dt;f.life-=dt;}
       this.flames=this.flames.filter(f=>f.life>0);
@@ -264,7 +347,8 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.cooldown=Math.max(0,p.cooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);}
+    for(const p of this.players){p.cooldown=Math.max(0,p.cooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);}
+    for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     this.updateTower(dt); this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
     if(input.fire&&p.stun<=0){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/1.1);else this.fire(p);}
@@ -283,9 +367,9 @@ export class Match {
       if(b.life<=0)continue;
       b.life-=dt;
       const prev={x:b.x,y:b.y};
-      if(b.type==='grenade') {
+      if(b.type==='grenade'||b.type==='nuclear') {
         b.t+=dt;const t=clamp(b.t/b.duration,0,1);b.x=b.sx+(b.tx-b.sx)*t;b.y=b.sy+(b.ty-b.sy)*t;
-        // The grenade follows a high ballistic arc above the tower and shield.
+        // Grenades follow a high ballistic arc above the tower and shield.
         // Its only impact is at the marked landing point.
         if(t>=1)this.explode(b);continue;
       }
@@ -297,8 +381,11 @@ export class Match {
         continue;
       }
       const shieldHit=this.tower.shield?segmentEllipseHit(prev,b,towerShieldBounds(this.tower)):null;
-      if(shieldHit){this.hitTower(b.owner,shieldHit);b.life=0;continue;}
       const bodyHit=segmentTowerHit(prev,b,this.tower);
+      const obstacleHit=this.nearestObstacleHit(prev,b);
+      const towerHit=shieldHit||bodyHit;
+      if(obstacleHit&&(!towerHit||distance(prev,obstacleHit.hit)<=distance(prev,towerHit))){this.destroyObstacle(obstacleHit.obstacle);b.life=0;continue;}
+      if(shieldHit){this.hitTower(b.owner,shieldHit);b.life=0;continue;}
       if(bodyHit&&this.hitTower(b.owner,bodyHit)){b.life=0;continue;}
       if(b.x<0||b.x>W||b.y<0||b.y>H)b.life=0;
     }
@@ -319,10 +406,18 @@ export class Match {
       }
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
+    for(const waste of this.waste){
+      waste.age+=dt;
+      for(const player of this.players)if(player.hp>0&&Math.hypot(player.x-waste.x,player.y-waste.y)<WASTE_RADIUS){
+        player.hp=Math.max(0,player.hp-WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
+      }
+    }
+    this.waste=this.waste.filter(w=>w.age<w.life);
     for(const f of this.flames){
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
+      for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.destroyObstacle(obstacle);
       for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-16*dt);p.hurt=.05;}}
       while(f.marked+70<f.reach){
         f.marked+=70;

@@ -54,6 +54,26 @@ function stunBlastWav() {
     return crack+ring;
   });
 }
+function nuclearLaunchWav(){
+  let seed=5183,low=0;
+  return pcmWav(.45,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    low=low*.7+(seed/2147483648-1)*.3;
+    const kick=Math.sin(2*Math.PI*(95-35*t)*t)*Math.exp(-t*11)*.5;
+    const charge=Math.sin(2*Math.PI*(320+250*t)*t)*Math.exp(-t*6)*.25;
+    return (kick+charge+low*Math.exp(-t*8)*.18)*Math.min(1,t/.008);
+  });
+}
+function nuclearBlastWav(){
+  let seed=9917,low=0;
+  return pcmWav(.75,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    low=low*.82+(seed/2147483648-1)*.18;
+    const thump=Math.sin(2*Math.PI*(75-32*t)*t)*Math.exp(-t*4.8)*.5;
+    const hiss=low*Math.exp(-t*5)*.4;
+    return (thump+hiss)*Math.min(1,t/.004);
+  });
+}
 function waterWav() {
   const duration=4;
   let seed=27183,low=0,mid=0;
@@ -76,6 +96,10 @@ export class Sound {
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
     this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
     this.clips.stunBlast=new Howl({src:[stunBlastWav()],format:['wav'],volume:.3,preload:true,pool:8});
+    this.clips.nuclear=new Howl({src:[nuclearLaunchWav()],format:['wav'],volume:.32,preload:true,pool:8});
+    this.clips.nuclearBlast=new Howl({src:[nuclearBlastWav()],format:['wav'],volume:.34,preload:true,pool:8});
+    this.clips.crateBreak=new Howl({src:[wav(.25,180,.9,12)],format:['wav'],volume:.25,preload:true,pool:8});
+    this.clips.barrelBlast=new Howl({src:[wav(.64,62,.9,5)],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
     this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});

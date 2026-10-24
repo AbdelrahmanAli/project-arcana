@@ -29,6 +29,9 @@
 .missile-icon { background-image:url('/art/smart-missile-launcher.png') !important; background-size:contain !important; background-position:center !important; }
 .slot .icon.missile-icon { top:4px; transform:scale(.91) rotate(-3deg); }
 .weapon-picture.missile-icon { transform:scale(.92) rotate(-3deg); }
+.nuclear-icon { background-image:url('/art/phase2/nuclear-launcher.png') !important; background-size:contain !important; background-position:center !important; }
+.slot .icon.nuclear-icon { top:3px; transform:scale(.96) rotate(-3deg); }
+.weapon-picture.nuclear-icon { transform:scale(.98) rotate(-3deg); }
 #fire { background:radial-gradient(circle at 38% 30%,#f5bb5e 0%,#bc6925 40%,#65391f 65%,#241f1c 69%); border:3px solid #edc06c; box-shadow:inset 0 0 0 3px #6c431f,0 4px 0 #191b19,0 0 14px #e7992b4a; }
 #fire .fire-icon { width:28px; height:30px; display:block; filter:drop-shadow(1px 2px 1px #4a241b); }
 #fire b { color:#fff0bc; text-shadow:1px 1px #472d1e; }

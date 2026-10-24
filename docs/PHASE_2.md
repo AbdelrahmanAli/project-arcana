@@ -1,5 +1,7 @@
 # Phase 2: Volatile arena
 
+Implemented in the playable prototype. The values below are the current balance pass.
+
 ## Direction
 
 Keep the current single-round player-versus-computer duel. Add one new weapon and a small set of destructible arena objects. Online play is deferred. The Tower remains the source of paired weapon drops, and fighters remain on separate banks.
@@ -13,7 +15,7 @@ Keep the current single-round player-versus-computer duel. Add one new weapon an
 
 ## First balance pass to test
 
-These values are starting points, not locked rules:
+These values are the current starting point for playtesting, not locked rules:
 
 | Element | Proposed behavior |
 | --- | --- |
@@ -26,7 +28,7 @@ Area attacks should be able to destroy crates and ignite barrels. A barrel shoul
 
 ## Art prepared
 
-These are transparent, original pixel-art assets generated with the built-in image tool. They are saved for phase-two implementation and are not loaded by the current game:
+These transparent, original pixel-art assets are loaded by the current game:
 
 | File in `public/art/phase2/` | Frames | Intended use |
 | --- | --- | --- |
@@ -40,11 +42,8 @@ Sprite sheets use equal-width cells. The waste sheet is 4 × 543 by 724 pixels; 
 
 The exact generation prompts are recorded in [`PHASE_2_ART_PROMPTS.md`](PHASE_2_ART_PROMPTS.md).
 
-## Implementation order
+## Verification
 
-1. Add a small obstacle model with seeded mirrored placement and collision for movement and projectiles. Verify that every start position and supply landing remains reachable.
-2. Add crates and barrels with damage, explosion, and one-time chain-reaction rules. Render their sprite states and persistent debris.
-3. Add the nuclear launcher, projectile, waste lifetime and contact damage, with clear green visual and audio feedback.
-4. Test weapon balance, AI navigation and dodging, touch play, and frame rate on phones before expanding the map again.
+The simulation tests cover mirrored placement, clear supply landings, solid crate cover, barrel chain reactions, the nuclear grenade arc, and the waste hazard. The browser build and desktop-size visual rendering were checked. Balance, AI behavior across longer matches, and performance on physical phones need playtesting as the prototype evolves.
 
 Possible later arena elements include oil slicks ignited by the Tower's flames or short-lived electrical faults. Keep the first implementation to crates and barrels so their effect on aim and movement can be judged clearly.

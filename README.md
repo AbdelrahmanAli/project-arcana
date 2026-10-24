@@ -25,7 +25,9 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Implemented
 
-Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, five pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+
+Each round places mirrored crates and oil barrels on the two banks. Intact crates block movement and shots, then leave passable debris when broken. Barrels explode when hit, damage either fighter nearby, and can set off other barrels. Nuclear waste lasts four seconds and damages either fighter who stands in it.
 
 The player's health is below the inventory. The opponent's health and equipped weapon float above their head. The smart missile marks its captured target on the ground. Other attacks have no warning markers.
 
@@ -38,7 +40,7 @@ The player's health is below the inventory. The opponent's health and equipped w
 - `docs/DESIGN.md`: decisions, tuning proposals, and future scope.
 - `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
 - `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
-- `docs/PHASE_2.md`: proposed nuclear launcher and destructible-arena rules, plus prepared sprites.
+- `docs/PHASE_2.md`: implemented nuclear launcher and destructible-arena rules, plus sprite details.
 
 ## Current limits
 
