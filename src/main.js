@@ -75,6 +75,23 @@ function createShieldGlass(){
   return Texture.from(canvas);
 }
 function effectNoise(seed,n){return Math.sin(seed*631+n*93.3)*43758.5453%1;}
+function drawScorchMark(g,mark){
+  const {x,y,size,seed}=mark;
+  for(const [scale,dx,dy,color,alpha] of [[1,0,0,0x191713,.76],[.68,-2,-1,0x090a09,.67]]){
+    const rx=20*size*scale,ry=8*size*scale;
+    for(let n=0;n<14;n++){
+      const angle=n*Math.PI/7,ripple=.82+.16*Math.sin(n*5.7+seed*19)+.08*Math.cos(n*9.1+seed*7);
+      const px=x+dx*size+Math.cos(angle)*rx*ripple,py=y+dy*size+Math.sin(angle)*ry*ripple;
+      if(n===0)g.moveTo(px,py);else g.lineTo(px,py);
+    }
+    g.closePath().fill({color,alpha});
+  }
+  for(let n=0;n<16;n++){
+    const angle=n*2.4+seed*11,spread=.56+.54*Math.abs(Math.sin(n*8.7+seed*5));
+    const px=x+Math.cos(angle)*20*size*spread,py=y+Math.sin(angle)*8*size*spread;
+    rect(g,px,py,(n%3===0?3:2)*size,Math.max(1,size),n%4===0?0x554e42:0x10100e,n%4===0?.36:.58);
+  }
+}
 function point(e){const r=$('arena').getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
 function releaseFire(cancel=false){
   const held=firePointer!==null||keys.has('Space');
@@ -164,11 +181,7 @@ function render(){
         scarsDraw.ellipse(mark.x,mark.y,13*mark.size,5*mark.size).fill({color:0x481617,alpha:.48});
         scarsDraw.ellipse(mark.x-4*mark.size,mark.y+1,5*mark.size,2*mark.size).fill({color:0x8b2c25,alpha:.42});
         for(let n=0;n<5;n++)circle(scarsDraw,mark.x+Math.cos(n*2.5+mark.seed)*17*mark.size,mark.y+Math.sin(n*2.5+mark.seed)*8*mark.size,1+n%2,0x682020,.48);
-      }else{
-        scarsDraw.ellipse(mark.x,mark.y,20*mark.size,8*mark.size).fill({color:0x181a18,alpha:.42});
-        scarsDraw.ellipse(mark.x+4,mark.y-1,12*mark.size,4*mark.size).fill({color:0x2e3028,alpha:.35});
-        for(let n=0;n<6;n++)circle(scarsDraw,mark.x+Math.cos(n*1.7+mark.seed)*18*mark.size,mark.y+Math.sin(n*1.7+mark.seed)*6*mark.size,2,0x252823,.34);
-      }
+      }else drawScorchMark(scarsDraw,mark);
     }
   }
   const t=game.tower;
