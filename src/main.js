@@ -11,7 +11,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,stunProjectileLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),stunProjectileSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -73,7 +73,7 @@ function releaseFire(cancel=false){
   $('fire').classList.toggle('pressed',held);
 }
 function clearInput(){keys.clear();stick=null;firePointer=null;input.x=0;input.y=0;releaseFire(true);}
-function reset(){game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended');$('pause').textContent='Ⅱ';for(const s of dropSprites.values())s.destroy();dropSprites.clear();for(const s of stunProjectileSprites.values())s.destroy();stunProjectileSprites.clear();updateHud();app.ticker.start();}
+function reset(){game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended');$('pause').textContent='Ⅱ';for(const s of dropSprites.values())s.destroy();dropSprites.clear();for(const s of aerialSprites.values())s.destroy();aerialSprites.clear();updateHud();app.ticker.start();}
 function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
@@ -117,7 +117,7 @@ function updateHud(){
     ammo.textContent=slot?slot.ammo:'';
     ammoLine.style.width=slot?`${slot.ammo/WEAPONS[slot.type].ammo*45}%`:'0';
     el.setAttribute('aria-label',slot?`${WEAPONS[slot.type].name}, ${slot.ammo} shots, slot ${i+1}`:`Weapon slot ${i+1}, empty`);
-    if(slot){const frame=WEAPONS[slot.type].frame;icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.style.backgroundPosition=`${frame%4/3*100}% ${Math.floor(frame/4)/3*100}%`;}
+    if(slot){const frame=WEAPONS[slot.type].frame;icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.style.backgroundPosition=`${frame%4/3*100}% ${Math.floor(frame/4)/3*100}%`;}
   }
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
@@ -129,6 +129,7 @@ function updateHud(){
   badge.firstElementChild.style.backgroundPosition=`${equipped.frame%4/3*100}% ${Math.floor(equipped.frame/4)/3*100}%`;
   badge.firstElementChild.classList.toggle('laser-icon',enemyWeapon==='laser');
   badge.firstElementChild.classList.toggle('stun-icon',enemyWeapon==='grenade');
+  badge.firstElementChild.classList.toggle('missile-icon',enemyWeapon==='missile');
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
   $('charge').style.height=`${p.charge*100}%`;
 }
@@ -298,7 +299,7 @@ function render(){
   const active=new Set();
   for(const item of game.pickups){
     active.add(item.id);let s=dropSprites.get(item.id);
-    if(!s){s=new Sprite(item.type==='laser'?laserTexture:item.type==='grenade'?stunLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=62;s.height=62;world.addChild(s);dropSprites.set(item.id,s);}
+    if(!s){s=new Sprite(item.type==='laser'?laserTexture:item.type==='grenade'?stunLauncherTexture:item.type==='missile'?missileLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=62;s.height=62;world.addChild(s);dropSprites.set(item.id,s);}
     let x=item.x,y=item.y;
     if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
     else{s.rotation=0;groundDraw.ellipse(x,y+12,21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2;}
@@ -341,7 +342,7 @@ function render(){
       }
     }
   }
-  const activeStunProjectiles=new Set();
+  const activeAerialProjectiles=new Set();
   for(const b of game.bullets){
     if(b.type==='missile'){
       const pulse=.7+.3*Math.sin(game.time*8);
@@ -354,9 +355,9 @@ function render(){
     if(b.type==='grenade'){
       const arc=Math.sin(b.t/b.duration*Math.PI)*GRENADE_ARC_HEIGHT;
       groundDraw.ellipse(b.x,b.y,8,3).fill({color:0x1c241b,alpha:.35});
-      activeStunProjectiles.add(b.id);
-      let sprite=stunProjectileSprites.get(b.id);
-      if(!sprite){sprite=new Sprite(stunGrenadeTexture);sprite.anchor.set(.5);sprite.width=25;sprite.height=23;stunProjectileLayer.addChild(sprite);stunProjectileSprites.set(b.id,sprite);}
+      activeAerialProjectiles.add(b.id);
+      let sprite=aerialSprites.get(b.id);
+      if(!sprite){sprite=new Sprite(stunGrenadeTexture);sprite.anchor.set(.5);sprite.width=25;sprite.height=23;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
       sprite.position.set(b.x,b.y-arc);
       sprite.rotation=Math.sin(b.t*9)*.16;
     }
@@ -366,13 +367,16 @@ function render(){
         const flight=Math.min(1,b.travel/b.targetDistance),altitude=Math.sin(flight*Math.PI)*105;
         const a=Math.atan2(uy,ux),cos=Math.cos(a),sin=Math.sin(a);
         const pt=(forward,side)=>({x:b.x+cos*forward-sin*side,y:b.y-altitude+sin*forward+cos*side});
-        shotDraw.moveTo(pt(11,0).x,pt(11,0).y).lineTo(pt(-8,-5).x,pt(-8,-5).y).lineTo(pt(-7,5).x,pt(-7,5).y).closePath().fill(0xd4d4bd);
-        line(shotDraw,pt(-6,-5),pt(-6,5),2,0xe35e35);circle(shotDraw,pt(-14,0).x,pt(-14,0).y,5,0xff992e,.85);
+        activeAerialProjectiles.add(b.id);
+        let sprite=aerialSprites.get(b.id);
+        if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=34;sprite.height=13;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+        sprite.position.set(b.x,b.y-altitude);sprite.rotation=a;
+        circle(shotDraw,pt(-18,0).x,pt(-18,0).y,5,0xff992e,.85);
         for(let n=0;n<3;n++)circle(shotDraw,pt(-20-n*7,Math.sin(game.time*16+n)*3).x,pt(-20-n*7,Math.sin(game.time*16+n)*3).y,4+n,0xb8ad95,.35-n*.08);
       }else{line(shotDraw,{x:b.x-ux*14,y:b.y-uy*14},b,5,b.color);circle(shotDraw,b.x,b.y,3,0xfff1b3,.9);}
     }
   }
-  for(const [id,sprite] of stunProjectileSprites)if(!activeStunProjectiles.has(id)){sprite.destroy();stunProjectileSprites.delete(id);}
+  for(const [id,sprite] of aerialSprites)if(!activeAerialProjectiles.has(id)){sprite.destroy();aerialSprites.delete(id);}
   for(const b of game.beams){const alpha=1-b.age/b.life,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},16,0xa70f22,alpha*.35);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},8,0xff283d,alpha);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},2,0xffffff,alpha);}
   for(const e of game.effects){
     const k=e.age/e.life;
@@ -446,14 +450,14 @@ async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.ticker.maxFPS=60;
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
-  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,blueDeath,redDeath,rockArt])art.source.scaleMode='nearest';
+  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
+  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
-  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);laserTexture=laserArt;stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;
+  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);laserTexture=laserArt;stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the
   // original lower edge instead of placing a second wall across playable sand.
@@ -491,7 +495,7 @@ async function boot(){
   hatchContainer.mask=hatchSpriteMask;
   frontProjectileDraw=new Graphics();
   world.addChild(cap,openCap,hatchMask,hatchContainer,hatchSpriteMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
-  towerWater=new Graphics();baseWaterDraw=new Graphics();baseVentDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();stunProjectileLayer=new Container();world.addChild(towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,aerialProjectileDraw,stunProjectileLayer);
+  towerWater=new Graphics();baseWaterDraw=new Graphics();baseVentDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();world.addChild(towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,aerialProjectileDraw,aerialSpriteLayer);
   for(const side of [-1,1]){
     const x=RIVER.x+side*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
     baseVentDraw.ellipse(x-side*3,y+2,17,11).fill({color:0x121d20,alpha:.96});
@@ -539,7 +543,7 @@ async function boot(){
       const won=game.winner===0,drawn=game.winner==='draw';
       $('overlay').classList.add('result');document.querySelector('.game-unit').classList.add('ended');
       const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
-      const omen=drawn?'The card spared neither of you.':won?'The card took the other. You remain.':'The card took you. The other remains.';
+      const omen=drawn?'The Tower spared neither of you.':won?'The Tower took the other. You remain.':'The Tower took you. The other remains.';
       showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?'YOU<br><em>ADAPTED.</em>':'YOU<br><em>FELL.</em>',`${outcome} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} tower drops`,'PLAY AGAIN',omen);
     }
     const animating=started&&!paused&&!game.finished;

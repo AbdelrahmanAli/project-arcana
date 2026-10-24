@@ -21,6 +21,7 @@
 .slot .icon { transform:scale(1.2) rotate(-9deg); filter:drop-shadow(1px 3px 1px #000b); }
 .laser-icon { background-image:url('/art/laser-gun.png') !important; background-size:contain !important; background-position:center !important; }
 .stun-icon { background-image:url('/art/stun-launcher-blue.png') !important; background-size:contain !important; background-position:center !important; }
+.missile-icon { background-image:url('/art/smart-missile-launcher.png') !important; background-size:contain !important; background-position:center !important; }
 #fire { background:radial-gradient(circle at 38% 30%,#f5bb5e 0%,#bc6925 40%,#65391f 65%,#241f1c 69%); border:3px solid #edc06c; box-shadow:inset 0 0 0 3px #6c431f,0 4px 0 #191b19,0 0 14px #e7992b4a; }
 #fire .fire-icon { width:28px; height:30px; display:block; filter:drop-shadow(1px 2px 1px #4a241b); }
 #fire b { color:#fff0bc; text-shadow:1px 1px #472d1e; }
