@@ -216,7 +216,7 @@ function render(){
     const frames=obstacle.type==='crate'?crateFrames:barrelFrames;
     sprite.texture=frames[obstacle.destroyed?(obstacle.flash>0?1:2):0];
     sprite.width=obstacle.type==='crate'?54:44;sprite.height=obstacle.type==='crate'?54:54;
-    sprite.position.set(obstacle.x,obstacle.y-5);sprite.zIndex=obstacle.y+17;
+    sprite.position.set(obstacle.x,obstacle.y-5);sprite.zIndex=obstacle.destroyed?-1:obstacle.y+17;
     sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-3&&player.y>obstacle.y-38&&Math.abs(player.x-obstacle.x)<(obstacle.type==='crate'?27:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
