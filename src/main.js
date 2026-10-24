@@ -75,6 +75,23 @@ function createShieldGlass(){
   return Texture.from(canvas);
 }
 function effectNoise(seed,n){return Math.sin(seed*631+n*93.3)*43758.5453%1;}
+function drawBloodMark(g,mark){
+  const {x,y,size,seed}=mark;
+  for(const [scale,dx,dy,color,alpha] of [[1,0,0,0x4d080d,.88],[.69,-2,-1,0xa50e1b,.86]]){
+    const rx=14*size*scale,ry=6*size*scale;
+    for(let n=0;n<16;n++){
+      const angle=n*Math.PI/8,ripple=.74+.17*Math.sin(n*6.3+seed*23)+.1*Math.cos(n*10.1+seed*9);
+      const px=x+dx*size+Math.cos(angle)*rx*ripple,py=y+dy*size+Math.sin(angle)*ry*ripple;
+      if(n===0)g.moveTo(px,py);else g.lineTo(px,py);
+    }
+    g.closePath().fill({color,alpha});
+  }
+  for(let n=0;n<12;n++){
+    const angle=n*2.4+seed*13,spread=.6+.65*Math.abs(Math.sin(n*7.9+seed*5));
+    const px=x+Math.cos(angle)*18*size*spread,py=y+Math.sin(angle)*9*size*spread;
+    rect(g,px,py,(n%3===0?3:2)*size,Math.max(1,(n%4===0?2:1)*size),n%3===0?0xd32932:0x870b14,.88);
+  }
+}
 function drawScorchMark(g,mark){
   const {x,y,size,seed}=mark;
   for(const [scale,dx,dy,color,alpha] of [[1,0,0,0x191713,.76],[.68,-2,-1,0x090a09,.67]]){
@@ -177,11 +194,8 @@ function render(){
   if(marksDrawnRevision!==game.marksRevision){
     marksDrawnRevision=game.marksRevision;scarsDraw.clear();
     for(const mark of game.marks){
-      if(mark.type==='blood'){
-        scarsDraw.ellipse(mark.x,mark.y,13*mark.size,5*mark.size).fill({color:0x481617,alpha:.48});
-        scarsDraw.ellipse(mark.x-4*mark.size,mark.y+1,5*mark.size,2*mark.size).fill({color:0x8b2c25,alpha:.42});
-        for(let n=0;n<5;n++)circle(scarsDraw,mark.x+Math.cos(n*2.5+mark.seed)*17*mark.size,mark.y+Math.sin(n*2.5+mark.seed)*8*mark.size,1+n%2,0x682020,.48);
-      }else drawScorchMark(scarsDraw,mark);
+      if(mark.type==='blood')drawBloodMark(scarsDraw,mark);
+      else drawScorchMark(scarsDraw,mark);
     }
   }
   const t=game.tower;
@@ -450,20 +464,17 @@ function render(){
       for(let n=0;n<5;n++){const a=n*Math.PI*2/5+e.seed;rect(draw,e.x+Math.cos(a)*k*20,e.y+Math.sin(a)*k*20,2,3,0xeaffff,1-k);}
     }else if(e.type==='death'){
       const age=e.age,pool=Math.min(1,Math.max(0,(age-.48)/1.1));
-      if(pool>0){
-        groundDraw.ellipse(e.x,e.y+17,8+pool*25,3+pool*8).fill({color:0x4e1515,alpha:.76});
-        groundDraw.ellipse(e.x-7,e.y+19,4+pool*15,2+pool*4).fill({color:0x9b2823,alpha:.55});
-      }
+      if(pool>0)drawBloodMark(groundDraw,{x:e.x,y:e.y+17,size:.35+pool*1.8,seed:e.seed});
       if(age<.7)for(let i=0;i<14;i++){
         const a=i*2.4+e.seed,travel=age*75*(.6+Math.abs(effectNoise(e.seed,i))*.7);
-        rect(draw,e.x+Math.cos(a)*travel,e.y-11+Math.sin(a)*travel*.62,2+i%3,2+i%2,i%3?0x8b2523:0xc44838,Math.max(0,1-age/.7));
+        rect(draw,e.x+Math.cos(a)*travel,e.y-11+Math.sin(a)*travel*.62,2+i%3,2+i%2,i%3?0x940e19:0xd32a31,Math.max(0,1-age/.7));
       }
       if(age>=.48&&age<1.25)for(let i=0;i<7;i++){
         const q=(age-.48)/.77,a=i*Math.PI*2/7+e.seed;
         circle(draw,e.x+Math.cos(a)*q*31,e.y+18+Math.sin(a)*q*11,2+q*3,0xc9bba0,(1-q)*.28);
       }
     }else if(e.type==='blood'){
-      for(let i=0;i<10;i++){const a=i*2.4+e.seed,spread=23*Math.min(1,k*3)*(1+effectNoise(e.seed,i)*.4);const x=e.x+Math.cos(a)*spread,y=e.y+Math.sin(a)*spread;rect(groundDraw,x,y,3+i%4,2+i%3,i%3?0x7b2524:0xbd4235,1-k*.5);}
+      for(let i=0;i<10;i++){const a=i*2.4+e.seed,spread=23*Math.min(1,k*3)*(1+effectNoise(e.seed,i)*.4);const x=e.x+Math.cos(a)*spread,y=e.y+Math.sin(a)*spread;rect(groundDraw,x,y,3+i%4,2+i%3,i%3?0x8c0c17:0xd12730,1-k*.35);}
     }else{for(let n=0;n<6;n++){const a=n*1.05;rect(draw,e.x+Math.cos(a)*k*30,e.y+Math.sin(a)*k*30,3,3,0xffdf92,1-k);}}
   }
   const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact').map(e=>e.id));
