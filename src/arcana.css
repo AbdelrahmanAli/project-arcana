@@ -5,6 +5,8 @@
 .menu-card h2 { font:900 clamp(50px,9vw,68px)/.84 'Barlow Condensed',Impact,sans-serif; letter-spacing:1px; margin:15px 0 21px; text-shadow:4px 4px #091516; }
 .menu-card h2 em { font-style:normal; color:#e9b85d; }
 .menu-card p { color:#c3cfc1; font-size:11px; line-height:1.7; margin:0 auto 22px; }
+.menu-card .menu-tagline { color:#e9b85d; font-size:12px; margin:-8px auto 12px; }
+.overlay .overlay-omen { color:#f0c777; font-size:12px; line-height:1.5; margin:-10px 0 13px; }
 .menu-card .primary { margin-bottom:14px; }
 .secondary { display:block; width:200px; padding:10px 8px; margin:10px auto 0; background:#1b2b2d; color:#edd4a1; border:1px solid #98804b; font-size:10px; letter-spacing:1px; }
 .secondary:hover:not(:disabled) { background:#31403d; }

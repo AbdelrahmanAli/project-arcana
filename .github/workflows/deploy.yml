@@ -1,4 +1,4 @@
-name: Deploy Project ARCANA
+name: Deploy The Tower Deal
 
 on:
   push:

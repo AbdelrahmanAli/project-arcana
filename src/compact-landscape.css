@@ -29,6 +29,7 @@
   .menu-card { width: 94%; max-height: 96%; overflow-y: auto; padding: 8px; }
   .menu-card h2 { font-size: 31px; margin: 6px 0 10px; }
   .menu-card p { font-size: 8px; line-height: 1.45; margin-bottom: 8px; }
+  .menu-card .menu-tagline { font-size: 9px; margin: -4px auto 6px; }
   .menu-card .eyebrow { font-size: 7px; letter-spacing: 1px; }
   .menu-card .primary { margin-bottom: 5px; }
   .menu-card .secondary { margin-top: 5px; padding: 5px; }
@@ -37,4 +38,5 @@
   .secondary { width: min(100%, 140px); font-size: 8px; }
   .overlay h2 { font-size: 30px; margin: 8px 0; }
   .overlay p { font-size: 8px; line-height: 1.45; margin-bottom: 8px; }
+  .overlay .overlay-omen { font-size: 8px; margin: -4px 0 6px; }
 }

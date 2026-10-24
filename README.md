@@ -1,8 +1,8 @@
-# Project ARCANA — playable combat prototype
+# The Tower Deal — playable combat prototype
 
 A single-round, browser-based riverbank duel. Built with PixiJS 8, Howler.js, and Vite. The game currently runs against a computer opponent; it does not need a gameplay server.
 
-The Tower is inspired by Major Arcana XVI: sudden upheaval breaks a sense of certainty. In the duel, its paired but independently random weapon drops can change each player's plan, and striking it can set both banks on fire. The player starts on an assigned bank; bank selection is not a game mechanic.
+“When certainty falls, adapt.” The Tower of Major Arcana XVI has dealt its card to two fighters on opposite banks. Across the river stands the life each must take to keep their own. Its paired but independently random weapon drops can overturn either fighter's plan, and striking it can set both banks on fire. The player starts on an assigned bank; bank selection is not a game mechanic.
 
 ## Run
 
@@ -12,7 +12,7 @@ The dev server binds to the local network for phone testing. A phone on the same
 
 ## Publish on GitHub Pages
 
-The game is configured for `https://<username>.github.io/project-arcana/`. Create a GitHub repository named `project-arcana`, push this project to its `main` branch, then open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. The included workflow runs tests, builds the game, and deploys `dist/` on every push to `main`. In the repository's **Actions** tab, you can also run **Deploy Project ARCANA** manually.
+The live game is configured for `https://<username>.github.io/project-arcana/`. The existing repository slug remains `project-arcana` so its published URL keeps working. Push to `main` to run the included workflow, which tests, builds, and deploys `dist/`. In the repository's **Actions** tab, you can also run **Deploy The Tower Deal** manually.
 
 The `/project-arcana/` base path is set in `vite.config.js`; if the repository name changes, update it there too. Use `pnpm preview` to check the production build locally. GitHub Pages hosts the current computer-opponent game as static files; online multiplayer will need a separate real-time service later.
 
