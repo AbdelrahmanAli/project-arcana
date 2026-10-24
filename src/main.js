@@ -19,6 +19,17 @@ const DEATH_CROPS=[
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
 ];
 const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12,DEATH_ART_SCALE=.12;
+const WEAPON_ART_BOUNDS={
+  rifle:[1254,1254,29,706,271,146],shotgun:[1254,1254,341,710,266,114],pistol:[1254,1254,399,1004,141,139],
+  laser:[1536,1024,33,418,1200,486],
+};
+function fitWeaponIcon(icon,type){
+  const art=WEAPON_ART_BOUNDS[type],width=icon.clientWidth,height=icon.clientHeight;
+  if(!art||!width||!height)return;
+  const [sourceW,sourceH,x,y,w,h]=art,scale=Math.min((width-6)/w,(height-3)/h);
+  icon.style.setProperty('background-size',`${sourceW*scale}px ${sourceH*scale}px`,'important');
+  icon.style.setProperty('background-position',`${width/2-(x+w/2)*scale}px ${height/2-(y+h/2)*scale}px`,'important');
+}
 const healthCells=new Map(),lastHealth=new Map();
 for(const id of ['player-hp','opponent-hp']){
   const cells=Array.from({length:20},()=>{const cell=document.createElement('span');cell.className='health-cell';cell.setAttribute('aria-hidden','true');cell.appendChild(document.createElement('i'));$(id).appendChild(cell);return cell.firstElementChild;});
@@ -117,7 +128,7 @@ function updateHud(){
     ammo.textContent=slot?slot.ammo:'';
     ammoLine.style.width=slot?`${slot.ammo/WEAPONS[slot.type].ammo*45}%`:'0';
     el.setAttribute('aria-label',slot?`${WEAPONS[slot.type].name}, ${slot.ammo} shots, slot ${i+1}`:`Weapon slot ${i+1}, empty`);
-    if(slot){const frame=WEAPONS[slot.type].frame;icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.style.backgroundPosition=`${frame%4/3*100}% ${Math.floor(frame/4)/3*100}%`;}
+    if(slot){icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.classList.toggle('atlas-icon',slot.type==='rifle'||slot.type==='shotgun');if(WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(icon,slot.type);else{icon.style.removeProperty('background-size');icon.style.removeProperty('background-position');}}
   }
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
@@ -126,10 +137,12 @@ function updateHud(){
   hud.style.display=enemy.hp>0?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}`);
-  badge.firstElementChild.style.backgroundPosition=`${equipped.frame%4/3*100}% ${Math.floor(equipped.frame/4)/3*100}%`;
+  badge.firstElementChild.classList.toggle('atlas-icon',enemyWeapon==='pistol'||enemyWeapon==='rifle'||enemyWeapon==='shotgun');
   badge.firstElementChild.classList.toggle('laser-icon',enemyWeapon==='laser');
   badge.firstElementChild.classList.toggle('stun-icon',enemyWeapon==='grenade');
   badge.firstElementChild.classList.toggle('missile-icon',enemyWeapon==='missile');
+  if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
+  else{badge.firstElementChild.style.removeProperty('background-size');badge.firstElementChild.style.removeProperty('background-position');}
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
   $('charge').style.height=`${p.charge*100}%`;
 }
@@ -298,12 +311,12 @@ function render(){
   for(let i=flameCount;i<flameSprites.length;i++)flameSprites[i].visible=false;
   const active=new Set();
   for(const item of game.pickups){
-    const isStun=item.type==='grenade',isMissile=item.type==='missile';
+    const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser';
     active.add(item.id);let s=dropSprites.get(item.id);
-    if(!s){s=new Sprite(item.type==='laser'?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=isMissile?58:isStun?56:62;s.height=isMissile?29:isStun?37:62;world.addChild(s);dropSprites.set(item.id,s);}
+    if(!s){s=new Sprite(isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=isLaser?66:isMissile?58:isStun?56:62;s.height=isLaser?27:isMissile?29:isStun?37:62;world.addChild(s);dropSprites.set(item.id,s);}
     let x=item.x,y=item.y;
     if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
-    else{s.rotation=0;groundDraw.ellipse(x,y+(isMissile?8:isStun?10:12),isMissile?24:isStun?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isMissile||isStun?7:0);}
+    else{s.rotation=0;groundDraw.ellipse(x,y+(isMissile||isLaser?8:isStun?10:12),isLaser?26:isMissile?24:isStun?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isLaser?4:isMissile||isStun?7:0);}
     s.position.set(x,y);s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
     s.zIndex=1;
   }
@@ -458,7 +471,7 @@ async function boot(){
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
-  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);laserTexture=laserArt;stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;
+  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the
   // original lower edge instead of placing a second wall across playable sand.

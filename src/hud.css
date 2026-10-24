@@ -46,8 +46,8 @@
 #opponent-hp .health-cell { background: #42352f; }
 #opponent-hp .health-cell i { background: linear-gradient(#ff9a74, #c45348); }
 .opponent-weapon {
-  width: calc(61px * var(--hud-scale));
-  height: calc(27px * var(--hud-scale));
+  width: calc(68px * var(--hud-scale));
+  height: calc(32px * var(--hud-scale));
   background: #12201cbd;
   border: 1px solid #b5b58950;
   border-radius: 3px;
