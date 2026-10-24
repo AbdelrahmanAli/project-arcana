@@ -16,7 +16,7 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Controls
 
-- Phone / mouse: drag anywhere in the arena to create a floating joystick. Hold FIRE to shoot repeated ordinary shots. Hold and release FIRE for the Laser Gun. Use a second finger for firing while moving.
+- Phone / mouse: drag anywhere in the arena to create a floating joystick. Use another finger to tap a weapon slot or hold FIRE without stopping movement. Hold FIRE to shoot repeated ordinary shots. Hold and release FIRE for the Laser Gun.
 - Desktop: WASD or arrows to move; Space to fire; 1/2/3 to select a slot; 0 for the pistol; Escape to pause.
 - Tap an equipped slot again to return to the pistol.
 - Walk over a landed pickup to collect it. A full inventory rejects pickups. Use all ammunition to free a slot; there is no discard or swap action.

@@ -24,7 +24,14 @@ function updateHealth(id,hp){
 const slots=[];
 for(let i=0;i<3;i++){
   const el=document.createElement('button');el.className='slot empty';el.dataset.slot=i;el.setAttribute('aria-label',`Weapon slot ${i+1}, empty`);el.innerHTML=`<small>${i+1}</small><span class="empty-mark">—</span><span class="icon" hidden></span><b class="ammo"></b><i class="ammo-line"></i>`;
-  el.addEventListener('click',()=>{if(started&&!paused&&!game.finished){game.select(game.players[0],i);updateHud();}});
+  const selectSlot=()=>{if(started&&!paused&&!game.finished&&game.ending<=0){game.select(game.players[0],i);updateHud();}};
+  el.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    e.preventDefault();
+    selectSlot();
+  });
+  // A touch can emit a click after pointerdown. Only keyboard activation needs click.
+  el.addEventListener('click',e=>{if(e.detail===0)selectSlot();});
   $('slots').appendChild(el);slots.push(el);
 }
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
