@@ -26,7 +26,7 @@ export const WEAPONS = {
   pistol: { name: 'SERVICE PISTOL', ammo: Infinity, damage: 5, speed: 540, cooldown: .48, frame: 13, color: 0xffdc80 },
   rifle: { name: 'ASSAULT RIFLE', ammo: 12, damage: 7, speed: 650, cooldown: .15, frame: 8, color: 0xffdd77 },
   shotgun: { name: 'TACTICAL SHOTGUN', ammo: 4, damage: 5, speed: 560, cooldown: .7, frame: 9, color: 0xffae58 },
-  grenade: { name: 'STUN LAUNCHER', ammo: 3, damage: 8, cooldown: 1.1, frame: 10, color: 0xffd87a },
+  grenade: { name: 'STUN LAUNCHER', ammo: 3, damage: 8, cooldown: 1.1, frame: 10, color: 0x59bbff },
   missile: { name: 'SMART MISSILE', ammo: 2, damage: 30, speed: 430, cooldown: 1, frame: 11, color: 0xff7548 },
   laser: { name: 'LASER GUN', ammo: 2, damage: 16, cooldown: .75, frame: 12, color: 0xff414c },
 };
