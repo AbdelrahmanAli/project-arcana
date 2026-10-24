@@ -19,7 +19,7 @@ export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 78, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
-export const WASTE_RADIUS = 24, WASTE_DURATION = 4, WASTE_DAMAGE_PER_SECOND = 6;
+export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 6;
 export const BARREL_BLAST_RADIUS = 45, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330;
 export const DEATH_DURATION = 4.4;
@@ -102,12 +102,15 @@ export function segmentEllipseHit(a,b,ellipse) {
 function soldier(id, x, y) {
   return { id,x,y,hp:100,stun:0,radiated:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
 }
-const OBSTACLE_HALF={crate:{x:22,y:20},barrel:{x:17,y:20}};
+const OBSTACLE_HALF={crate:{x:22,y:20},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
 function blocksFighter(o,x,y){
   if(o.destroyed)return false;
-  const b=obstacleBounds(o),nearX=clamp(x,b.left,b.right),nearY=clamp(y,b.top,b.bottom);
-  return Math.hypot(x-nearX,y-nearY)<15;
+  // Only the object's footprint blocks walking. Its tall sprite is allowed to
+  // overlap a fighter walking behind it, with depth sorting handling the view.
+  const halfWidth=o.type==='barrel'?12:18;
+  const nearX=clamp(x,o.x-halfWidth,o.x+halfWidth),nearY=clamp(y,o.y+8,o.y+20);
+  return Math.hypot(x-nearX,y-nearY)<11;
 }
 export class Match {
   constructor(random = Math.random) {
@@ -120,9 +123,12 @@ export class Match {
   }
   emit(type, data={}) { this.events.push({type,...data}); }
   makeObstacles(){
-    const crateLeft=this.random()<.5,left=95+this.random()*58,right=327+this.random()*58;
-    const near=500+this.random()*30,far=609+this.random()*28;
-    const south=[{type:crateLeft?'crate':'barrel',x:left,y:near},{type:crateLeft?'barrel':'crate',x:right,y:far}];
+    const crateCount=1+Math.floor(this.random()*3),barrelCount=1+Math.floor(this.random()*2);
+    const types=[...Array(crateCount).fill('crate'),...Array(barrelCount).fill('barrel')];
+    const anchors=[{x:130,y:508},{x:350,y:508},{x:130,y:625},{x:350,y:625},{x:262,y:489},{x:262,y:647}];
+    for(let i=anchors.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[anchors[i],anchors[j]]=[anchors[j],anchors[i]];}
+    for(let i=types.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[types[i],types[j]]=[types[j],types[i]];}
+    const south=types.map((type,i)=>({type,x:anchors[i].x+(this.random()-.5)*24,y:anchors[i].y+(this.random()-.5)*20}));
     return [...south.map(o=>({...o,id:this.id++,owner:0,destroyed:false,flash:0})),
       ...south.map(o=>({...o,id:this.id++,owner:1,x:W-o.x,y:2*RIVER.y-o.y,destroyed:false,flash:0}))];
   }
@@ -235,7 +241,7 @@ export class Match {
       this.damage(target,b.damage*(1-.4*d/radius));if(target.id!==b.owner)this.players[b.owner].hits++;
       if(stunGrenade&&target.hp>0){target.stun=Math.max(target.stun,GRENADE_STUN_DURATION);target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
-    if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y,age:0,life:WASTE_DURATION});
+    if(nuclear&&!this.waste.some(waste=>distance(waste,b)<WASTE_RADIUS))this.waste.push({id:this.id++,x:b.x,y:b.y});
     this.emit(effect,{x:b.x}); b.life=0;
   }
   hitTower(owner,impact=RIVER) {
@@ -335,8 +341,6 @@ export class Match {
     dt=Math.min(dt,1/30); this.time+=dt;
     if(this.ending>0){
       this.ending-=dt;
-      for(const waste of this.waste)waste.age+=dt;
-      this.waste=this.waste.filter(w=>w.age<w.life);
       for(const p of this.players)if(p.hp<=0)p.deathAge+=dt;
       for(const f of this.flames){f.age+=dt;f.life-=dt;}
       this.flames=this.flames.filter(f=>f.life>0);
@@ -406,13 +410,9 @@ export class Match {
       }
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
-    for(const waste of this.waste){
-      waste.age+=dt;
-      for(const player of this.players)if(player.hp>0&&Math.hypot(player.x-waste.x,player.y-waste.y)<WASTE_RADIUS){
-        player.hp=Math.max(0,player.hp-WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
-      }
+    for(const player of this.players)if(player.hp>0&&this.waste.some(waste=>distance(player,waste)<WASTE_RADIUS)){
+      player.hp=Math.max(0,player.hp-WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
     }
-    this.waste=this.waste.filter(w=>w.age<w.life);
     for(const f of this.flames){
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;

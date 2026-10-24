@@ -27,7 +27,7 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
 
-Each round places mirrored crates and oil barrels on the two banks. Intact crates block movement and shots, then leave passable debris when broken. Barrels explode when hit, damage either fighter nearby, and can set off other barrels. Nuclear waste lasts four seconds and damages either fighter who stands in it.
+Each round places a random number of mirrored crates and oil barrels on the two banks. Intact crates block movement and shots, then leave passable debris when broken. Barrels explode when hit, damage either fighter nearby, and can set off other barrels. Fighters can walk behind the objects, around their solid ground footprints. Nuclear waste remains on the ground for the round and damages either fighter who stands in it.
 
 The player's health is below the inventory. The opponent's health and equipped weapon float above their head. The smart missile marks its captured target on the ground. Other attacks have no warning markers.
 

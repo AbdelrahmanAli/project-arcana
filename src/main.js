@@ -205,7 +205,7 @@ function render(){
     let sprite=wasteSprites.get(waste.id);
     if(!sprite){sprite=new Sprite(wasteFrames[0]);sprite.anchor.set(.5);sprite.width=76;sprite.height=76;hazardLayer.addChild(sprite);wasteSprites.set(waste.id,sprite);}
     sprite.texture=wasteFrames[Math.floor(game.time*7+waste.id)%wasteFrames.length];
-    sprite.position.set(waste.x,waste.y+2);sprite.alpha=Math.min(1,(waste.life-waste.age)/.85)*(.85+.12*Math.sin(game.time*7));
+    sprite.position.set(waste.x,waste.y+2);sprite.alpha=.85+.12*Math.sin(game.time*7);
   }
   for(const [id,sprite] of wasteSprites)if(!liveWaste.has(id)){sprite.destroy();wasteSprites.delete(id);}
   const liveObstacles=new Set();
@@ -216,7 +216,8 @@ function render(){
     const frames=obstacle.type==='crate'?crateFrames:barrelFrames;
     sprite.texture=frames[obstacle.destroyed?(obstacle.flash>0?1:2):0];
     sprite.width=obstacle.type==='crate'?54:44;sprite.height=obstacle.type==='crate'?54:54;
-    sprite.position.set(obstacle.x,obstacle.y-5);
+    sprite.position.set(obstacle.x,obstacle.y-5);sprite.zIndex=obstacle.y+17;
+    sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-3&&player.y>obstacle.y-38&&Math.abs(player.x-obstacle.x)<(obstacle.type==='crate'?27:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
   const t=game.tower;
@@ -374,7 +375,7 @@ function render(){
     const corpse=corpses[p.id];
     if(p.hp>0){
       let frame=base;if(p.flash>0)frame=base+3;else if(p.moving)frame=base+1+Math.floor(p.walk*9)%2;
-      s.visible=true;s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=p.radiated>0?0xb5ff92:p.hurt>0?0xffaaa0:0xffffff;
+      s.visible=true;s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=p.radiated>0?0xb5ff92:p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
       corpse.visible=false;
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
@@ -392,7 +393,7 @@ function render(){
       };
       s.visible=frame<3&&blend<1;
       if(s.visible)pose(s,frame,1-blend);
-      corpse.visible=true;pose(corpse,next,blend);
+      corpse.visible=true;pose(corpse,next,blend);corpse.zIndex=p.y+20;
       groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*Math.min(1,age/.65)});
     }
     if(p.stun>0&&p.hp>0){
@@ -548,7 +549,7 @@ async function boot(){
   }
   const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
   waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();obstacleLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,obstacleLayer,flameLayer,jetLayer,fireSmoke,projectileDraw);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
@@ -578,8 +579,8 @@ async function boot(){
     baseVentDraw.ellipse(x-side*3,y,13,8).stroke({color:0xa5793e,width:2,alpha:.9});
     baseVentDraw.ellipse(x,y,8,5).fill({color:0x45291f,alpha:.95});
   }
-  for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
-  for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
+  for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);obstacleLayer.addChild(s);}
+  for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
   stunDraw=new Graphics();world.addChild(stunDraw);
   // The front surface of the bubble must veil a fighter or corpse behind it.
   world.addChild(muzzleDraw,shieldGlass,shieldDraw);
