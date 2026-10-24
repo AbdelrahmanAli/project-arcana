@@ -10,8 +10,13 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],laserTexture,corpseTextures=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],blastSprites=new Map();
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
+const DEATH_CROPS=[
+  [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
+  [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
+];
+const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12,DEATH_ART_SCALE=.12;
 const healthCells=new Map();
 for(const id of ['player-hp','opponent-hp']){
   const cells=Array.from({length:20},()=>{const cell=document.createElement('span');cell.className='health-cell';cell.setAttribute('aria-hidden','true');cell.appendChild(document.createElement('i'));$(id).appendChild(cell);return cell.firstElementChild;});
@@ -249,24 +254,26 @@ function render(){
     const corpse=corpses[p.id];
     if(p.hp>0){
       let frame=base;if(p.flash>0)frame=base+3;else if(p.moving)frame=base+1+Math.floor(p.walk*9)%2;
-      s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=p.hurt>0?0xffaaa0:0xffffff;
+      s.visible=true;s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=p.hurt>0?0xffaaa0:0xffffff;
       corpse.visible=false;
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
     }else{
       const age=p.deathAge,blue=p.id===0;
-      const stumble=Math.min(1,Math.max(0,(age-.08)/.5));
-      const settle=Math.min(1,Math.max(0,(age-.38)/.37));
-      // Blue travels southeast without spinning; red keeps its existing short lean.
-      s.texture=textures[base];s.position.set(p.x+(blue?10:6)*stumble,p.y+(blue?12:7)*stumble);
-      s.width=78;s.height=78-(blue?24:6)*stumble;s.rotation=blue?0:.7*stumble;
-      s.alpha=Math.max(0,1-Math.max(0,(age-.27)/.4));s.tint=age<.14?0xffb7a8:0xffffff;
-      corpse.visible=age>=.38;corpse.texture=corpseTextures[p.id];
-      corpse.position.set(p.x+(blue?10:6)+3*settle,p.y+(blue?12:7)+6*settle);
-      corpse.width=72;corpse.scale.x=-Math.abs(corpse.scale.x);
-      corpse.height=52*(.92+.08*settle);corpse.scale.y=(blue?-1:1)*Math.abs(corpse.scale.y);
-      corpse.alpha=settle;corpse.rotation=blue?0:.04*(1-settle);
-      groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*settle});
+      const frame=Math.min(3,Math.floor(age/DEATH_FRAME_STEP));
+      const next=Math.min(3,frame+1);
+      const blend=frame===next?1:Math.min(1,(age-frame*DEATH_FRAME_STEP)/DEATH_BLEND);
+      const progress=Math.min(1,age/.65),slide=1-(1-progress)*(1-progress);
+      const x=p.x+(blue?10:6)*slide,y=p.y+(blue?12:7)*slide;
+      const pose=(sprite,index,alpha)=>{
+        sprite.texture=deathFrames[p.id][index];
+        sprite.width=deathFrameSizes[p.id][index][0];sprite.height=deathFrameSizes[p.id][index][1];
+        sprite.position.set(x,y);sprite.rotation=0;sprite.alpha=alpha;sprite.tint=0xffffff;
+      };
+      s.visible=frame<3&&blend<1;
+      if(s.visible)pose(s,frame,1-blend);
+      corpse.visible=true;pose(corpse,next,blend);
+      groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*Math.min(1,age/.65)});
     }
   }
   for(const b of game.bullets){
@@ -339,9 +346,10 @@ function render(){
 async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','flames.png','explosions.png','laser-gun.png','death-blue.png','death-red.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
+  const [bg,atlas,towerArt,capArt,openCapArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','flames.png','explosions.png','laser-gun.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt])art.source.scaleMode='nearest';
-  corpseTextures=[blueDeath,redDeath];
+  deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
+  deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
@@ -377,7 +385,7 @@ async function boot(){
   world.addChild(cap,openCap,hatchMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
   towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,aerialProjectileDraw);
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
-  for(let i=0;i<2;i++){const s=new Sprite(corpseTextures[i]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
+  for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
   // The same rocky escarpment closes both far edges. The southern copy is
   // mirrored horizontally so it reads as a matching barrier without a repeat.
   for(const [y,mirror] of [[-28,false],[H-69,true]]){

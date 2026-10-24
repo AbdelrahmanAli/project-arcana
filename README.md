@@ -35,9 +35,10 @@ The player's health is below the inventory. The opponent's health and equipped w
 - `public/art/`: generated environment, sprite atlas and visual target.
 - `docs/DESIGN.md`: decisions, tuning proposals, and future scope.
 - `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
+- `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
 
 ## Current limits
 
-This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by selected weapon. Blood and death effects are simple procedural effects, with more detailed gore animation still to produce. Sound is synthesized placeholder audio; no soundtrack yet. AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
+This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by selected weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Sound is synthesized placeholder audio; no soundtrack yet. AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
 
 The original visual-target image contains the earlier HUD concept; the live game implements the revised health-bar layout. Artwork is original generated imagery inspired by detailed arcade military pixel art, not extracted game assets.
