@@ -25,7 +25,7 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Implemented
 
-Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, five pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, five pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
 
 The player's health is below the inventory. The opponent's health and equipped weapon float above their head. The smart missile marks its captured target on the ground. Other attacks have no warning markers.
 

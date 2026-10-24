@@ -24,7 +24,7 @@ The first hit while rising or descending causes two flame jets: toward the trigg
 
 ## Initial tuning — proposals, not locked rules
 
-100 health, movement 170 world units/second for both players. Weak pistol: 5 damage, unlimited ammunition, 0.48-second cooldown. Rifle: 12 individual rounds, rapid fire. Shotgun: 4 shots with five pellets. Grenade launcher: 3 shots, 0.9-second flight to captured position. Missile: 2 shots, travels toward a captured position. Laser Gun: 2 sustained visual beams, up to 1.1-second charge. Inventory pickups do not automatically select themselves.
+100 health, movement 170 world units/second for both players. Weak pistol: 5 damage, unlimited ammunition, 0.48-second cooldown. Rifle: 12 individual rounds, rapid fire. Shotgun: 4 shots with five pellets. Stun Launcher: 3 shots, 0.9-second flight to captured position, 8 center damage, 78-unit blast radius, 2.2-second movement and firing stun. Smart Missile: 2 shots, travels toward a captured position, 58-unit blast radius. Laser Gun: 2 sustained visual beams, up to 1.1-second charge. Inventory pickups do not automatically select themselves.
 
 First rise begins 2.5 seconds after starting. Rise 5.2 seconds, delivery 2.0 seconds, descent 5.4 seconds, then 4.8 seconds resting. Lift uses eased acceleration/deceleration with a fixed base and separately masked tower shaft, cascading water, droplets and spreading ripples. Each supply takes 0.75 seconds to land. Flame speed 700 units/second, damaging trail active for 3.5 seconds from launch, 16 damage per second while inside. Actual hit/collision rules use fixed simulation ticks and swept bullet tests. Similar conventional shots cancel upon collision. The grenade is an arcing projectile that passes above the tower.
 

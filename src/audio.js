@@ -32,6 +32,28 @@ function fireWhooshWav() {
     return (low*.55+mid*.26+white*.09)*envelope*.85;
   });
 }
+function grenadeLaunchWav() {
+  let seed=4321,low=0;
+  return pcmWav(.38,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    low=low*.65+white*.35;
+    const clack=Math.sin(2*Math.PI*390*t)*Math.exp(-t*24);
+    const thump=Math.sin(2*Math.PI*(105-45*t)*t)*Math.exp(-t*10);
+    const vent=low*Math.min(1,t*30)*Math.exp(-t*8);
+    return (clack*.27+thump*.5+vent*.26)*Math.min(1,t/.006);
+  });
+}
+function stunBlastWav() {
+  let seed=7727;
+  return pcmWav(.55,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    const crack=white*Math.exp(-t*30)*.42;
+    const ring=Math.sin(2*Math.PI*(1350-420*t)*t)*Math.exp(-t*5)*.27;
+    return crack+ring;
+  });
+}
 function waterWav() {
   const duration=4;
   let seed=27183,low=0,mid=0;
@@ -50,8 +72,10 @@ export class Sound {
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
-    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],grenade:[.2,110,.6],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
+    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
+    this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
+    this.clips.stunBlast=new Howl({src:[stunBlastWav()],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
     this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});

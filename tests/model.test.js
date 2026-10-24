@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, BLAST_RADIUS, GRENADE_STUN_DURATION, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -221,9 +221,51 @@ test('tower flames advance through space instead of hitting entire banks instant
 
 test('grenades and missiles capture opponent position and do not home after firing',()=>{
   const m=new Match(),p=m.players[0],enemy=m.players[1];p.slots[0]={type:'grenade',ammo:3};p.selected=0;m.fire(p);
+  assert.ok(m.events.some(e=>e.type==='shot'&&e.weapon==='grenade'),'grenade launch emits its audible shot event');
   const target={x:enemy.x,y:enemy.y};enemy.x+=100;assert.equal(m.bullets[0].tx,target.x);assert.equal(m.bullets[0].ty,target.y);
   p.slots[0]={type:'missile',ammo:2};p.cooldown=0;m.fire(p);const b=m.bullets.at(-1),vx=b.vx,vy=b.vy;
   enemy.x-=200;m.think=()=>{};m.update(1/120);assert.equal(b.vx,vx);assert.equal(b.vy,vy);
+});
+
+test('larger blasts reach fighters farther from the impact point',()=>{
+  for(const [type,offset] of [['grenade',70],['missile',50]]){
+    const m=new Match(()=>.5),enemy=m.players[1];
+    m.explode({owner:0,type,x:enemy.x-offset,y:enemy.y,damage:WEAPONS[type].damage,life:1});
+    assert.ok(offset<BLAST_RADIUS[type]);
+    assert.ok(enemy.hp<100,`${type} reaches a fighter ${offset} units away`);
+    assert.equal(enemy.stun>0,type==='grenade');
+  }
+});
+
+test('stun grenade deals light damage and holds either fighter in place for 2.2 seconds',()=>{
+  const m=new Match(()=>.5),victim=m.players[0];m.think=()=>{};m.nextDrop=Infinity;
+  m.explode({owner:1,type:'grenade',x:victim.x,y:victim.y,damage:WEAPONS.grenade.damage,life:1});
+  assert.equal(victim.hp,92);
+  assert.equal(victim.stun,GRENADE_STUN_DURATION);
+  assert.ok(m.effects.some(e=>e.type==='stunBlast'));
+  assert.ok(m.events.some(e=>e.type==='stunBlast'));
+  assert.ok(m.events.some(e=>e.type==='stun'&&e.player===0));
+  const startX=victim.x;
+  m.update(1/120,{x:1,y:0,fire:true});
+  assert.equal(victim.x,startX);
+  assert.equal(victim.shots,0);
+  assert.equal(m.fire(victim),false);
+  for(let i=0;i<Math.ceil(GRENADE_STUN_DURATION*120);i++)m.update(1/120);
+  assert.equal(victim.stun,0);
+  m.update(1/120,{x:1,y:0,fire:true});
+  assert.ok(victim.x>startX);
+  assert.equal(victim.shots,1);
+  const ai=m.players[1];ai.stun=1;
+  const aiX=ai.x;m.aiFire=true;m.think(1/120);
+  assert.equal(ai.x,aiX);
+  assert.equal(ai.shots,0);
+});
+
+test('grenade dodge or a hit outside its radius avoids the stun',()=>{
+  const m=new Match(()=>.5),enemy=m.players[1];
+  m.explode({owner:0,type:'grenade',x:enemy.x-BLAST_RADIUS.grenade-1,y:enemy.y,damage:WEAPONS.grenade.damage,life:1});
+  assert.equal(enemy.hp,100);
+  assert.equal(enemy.stun,0);
 });
 
 test('smart missiles clear the raised tower and shield before striking their marked target',()=>{
@@ -242,7 +284,8 @@ test('grenades arc over the raised tower and shield before landing',()=>{
   p.slots[0]={type:'grenade',ammo:1};p.selected=0;m.fire(p);
   for(let i=0;i<120;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);
-  assert.equal(enemy.hp,74);
+  assert.equal(enemy.hp,92);
+  assert.ok(enemy.stun>GRENADE_STUN_DURATION-.15&&enemy.stun<GRENADE_STUN_DURATION,'stun begins at impact and counts down after landing');
   assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
 });
 

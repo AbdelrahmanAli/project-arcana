@@ -17,6 +17,8 @@ export const TOWER_GEOMETRY = {
 // The head remains visible inside the open hatch after the exposed shaft retracts.
 export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
+export const BLAST_RADIUS = { grenade: 78, missile: 58 };
+export const GRENADE_STUN_DURATION = 2.2;
 export const FLAME_SPEED = 330;
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
@@ -24,7 +26,7 @@ export const WEAPONS = {
   pistol: { name: 'SERVICE PISTOL', ammo: Infinity, damage: 5, speed: 540, cooldown: .48, frame: 13, color: 0xffdc80 },
   rifle: { name: 'ASSAULT RIFLE', ammo: 12, damage: 7, speed: 650, cooldown: .15, frame: 8, color: 0xffdd77 },
   shotgun: { name: 'TACTICAL SHOTGUN', ammo: 4, damage: 5, speed: 560, cooldown: .7, frame: 9, color: 0xffae58 },
-  grenade: { name: 'GRENADE LAUNCHER', ammo: 3, damage: 26, cooldown: 1.1, frame: 10, color: 0xffb23f },
+  grenade: { name: 'STUN LAUNCHER', ammo: 3, damage: 8, cooldown: 1.1, frame: 10, color: 0xffd87a },
   missile: { name: 'SMART MISSILE', ammo: 2, damage: 30, speed: 430, cooldown: 1, frame: 11, color: 0xff7548 },
   laser: { name: 'LASER GUN', ammo: 2, damage: 16, cooldown: .75, frame: 12, color: 0xff414c },
 };
@@ -95,7 +97,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
+  return { id,x,y,hp:100,stun:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
 }
 export class Match {
   constructor(random = Math.random) {
@@ -115,6 +117,7 @@ export class Match {
   weapon(p) { return p.slots[p.selected]?.type || 'pistol'; }
   select(p,index) { p.selected = index>=0 && p.slots[index] ? (p.selected===index ? -1:index) : -1; p.charge=0; }
   move(p,x,y,dt) {
+    if(p.stun>0){p.moving=false;return;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
     p.moving=l>.08;
     p.x=clamp(p.x+x*scale*170*dt,38,W-38);
@@ -129,7 +132,7 @@ export class Match {
     this.emit('pickup',{player:p.id,weapon:item.type}); return true;
   }
   fire(p,power=0) {
-    if(this.finished || this.ending>0 || p.hp<=0 || p.cooldown>0) return false;
+    if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.cooldown>0) return false;
     const type=this.weapon(p), def=WEAPONS[type], enemy=this.players[1-p.id];
     const dir=p.id===0?-1:1;
     p.cooldown=def.cooldown; p.flash=.09; p.shots++; p.charge=0;
@@ -163,13 +166,17 @@ export class Match {
     this.emit('hit',{player:p.id});
   }
   explode(b) {
-    this.effects.push({id:this.id++,type:'explosion',x:b.x,y:b.y,age:0,life:.55,seed:this.random()});
-    this.effects.push({id:this.id++,type:'smoke',x:b.x,y:b.y,age:0,life:2.4,seed:this.random()});
-    this.mark('scorch',b.x,b.y,1.1);
+    const stunGrenade=b.type==='grenade';
+    this.effects.push({id:this.id++,type:stunGrenade?'stunBlast':'explosion',x:b.x,y:b.y,age:0,life:stunGrenade?.65:.55,seed:this.random()});
+    this.effects.push({id:this.id++,type:'smoke',x:b.x,y:b.y,age:0,life:stunGrenade?1.2:2.4,seed:this.random()});
+    this.mark('scorch',b.x,b.y,stunGrenade?.6:1.3);
     const enemy=this.players[1-b.owner];
-    const radius=b.type==='grenade'?53:37, d=distance(enemy,b);
-    if(d<radius){this.damage(enemy,b.damage*(1-.4*d/radius));this.players[b.owner].hits++;}
-    this.emit('explosion'); b.life=0;
+    const radius=BLAST_RADIUS[b.type], d=distance(enemy,b);
+    if(d<radius){
+      this.damage(enemy,b.damage*(1-.4*d/radius));this.players[b.owner].hits++;
+      if(stunGrenade&&enemy.hp>0){enemy.stun=Math.max(enemy.stun,GRENADE_STUN_DURATION);enemy.charge=0;enemy.moving=false;this.emit('stun',{player:enemy.id});}
+    }
+    this.emit(stunGrenade?'stunBlast':'explosion'); b.life=0;
   }
   hitTower(owner,impact=RIVER) {
     const t=this.tower;
@@ -217,6 +224,7 @@ export class Match {
   }
   think(dt) {
     const p=this.players[1],enemy=this.players[0];
+    if(p.stun>0){p.moving=false;p.charge=0;return;}
     this.aiClock-=dt;
     if(this.aiClock<=0) {
       this.aiClock=.2+this.random()*.12;
@@ -227,7 +235,7 @@ export class Match {
       if(p.slots.includes(null)&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {
         if(b.owner===1)continue;
-        if(b.type==='grenade'&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<70){tx=p.x+(p.x>b.tx?85:-85);ty=p.y+28;break;}
+        if(b.type==='grenade'&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS.grenade+12){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
         if(b.y>p.y&&b.y-p.y<200&&Math.abs(b.x-p.x)<38){tx=p.x+(p.x>W/2?-100:100);break;}
       }
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
@@ -256,10 +264,10 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.cooldown=Math.max(0,p.cooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);}
+    for(const p of this.players){p.cooldown=Math.max(0,p.cooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);}
     this.updateTower(dt); this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
-    if(input.fire){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/1.1);else this.fire(p);}
+    if(input.fire&&p.stun<=0){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/1.1);else this.fire(p);}
     this.think(dt);
     for(const i of this.pickups){
       if(i.flight>0){

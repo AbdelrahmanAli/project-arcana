@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import './style.css';
 import './hud.css';
@@ -11,7 +11,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
@@ -129,7 +129,7 @@ function updateHud(){
   if(performance.now()>toastUntil)$('toast').style.opacity=0;
 }
 function render(){
-  draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
+  draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
   waterTile.tilePosition.x=game.time*19;
   waterTile.tilePosition.y=Math.sin(game.time*.72)*1.5;
   // A few foam crests drift with the textured current.
@@ -331,20 +331,30 @@ function render(){
       corpse.visible=true;pose(corpse,next,blend);
       groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*Math.min(1,age/.65)});
     }
+    if(p.stun>0&&p.hp>0){
+      const pulse=.72+.22*Math.sin(game.time*22+p.id);
+      stunDraw.ellipse(p.x,p.y-24,20,7).stroke({color:0xffefae,width:2,alpha:pulse});
+      for(let n=0;n<4;n++){
+        const a=game.time*5+n*Math.PI/2+p.id;
+        circle(stunDraw,p.x+Math.cos(a)*18,p.y-25+Math.sin(a)*5,2+n%2,0xfff4be,pulse);
+      }
+    }
   }
   for(const b of game.bullets){
     if(b.type==='missile'){
       const pulse=.7+.3*Math.sin(game.time*8);
-      groundDraw.ellipse(b.tx,b.ty,20,8).stroke({color:0xff4c32,width:2,alpha:pulse});
+      groundDraw.ellipse(b.tx,b.ty,BLAST_RADIUS.missile,BLAST_RADIUS.missile*.32).stroke({color:0xff4c32,width:2,alpha:pulse*.65});
+      groundDraw.ellipse(b.tx,b.ty,20,8).stroke({color:0xff9c62,width:1.5,alpha:pulse});
       groundDraw.moveTo(b.tx-8,b.ty).lineTo(b.tx+8,b.ty).stroke({color:0xff9c62,width:1,alpha:pulse});
       groundDraw.moveTo(b.tx,b.ty-7).lineTo(b.tx,b.ty+7).stroke({color:0xff9c62,width:1,alpha:pulse});
       groundDraw.ellipse(b.x,b.y+3,7,3).fill({color:0x142526,alpha:.35});
     }
     if(b.type==='grenade'){
       const arc=Math.sin(b.t/b.duration*Math.PI)*GRENADE_ARC_HEIGHT;
-      groundDraw.ellipse(b.x,b.y,5,2).fill({color:0x1c241b,alpha:.35});
-      circle(aerialProjectileDraw,b.x,b.y-arc,5,0x283b33);
-      rect(aerialProjectileDraw,b.x-2,b.y-arc-3,4,3,0xe8c26b);
+      groundDraw.ellipse(b.x,b.y,8,3).fill({color:0x1c241b,alpha:.35});
+      aerialProjectileDraw.ellipse(b.x,b.y-arc,9,7).fill({color:0x283b33}).stroke({color:0xe7d6a1,width:1.5});
+      rect(aerialProjectileDraw,b.x-5,b.y-arc-2,10,3,0xe8c26b);
+      circle(aerialProjectileDraw,b.x+2,b.y-arc-3,2,0xfff5cd,.85);
     }
     else{const v=Math.hypot(b.vx,b.vy),ux=b.vx/v,uy=b.vy/v;
       const shotDraw=b.type==='missile'?aerialProjectileDraw:t.height<TOWER_ACTIVE_HEIGHT||b.y>BASE_Y-39?frontProjectileDraw:projectileDraw;
@@ -361,12 +371,21 @@ function render(){
   for(const b of game.beams){const alpha=1-b.age/b.life,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},16,0xa70f22,alpha*.35);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},8,0xff283d,alpha);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},2,0xffffff,alpha);}
   for(const e of game.effects){
     const k=e.age/e.life;
-    if(e.type==='explosion'||e.type==='towerImpact'){
+    if(e.type==='stunBlast'){
+      const radius=8+k*BLAST_RADIUS.grenade;
+      groundDraw.ellipse(e.x,e.y+3,radius,radius*.32).stroke({color:0xfff5c9,width:3,alpha:(1-k)*.85});
+      groundDraw.ellipse(e.x,e.y+3,radius*.62,radius*.19).fill({color:0xffffff,alpha:(1-k)*.25});
+      circle(draw,e.x,e.y-9,10+k*25,0xffffff,(1-k)*.48);
+      for(let n=0;n<10;n++){
+        const a=n*Math.PI/5+e.seed;
+        rect(draw,e.x+Math.cos(a)*radius*.82,e.y-8+Math.sin(a)*radius*.48,3,3,0xffeda3,1-k);
+      }
+    }else if(e.type==='explosion'||e.type==='towerImpact'){
       let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);world.addChild(s);blastSprites.set(e.id,s);}
       const towerHit=e.type==='towerImpact';
-      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:78;s.height=towerHit?52:78;s.alpha=1-k*.28;
+      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:112;s.height=towerHit?52:112;s.alpha=1-k*.28;
       if(!towerHit){
-        const radius=8+k*55;
+        const radius=8+k*BLAST_RADIUS.missile;
         groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
         groundDraw.ellipse(e.x,e.y+4,radius*.65,radius*.17).fill({color:0x6b3d24,alpha:(1-k)*.15});
       }
@@ -468,6 +487,7 @@ async function boot(){
   towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,aerialProjectileDraw);
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
   for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
+  stunDraw=new Graphics();world.addChild(stunDraw);
   // The front surface of the bubble must veil a fighter or corpse behind it.
   world.addChild(muzzleDraw,shieldGlass,shieldDraw);
   // The same rocky escarpment closes both far edges. The southern copy is
@@ -493,6 +513,8 @@ async function boot(){
         else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type,event.x);
         if(event.type==='pickup'&&event.player===0)toast(`${WEAPONS[event.weapon].name} COLLECTED`);
         if(event.type==='pickup'&&event.player===1){const label=$('opponent-toast');label.textContent=`${WEAPONS[event.weapon].name} ACQUIRED`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
+        if(event.type==='stun'&&event.player===0)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
+        if(event.type==='stun'&&event.player===1){const label=$('opponent-toast');label.textContent='STUNNED';label.style.opacity=1;label.dataset.until=String(performance.now()+1800);}
       }
       game.events=[];
       sound.burn(game.flames.length>0);
