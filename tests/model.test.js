@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_BASE_Y, DEATH_DURATION, towerShieldBounds, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_BASE_Y, DEATH_DURATION, towerShieldBounds, towerBodyBounds, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -59,6 +59,34 @@ test('shield geometry encloses the base while active',()=>{
     assert.ok(bounds.rx>=86);
     assert.ok(bounds.y-bounds.ry<TOWER_BASE_Y-50);
   }
+});
+
+test('tower impact belongs to the exposed shaft, not its submerged base',()=>{
+  const tower={height:1};
+  const body=towerBodyBounds(tower);
+  assert.ok(body.top<RIVER.top&&body.bottom<TOWER_BASE_Y);
+  assert.equal(segmentRectHit({x:RIVER.x,y:500},{x:RIVER.x,y:0},body).y,body.bottom);
+  assert.equal(segmentRectHit({x:RIVER.x,y:500},{x:RIVER.x,y:345},body),null);
+  assert.equal(towerBodyBounds({height:.1}),null);
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.tower.phase='deliver';m.tower.height=1;m.players[0].x=RIVER.x;
+  m.fire(m.players[0]);for(let i=0;i<65;i++)m.update(1/120);
+  const impact=m.effects.find(e=>e.type==='towerImpact');
+  assert.ok(impact&&impact.y<=body.bottom&&impact.y>=body.top);
+  assert.equal(m.effects.filter(e=>e.type==='towerImpact').length,1);
+});
+
+test('blood and blast marks remain after their smoke and sparks fade',()=>{
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.damage(m.players[0],5);
+  m.explode({x:300,y:150,owner:0,type:'grenade',damage:0,life:1});
+  assert.ok(m.marks.some(mark=>mark.type==='blood'));
+  assert.ok(m.marks.some(mark=>mark.type==='scorch'));
+  assert.ok(m.effects.some(e=>e.type==='smoke'));
+  for(let i=0;i<320;i++)m.update(1/120);
+  assert.equal(m.effects.some(e=>e.type==='smoke'),false);
+  assert.ok(m.marks.some(mark=>mark.type==='blood'));
+  assert.ok(m.marks.some(mark=>mark.type==='scorch'));
 });
 
 test('a shot striking the tower during weapon delivery fires one paired retaliation',()=>{
@@ -122,6 +150,10 @@ test('tower flames advance through space instead of hitting entire banks instant
   const m=new Match();m.think=()=>{};m.nextDrop=Infinity;m.tower.phase='rise';m.tower.height=.5;
   m.hitTower(0);assert.equal(m.flames[0].reach,0);m.update(1/120);
   assert.ok(m.flames[0].reach>0&&m.flames[0].reach<10);assert.equal(m.players[0].hp,100);
+  for(let i=0;i<440;i++)m.update(1/120);
+  assert.equal(m.flames.length,0);
+  assert.ok(m.effects.some(e=>e.type==='smoke'),'smoke lingers after the jets expire');
+  assert.ok(m.marks.some(mark=>mark.type==='scorch'),'the fire leaves marks on the banks');
 });
 
 test('grenades and missiles capture opponent position and do not home after firing',()=>{

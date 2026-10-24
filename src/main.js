@@ -10,7 +10,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
@@ -65,8 +65,8 @@ function releaseFire(cancel=false){
   input.fire=false;firePointer=null;game.players[0].charge=0;$('fire').classList.remove('pressed');
 }
 function clearInput(){keys.clear();stick=null;input.x=0;input.y=0;releaseFire(true);}
-function reset(){game=new Match();started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';for(const s of dropSprites.values())s.destroy();dropSprites.clear();updateHud();}
-function pause(){if(!started||game.finished)return;paused=!paused;clearInput();if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The battlefield will wait.','RESUME');}else{$('overlay').classList.add('hidden');sound.init();}$('pause').textContent=paused?'▶':'Ⅱ';}
+function reset(){game=new Match();marksDrawnRevision=-1;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended');$('pause').textContent='Ⅱ';for(const s of dropSprites.values())s.destroy();dropSprites.clear();updateHud();}
+function pause(){if(!started||game.finished)return;paused=!paused;clearInput();if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');}else{$('overlay').classList.add('hidden');sound.init();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button){$('overlay-title').innerHTML=title;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
@@ -134,6 +134,20 @@ function render(){
     const x=(i*97+game.time*13)%(W+45)-25;
     const length=8+(i%4)*4;
     waterDraw.moveTo(x,y).bezierCurveTo(x+length*.3,y-1,x+length*.7,y+1,x+length,y).stroke({color:0xb1e2cf,width:1,alpha:.11+.06*Math.sin(game.time+i)});
+  }
+  if(marksDrawnRevision!==game.marksRevision){
+    marksDrawnRevision=game.marksRevision;scarsDraw.clear();
+  for(const mark of game.marks){
+    if(mark.type==='blood'){
+      scarsDraw.ellipse(mark.x,mark.y,13*mark.size,5*mark.size).fill({color:0x481617,alpha:.48});
+      scarsDraw.ellipse(mark.x-4*mark.size,mark.y+1,5*mark.size,2*mark.size).fill({color:0x8b2c25,alpha:.42});
+      for(let n=0;n<5;n++)circle(scarsDraw,mark.x+Math.cos(n*2.5+mark.seed)*17*mark.size,mark.y+Math.sin(n*2.5+mark.seed)*8*mark.size,1+n%2,0x682020,.48);
+    }else{
+      scarsDraw.ellipse(mark.x,mark.y,20*mark.size,8*mark.size).fill({color:0x181a18,alpha:.42});
+      scarsDraw.ellipse(mark.x+4,mark.y-1,12*mark.size,4*mark.size).fill({color:0x2e3028,alpha:.35});
+      for(let n=0;n<6;n++)circle(scarsDraw,mark.x+Math.cos(n*1.7+mark.seed)*18*mark.size,mark.y+Math.sin(n*1.7+mark.seed)*6*mark.size,2,0x252823,.34);
+    }
+  }
   }
   const t=game.tower;
   // Open the hatch as the shaft starts moving and close it at the end of descent.
@@ -228,6 +242,21 @@ function render(){
     shieldDraw.ellipse(x-rx*.36,y-ry*.72,rx*.095,ry*.036).fill({color:0xf7ffff,alpha:.26+pulse*.12});
     circle(shieldDraw,x+rx*.62,y+ry*.31,2,0xecffff,.73);
   }else shieldGlass.visible=false;
+  let jetCount=0;
+  for(const f of game.flames){
+    if(f.age>.95)continue;
+    const start=Math.max(14,f.reach-165),alpha=Math.max(0,1-f.age/.95);
+    for(let d=start;d<f.reach;d+=17){
+      const x=RIVER.x+f.dx*d,y=RIVER.y+f.dy*d;
+      if(x<0||x>W||y<0||y>H)continue;
+      let s=jetSprites[jetCount];
+      if(!s){s=new Sprite(flameFrames[0]);s.anchor.set(.5,.65);s.width=25;s.height=34;jetLayer.addChild(s);jetSprites.push(s);}
+      s.visible=true;s.texture=flameFrames[(Math.floor(game.time*17+d/17))%8];
+      s.position.set(x+Math.sin(game.time*19+d)*3,y+Math.cos(game.time*16+d)*3);
+      s.rotation=Math.atan2(f.dy,f.dx)+Math.PI/2;s.alpha=alpha*(.55+.35*d/f.reach);jetCount++;
+    }
+  }
+  for(let i=jetCount;i<jetSprites.length;i++)jetSprites[i].visible=false;
   let flameCount=0;
   for(const f of game.flames)for(let d=40;d<f.reach;d+=19){
     const x=RIVER.x+f.dx*d,y=RIVER.y+f.dy*d;
@@ -305,10 +334,16 @@ function render(){
   for(const b of game.beams){const alpha=1-b.age/b.life,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},16,0xa70f22,alpha*.35);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},8,0xff283d,alpha);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},2,0xffffff,alpha);}
   for(const e of game.effects){
     const k=e.age/e.life;
-    if(e.type==='explosion'){
+    if(e.type==='explosion'||e.type==='towerImpact'){
       let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);world.addChild(s);blastSprites.set(e.id,s);}
-      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-11*k);s.width=78;s.height=78;s.alpha=1-k*.28;
+      const towerHit=e.type==='towerImpact';
+      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:78;s.height=towerHit?52:78;s.alpha=1-k*.28;
       for(let n=0;n<7;n++){const a=n*2.4+e.seed;rect(draw,e.x+Math.cos(a)*k*43,e.y+Math.sin(a)*k*43,3,3,0xffb65c,1-k);}
+    }else if(e.type==='smoke'){
+      for(let n=0;n<5;n++){
+        const drift=effectNoise(e.seed,n)*14,age=e.age/e.life;
+        circle(fireSmoke,e.x+drift+Math.sin(game.time*2+n)*3,e.y-8-age*(18+n*3),4+n%3+age*5,0x454b47,(1-age)*.26);
+      }
     }else if(e.type==='launch'){
       circle(draw,e.x,e.y,4+13*k,0xffb45a,(1-k)*.55);
       circle(draw,e.x,e.y,3+5*k,0xfff0bb,1-k);
@@ -336,7 +371,7 @@ function render(){
       for(let i=0;i<10;i++){const a=i*2.4+e.seed,spread=23*Math.min(1,k*3)*(1+effectNoise(e.seed,i)*.4);const x=e.x+Math.cos(a)*spread,y=e.y+Math.sin(a)*spread;rect(groundDraw,x,y,3+i%4,2+i%3,i%3?0x7b2524:0xbd4235,1-k*.5);}
     }else{for(let n=0;n<6;n++){const a=n*1.05;rect(draw,e.x+Math.cos(a)*k*30,e.y+Math.sin(a)*k*30,3,3,0xffdf92,1-k);}}
   }
-  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion').map(e=>e.id));
+  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact').map(e=>e.id));
   for(const [id,s]of blastSprites)if(!activeBlast.has(id)){s.destroy();blastSprites.delete(id);}
   if(stick){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
@@ -368,7 +403,7 @@ async function boot(){
   }
   const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
   waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
-  waterDraw=new Graphics();groundDraw=new Graphics();flameLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,groundDraw,flameLayer,fireSmoke,projectileDraw);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,flameLayer,jetLayer,fireSmoke,projectileDraw);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=190;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
@@ -383,9 +418,11 @@ async function boot(){
   openCap.mask=hatchMask;
   frontProjectileDraw=new Graphics();
   world.addChild(cap,openCap,hatchMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
-  towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,shieldGlass,shieldDraw,aerialProjectileDraw);
+  towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,aerialProjectileDraw);
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
   for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
+  // The front surface of the bubble must veil a fighter or corpse behind it.
+  world.addChild(shieldGlass,shieldDraw);
   // The same rocky escarpment closes both far edges. The southern copy is
   // mirrored horizontally so it reads as a matching barrier without a repeat.
   for(const [y,mirror] of [[-28,false],[H-69,true]]){
@@ -406,7 +443,7 @@ async function boot(){
       while(accumulator>=1/120){game.update(1/120,input);accumulator-=1/120;}
       for(const event of game.events){
         if(event.type==='shot')sound.play(event.weapon,event.x);
-        else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type);
+        else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type,event.x);
         if(event.type==='pickup'&&event.player===0)toast(`${WEAPONS[event.weapon].name} COLLECTED`);
         if(event.type==='pickup'&&event.player===1){const label=$('opponent-toast');label.textContent=`${WEAPONS[event.weapon].name} ACQUIRED`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
       }
@@ -418,8 +455,9 @@ async function boot(){
     if(game.finished&&!finishedShown){
       finishedShown=true;clearInput();sound.stop();
       const won=game.winner===0,drawn=game.winner==='draw';
-      $('overlay').classList.add('result');
-      showOverlay(drawn?'BOTH BANKS<br><em>FALL.</em>':won?'BANK<br><em>SECURED.</em>':'SOLDIER<br><em>DOWN.</em>',`${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN');
+      $('overlay').classList.add('result');document.querySelector('.game-unit').classList.add('ended');
+      const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
+      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?'YOU<br><em>ADAPTED.</em>':'YOU<br><em>FELL.</em>',`${outcome} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} tower drops`,'PLAY AGAIN');
     }
     render();hudTime+=dt;if(hudTime>.05){updateHud();hudTime=0;}
   });

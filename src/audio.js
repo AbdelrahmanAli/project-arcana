@@ -19,19 +19,17 @@ function wav(duration, frequency, noise, decay = 5) {
     return (tone*(1-noise)+low*noise)*envelope*.8;
   });
 }
-function flameBlastWav() {
+function fireWhooshWav() {
   let seed=7829,low=0,mid=0;
-  return pcmWav(.85,(t)=>{
+  return pcmWav(.72,(t)=>{
+    if(t<.1)return 0;
+    const rushTime=t-.1;
     seed=(seed*1664525+1013904223)>>>0;
     const white=seed/2147483648-1;
-    low=low*.86+white*.14;
-    mid=mid*.48+white*.52;
-    const ignition=white*Math.exp(-t*75)*.75;
-    const firstJet=Math.max(0,1-Math.exp(-t*38))*Math.exp(-t*3.8);
-    const secondAge=Math.max(0,t-.11);
-    const secondJet=t>=.11?(1-Math.exp(-secondAge*38))*Math.exp(-secondAge*5):0;
-    const rush=(low*.52+mid*.35+white*.1)*(firstJet+secondJet*.62);
-    return (ignition+rush)*.75;
+    low=low*.81+white*.19;
+    mid=mid*.5+white*.5;
+    const envelope=Math.min(1,rushTime/.035)*Math.exp(-rushTime*5.8);
+    return (low*.55+mid*.26+white*.09)*envelope*.85;
   });
 }
 function waterWav() {
@@ -55,7 +53,8 @@ export class Sound {
     const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],grenade:[.2,110,.6],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:.22,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
-    this.clips.retaliation=new Howl({src:[flameBlastWav()],format:['wav'],volume:.35,preload:true});
+    this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
+    this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});
     this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:.23,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     Howler.ctx?.resume();
