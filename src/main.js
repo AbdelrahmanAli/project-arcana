@@ -298,11 +298,12 @@ function render(){
   for(let i=flameCount;i<flameSprites.length;i++)flameSprites[i].visible=false;
   const active=new Set();
   for(const item of game.pickups){
+    const isStun=item.type==='grenade',isMissile=item.type==='missile';
     active.add(item.id);let s=dropSprites.get(item.id);
-    if(!s){s=new Sprite(item.type==='laser'?laserTexture:item.type==='grenade'?stunLauncherTexture:item.type==='missile'?missileLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=item.type==='missile'?58:62;s.height=item.type==='missile'?29:62;world.addChild(s);dropSprites.set(item.id,s);}
+    if(!s){s=new Sprite(item.type==='laser'?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:textures[WEAPONS[item.type].frame]);s.anchor.set(.5);s.width=isMissile?58:isStun?56:62;s.height=isMissile?29:isStun?37:62;world.addChild(s);dropSprites.set(item.id,s);}
     let x=item.x,y=item.y;
     if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
-    else{s.rotation=0;groundDraw.ellipse(x,y+(item.type==='missile'?8:12),item.type==='missile'?24:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(item.type==='missile'?7:0);}
+    else{s.rotation=0;groundDraw.ellipse(x,y+(isMissile?8:isStun?10:12),isMissile?24:isStun?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isMissile||isStun?7:0);}
     s.position.set(x,y);s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
     s.zIndex=1;
   }

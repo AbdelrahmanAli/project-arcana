@@ -21,6 +21,8 @@
 .slot .icon { transform:scale(1.2) rotate(-9deg); filter:drop-shadow(1px 3px 1px #000b); }
 .laser-icon { background-image:url('/art/laser-gun.png') !important; background-size:contain !important; background-position:center !important; }
 .stun-icon { background-image:url('/art/stun-launcher-blue.png') !important; background-size:contain !important; background-position:center !important; }
+.slot .icon.stun-icon { top:2px; transform:scale(1.02) rotate(-3deg); }
+.weapon-picture.stun-icon { transform:scale(1.03) rotate(-3deg); }
 .missile-icon { background-image:url('/art/smart-missile-launcher.png') !important; background-size:contain !important; background-position:center !important; }
 .slot .icon.missile-icon { top:4px; transform:scale(.91) rotate(-3deg); }
 .weapon-picture.missile-icon { transform:scale(.92) rotate(-3deg); }
