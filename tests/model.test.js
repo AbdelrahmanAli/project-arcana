@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, towerShieldBounds, towerBodyBounds, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -30,6 +30,15 @@ test('each launch creates a pair with independent rolls and valid bank positions
   assert.equal(m.pickups[0].sx,RIVER.x-51);assert.equal(m.pickups[1].sx,RIVER.x+51);
   assert.equal(m.pickups[0].sy,RIVER.y-78);assert.equal(m.pickups[1].sy,RIVER.y-78);
   assert.equal(m.pickups[0].flight,m.pickups[1].flight);
+});
+
+test('a thrown weapon lands with one visible and audible impact',()=>{
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.pickups=[{id:1,owner:0,type:'rifle',x:50,y:470,flight:.02,ttl:12}];
+  for(let i=0;i<10;i++)m.update(1/120);
+  assert.equal(m.events.filter(e=>e.type==='landing').length,1);
+  assert.equal(m.effects.filter(e=>e.type==='landing').length,1);
+  assert.equal(m.pickups[0].ttl<12,true);
 });
 
 test('weapons expire twelve seconds after landing, not during flight',()=>{
@@ -69,12 +78,37 @@ test('tower impact belongs to the exposed shaft, not its submerged base',()=>{
   assert.equal(segmentRectHit({x:RIVER.x,y:500},{x:RIVER.x,y:0},body).y,body.bottom);
   assert.equal(segmentRectHit({x:RIVER.x,y:500},{x:RIVER.x,y:345},body),null);
   assert.equal(towerBodyBounds({height:.1}),null);
+  assert.ok(TOWER_ACTIVE_HEIGHT<(TOWER_GEOMETRY.shaftBaseY-TOWER_GEOMETRY.apertureTop)/TOWER_GEOMETRY.shaftHeight);
+  assert.equal(towerBodyBounds({height:TOWER_ACTIVE_HEIGHT}),null);
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
   m.tower.phase='deliver';m.tower.height=1;m.players[0].x=RIVER.x;
   m.fire(m.players[0]);for(let i=0;i<65;i++)m.update(1/120);
   const impact=m.effects.find(e=>e.type==='towerImpact');
   assert.ok(impact&&impact.y<=body.bottom&&impact.y>=body.top);
   assert.equal(m.effects.filter(e=>e.type==='towerImpact').length,1);
+});
+
+test('visible launcher arms absorb shots only while they are extended',()=>{
+  const tower={phase:'deliver',height:1,progress:0};
+  const start={x:RIVER.x+65,y:460},end={x:start.x,y:0};
+  assert.equal(towerArmExtension(tower),1);
+  const impact=segmentTowerHit(start,end,tower);
+  assert.ok(impact&&impact.y<TOWER_GEOMETRY.apertureTop);
+  tower.progress=TOWER_TIMING.deliver-.1;
+  assert.equal(towerArmExtension(tower),0);
+  assert.equal(segmentTowerHit(start,end,tower),null);
+  assert.ok(segmentTowerHit({x:RIVER.x,y:460},{x:RIVER.x,y:0},tower));
+});
+
+test('opposing rounds cancel before either can damage a player on the crossing frame',()=>{
+  const m=new Match();m.think=()=>{};m.nextDrop=Infinity;
+  const shot=(owner,y,vy)=>({id:owner,owner,type:'pistol',x:RIVER.x,y,vx:0,vy,damage:5,color:0xffdc80,life:1,travel:0});
+  m.players[1].x=RIVER.x;
+  m.bullets=[shot(0,154,-690),shot(1,122,690)];
+  m.update(1/30);
+  assert.equal(m.players[1].hp,100);
+  assert.equal(m.bullets.length,0);
+  assert.ok(m.effects.some(e=>e.type==='spark'));
 });
 
 test('blood and blast marks remain after their smoke and sparks fade',()=>{
@@ -245,6 +279,20 @@ test('one-round death ends simulation and fresh Match resets all inventory and h
   for(let i=0;i<Math.ceil((DEATH_DURATION+.1)*120);i++)m.update(1/120);
   assert.equal(m.finished,true);const time=m.time;m.update(1/120);assert.equal(m.time,time);
   const next=new Match();assert.equal(next.finished,false);assert.deepEqual(next.players[0].slots,[null,null,null]);assert.equal(next.flames.length,0);assert.equal(next.players[0].hp,100);
+});
+
+test('death clears live rounds and fades fire before the result appears',()=>{
+  const m=new Match();m.think=()=>{};m.nextDrop=Infinity;
+  m.tower.phase='rise';m.tower.height=.6;m.hitTower(0);
+  m.bullets.push({id:100,owner:0,type:'pistol',x:100,y:500,vx:0,vy:-100,damage:5,color:0xffdc80,life:1,travel:0});
+  m.players[0].hp=0;m.update(1/120);
+  assert.ok(m.ending>0);
+  assert.equal(m.bullets.length,0);
+  assert.ok(m.flames.every(f=>f.endAge!==null&&f.life<=.7));
+  assert.equal(m.fire(m.players[1]),false);
+  for(let i=0;i<100;i++)m.update(1/120);
+  assert.equal(m.flames.length,0);
+  assert.equal(m.finished,false,'the result still waits for the death animation');
 });
 
 test('seeded autonomous match runs to a result without invalid positions or unbounded entities',()=>{

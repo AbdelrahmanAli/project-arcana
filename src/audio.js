@@ -50,8 +50,8 @@ export class Sound {
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
-    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],grenade:[.2,110,.6],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
-    for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:.22,preload:true,pool:8});
+    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],grenade:[.2,110,.6],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
+    for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
     this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});

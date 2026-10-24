@@ -6,6 +6,13 @@ export const BANK_BOUNDS = [
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
+export const TOWER_GEOMETRY = {
+  shaftHeight: 190,
+  shaftBaseY: RIVER.y+35,
+  apertureTop: TOWER_BASE_Y-39,
+  apertureBottom: RIVER.y+22,
+};
+// The head remains visible inside the open hatch after the exposed shaft retracts.
 export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const FLAME_SPEED = 330;
@@ -37,8 +44,25 @@ export function towerShieldBounds(tower) {
   return {x:RIVER.x,y:(top+bottom)/2,rx:86+tower.height*24,ry:(bottom-top)/2};
 }
 export function towerBodyBounds(tower) {
-  const top=RIVER.y+35-190*tower.height,bottom=TOWER_BASE_Y-39;
+  const top=TOWER_GEOMETRY.shaftBaseY-TOWER_GEOMETRY.shaftHeight*tower.height;
+  const bottom=TOWER_GEOMETRY.apertureTop;
   return top<bottom?{left:RIVER.x-27,right:RIVER.x+27,top,bottom}:null;
+}
+export function towerArmExtension(tower) {
+  const fraction=tower.phase==='deliver'
+    ? clamp((TOWER_TIMING.deliver-.35-tower.progress)/.75,0,1)
+    : tower.phase==='rise'?clamp((tower.height-.57)/.28,0,1):0;
+  return fraction*fraction*(3-2*fraction);
+}
+export function towerArmBounds(tower) {
+  const extension=towerArmExtension(tower),body=towerBodyBounds(tower);
+  if(!body||extension<=.05)return [];
+  const reach=28+61*extension,top=body.top+68,bottom=Math.min(body.bottom,body.top+108);
+  if(top>=bottom)return [];
+  return [
+    {left:RIVER.x-reach,right:RIVER.x-24,top,bottom},
+    {left:RIVER.x+24,right:RIVER.x+reach,top,bottom},
+  ];
 }
 export function segmentRectHit(a,b,r) {
   if(!r)return null;
@@ -51,6 +75,12 @@ export function segmentRectHit(a,b,r) {
     if(enter>exit)return null;
   }
   return {x:a.x+dx*enter,y:a.y+dy*enter};
+}
+export function segmentTowerHit(a,b,tower) {
+  const hits=[towerBodyBounds(tower),...towerArmBounds(tower)]
+    .map(bounds=>segmentRectHit(a,b,bounds)).filter(Boolean);
+  if(!hits.length)return null;
+  return hits.reduce((nearest,hit)=>distance(a,hit)<distance(a,nearest)?hit:nearest);
 }
 export function segmentEllipseHit(a,b,ellipse) {
   const sx=(a.x-ellipse.x)/ellipse.rx,sy=(a.y-ellipse.y)/ellipse.ry;
@@ -97,7 +127,7 @@ export class Match {
     this.emit('pickup',{player:p.id,weapon:item.type}); return true;
   }
   fire(p,power=0) {
-    if(this.finished || p.hp<=0 || p.cooldown>0) return false;
+    if(this.finished || this.ending>0 || p.hp<=0 || p.cooldown>0) return false;
     const type=this.weapon(p), def=WEAPONS[type], enemy=this.players[1-p.id];
     const dir=p.id===0?-1:1;
     p.cooldown=def.cooldown; p.flash=.09; p.shots++; p.charge=0;
@@ -105,7 +135,7 @@ export class Match {
     if(type==='laser') {
       const end={x:origin.x,y:p.id===0?0:H};
       const shieldHit=this.tower.shield?segmentEllipseHit(origin,end,towerShieldBounds(this.tower)):null;
-      const bodyHit=!shieldHit?segmentRectHit(origin,end,towerBodyBounds(this.tower)):null;
+      const bodyHit=!shieldHit?segmentTowerHit(origin,end,this.tower):null;
       if(shieldHit)this.hitTower(p.id,shieldHit);
       else if(bodyHit)this.hitTower(p.id,bodyHit);
       else if(segmentDistance(enemy,origin,end)<17){this.damage(enemy,def.damage+Math.round(power*30));p.hits++;}
@@ -218,6 +248,8 @@ export class Match {
     if(this.ending>0){
       this.ending-=dt;
       for(const p of this.players)if(p.hp<=0)p.deathAge+=dt;
+      for(const f of this.flames){f.age+=dt;f.life-=dt;}
+      this.flames=this.flames.filter(f=>f.life>0);
       for(const e of this.effects)e.age+=dt;
       this.effects=this.effects.filter(e=>e.age<e.life);
       for(const b of this.beams)b.age+=dt;
@@ -230,7 +262,15 @@ export class Match {
     const p=this.players[0];
     if(input.fire){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/1.1);else this.fire(p);}
     this.think(dt);
-    for(const i of this.pickups){if(i.flight>0)i.flight=Math.max(0,i.flight-dt);else{i.ttl-=dt;this.collect(this.players[i.owner],i);}}
+    for(const i of this.pickups){
+      if(i.flight>0){
+        i.flight=Math.max(0,i.flight-dt);
+        if(i.flight===0){
+          this.effects.push({id:this.id++,type:'landing',x:i.x,y:i.y,age:0,life:.42,seed:this.random()});
+          this.emit('landing',{x:i.x});
+        }
+      }else{i.ttl-=dt;this.collect(this.players[i.owner],i);}
+    }
     this.pickups=this.pickups.filter(i=>i.ttl>0);
     for(const b of this.bullets){
       if(b.life<=0)continue;
@@ -251,12 +291,8 @@ export class Match {
       }
       const shieldHit=this.tower.shield?segmentEllipseHit(prev,b,towerShieldBounds(this.tower)):null;
       if(shieldHit){this.hitTower(b.owner,shieldHit);b.life=0;continue;}
-      const bodyHit=segmentRectHit(prev,b,towerBodyBounds(this.tower));
+      const bodyHit=segmentTowerHit(prev,b,this.tower);
       if(bodyHit&&this.hitTower(b.owner,bodyHit)){b.life=0;continue;}
-      const victim=this.players[1-b.owner];
-      if(segmentDistance(victim,prev,b)<15){
-        this.damage(victim,b.damage);this.players[b.owner].hits++;b.life=0;
-      }
       if(b.x<0||b.x>W||b.y<0||b.y>H)b.life=0;
     }
     // Opposing conventional rounds cancel when their swept paths meet.
@@ -267,6 +303,13 @@ export class Match {
       const first={x:(a.prevX??a.x)-(b.prevX??b.x),y:(a.prevY??a.y)-(b.prevY??b.y)};
       const last={x:a.x-b.x,y:a.y-b.y};
       if(segmentDistance({x:0,y:0},first,last)<12){a.life=0;b.life=0;this.effects.push({id:this.id++,type:'spark',x:(a.x+b.x)/2,y:(a.y+b.y)/2,age:0,life:.22,seed:this.random()});}
+    }
+    for(const b of this.bullets){
+      if(b.life<=0||!standard(b))continue;
+      const victim=this.players[1-b.owner];
+      if(segmentDistance(victim,{x:b.prevX,y:b.prevY},b)<15){
+        this.damage(victim,b.damage);this.players[b.owner].hits++;b.life=0;
+      }
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
     for(const f of this.flames){
@@ -295,6 +338,8 @@ export class Match {
     if(this.players.some(p=>p.hp<=0)){
       this.ending=DEATH_DURATION;
       this.winner=this.players[0].hp<=0?(this.players[1].hp<=0?'draw':1):0;
+      this.bullets=[];
+      for(const f of this.flames){f.endAge=f.age;f.life=Math.min(f.life,.7);}
       for(const p of this.players)if(p.hp<=0)this.effects.push({id:this.id++,type:'death',x:p.x,y:p.y,age:0,life:DEATH_DURATION+1,seed:this.random()});
       for(const p of this.players)if(p.hp<=0)this.mark('blood',p.x,p.y+20,1.5);
       this.emit('death');
