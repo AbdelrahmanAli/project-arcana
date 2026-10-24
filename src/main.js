@@ -254,17 +254,18 @@ function render(){
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
     }else{
-      const age=p.deathAge;
+      const age=p.deathAge,blue=p.id===0;
       const stumble=Math.min(1,Math.max(0,(age-.08)/.5));
       const settle=Math.min(1,Math.max(0,(age-.38)/.37));
-      // Both soldiers collapse toward the lower right with the same short lean.
-      s.texture=textures[base];s.position.set(p.x+6*stumble,p.y+7*stumble);
-      s.width=78;s.height=78-6*stumble;s.rotation=.7*stumble;
+      // Blue travels southeast without spinning; red keeps its existing short lean.
+      s.texture=textures[base];s.position.set(p.x+(blue?10:6)*stumble,p.y+(blue?12:7)*stumble);
+      s.width=78;s.height=78-(blue?24:6)*stumble;s.rotation=blue?0:.7*stumble;
       s.alpha=Math.max(0,1-Math.max(0,(age-.27)/.4));s.tint=age<.14?0xffb7a8:0xffffff;
       corpse.visible=age>=.38;corpse.texture=corpseTextures[p.id];
-      corpse.position.set(p.x+6+3*settle,p.y+7+6*settle);
+      corpse.position.set(p.x+(blue?10:6)+3*settle,p.y+(blue?12:7)+6*settle);
       corpse.width=72;corpse.scale.x=-Math.abs(corpse.scale.x);
-      corpse.height=52*(.92+.08*settle);corpse.alpha=settle;corpse.rotation=.04*(1-settle);
+      corpse.height=52*(.92+.08*settle);corpse.scale.y=(blue?-1:1)*Math.abs(corpse.scale.y);
+      corpse.alpha=settle;corpse.rotation=blue?0:.04*(1-settle);
       groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*settle});
     }
   }
