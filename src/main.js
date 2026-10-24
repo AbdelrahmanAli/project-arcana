@@ -11,7 +11,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],laserTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,groundDraw,scarsDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
@@ -155,8 +155,13 @@ function render(){
   }
   const t=game.tower;
   // Open the hatch as the shaft starts moving and close it at the end of descent.
-  const hatchOpen=t.phase==='rise'?Math.min(1,t.progress/.55):t.phase==='lower'?Math.min(1,Math.max(0,TOWER_TIMING.lower-t.progress)/.55):t.phase==='rest'?0:1;
+  const hatchOpen=t.phase==='rise'?Math.min(1,t.progress/1.05):t.phase==='lower'?Math.min(1,Math.max(0,TOWER_TIMING.lower-t.progress)/1.05):t.phase==='rest'?0:1;
   openCap.alpha=hatchOpen;
+  const hatchFrame=hatchOpen*3,frame=Math.min(3,Math.floor(hatchFrame));
+  hatchCurrent.texture=hatchFrames[frame];
+  hatchNext.texture=hatchFrames[Math.min(3,frame+1)];
+  hatchNext.alpha=hatchFrame-frame;
+  hatchContainer.alpha=Math.min(1,hatchOpen*5);
   // The central column clears the hatch before its launcher arms extend. After
   // firing, the arms fold away during delivery, before descent begins.
   const armEase=towerArmExtension(t);
@@ -226,7 +231,7 @@ function render(){
   }
   if(t.phase==='rise'){
     const blink=(Math.sin(game.time*10)>0?1:.06)*Math.min(1,t.progress/.25);
-    for(const [dx,dy] of [[-53,-16],[53,-16],[-30,2],[30,2],[-51,19],[0,20],[51,19]]){
+    for(const [dx,dy] of [[-32,-13],[32,-13],[-34,10],[0,21],[34,10]]){
       const x=RIVER.x+dx,y=BASE_Y+dy;
       baseLightDraw.ellipse(x,y,15,7).fill({color:0xff1726,alpha:.32*blink});
       baseLightDraw.ellipse(x,y,6,3.3).fill({color:0xe90019,alpha:.96*blink});
@@ -415,14 +420,14 @@ function render(){
 async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','flames.png','explosions.png','laser-gun.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
-  for(const art of [bg,atlas,towerArt,capArt,openCapArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt])art.source.scaleMode='nearest';
+  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt]=await Promise.all(['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)));
+  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,blueDeath,redDeath,rockArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
-  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);laserTexture=laserArt;
+  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);laserTexture=laserArt;
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the
   // original lower edge instead of placing a second wall across playable sand.
@@ -450,8 +455,16 @@ async function boot(){
   openCap=new Sprite(openCapArt);openCap.anchor.set(.5);openCap.width=BASE_WIDTH*(1154/1198);openCap.height=BASE_HEIGHT*(711/733);openCap.position.set(RIVER.x,BASE_Y+1);openCap.alpha=0;
   const hatchMask=new Graphics().ellipse(RIVER.x,BASE_Y-21,61,32).fill(0xffffff);
   openCap.mask=hatchMask;
+  hatchContainer=new Container();
+  for(const sprite of [hatchCurrent=new Sprite(hatchFrames[0]),hatchNext=new Sprite(hatchFrames[1])]){
+    sprite.anchor.set(.5);sprite.width=BASE_WIDTH;sprite.height=BASE_HEIGHT;sprite.position.set(RIVER.x,BASE_Y);
+    hatchContainer.addChild(sprite);
+  }
+  hatchContainer.alpha=0;
+  const hatchSpriteMask=new Graphics().ellipse(RIVER.x,BASE_Y-21,59,30).fill(0xffffff);
+  hatchContainer.mask=hatchSpriteMask;
   frontProjectileDraw=new Graphics();
-  world.addChild(cap,openCap,hatchMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
+  world.addChild(cap,openCap,hatchMask,hatchContainer,hatchSpriteMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
   towerWater=new Graphics();baseWaterDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();shieldGlass=new Sprite(createShieldGlass());shieldGlass.anchor.set(.5);shieldGlass.visible=false;shieldDraw=new Graphics();aerialProjectileDraw=new Graphics();world.addChild(towerWater,baseWaterDraw,baseLightDraw,aerialProjectileDraw);
   for(let i=0;i<2;i++){const s=new Sprite(textures[i*4]);s.anchor.set(.5);soldiers.push(s);world.addChild(s);}
   for(let i=0;i<2;i++){const s=new Sprite(deathFrames[i][0]);s.anchor.set(.5);s.visible=false;corpses.push(s);world.addChild(s);}
