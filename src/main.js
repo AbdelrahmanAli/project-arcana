@@ -435,10 +435,12 @@ function render(){
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
-        const power=p.charge,ready=power>=1;
+        const power=p.charge,ready=power>=1,blink=laserBlink(game.time,ready);
+        circle(draw,p.x,p.y-6,7+power*4,0xff1631,(ready?.25:.15)*blink);
+        circle(draw,p.x,p.y-6,2.5+power*1.5,ready?0xff7180:0xff3348,blink);
         if(p.id===0){
           draw.roundRect(p.x-19,p.y-50,38,6,2).fill({color:0x220c10,alpha:.9});
-          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xffebdf:0xff3946,alpha:1});
+          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xff5262:0xff263d,alpha:.35+.65*blink});
         }
       }
     }else{
@@ -466,13 +468,6 @@ function render(){
         circle(stunDraw,p.x+Math.cos(a)*18,p.y-25+Math.sin(a)*5,2+n%2,0xfff4be,pulse);
       }
     }
-  }
-  for(const attacker of game.players){
-    if(attacker.hp<=0||game.weapon(attacker)!=='laser'||attacker.charge<=0)continue;
-    const target=game.players[1-attacker.id];if(target.hp<=0)continue;
-    const ready=attacker.charge>=1,blink=laserBlink(game.time,ready);
-    circle(draw,target.x,target.y-6,7+attacker.charge*4,0xff1631,(ready?.25:.15)*blink);
-    circle(draw,target.x,target.y-6,2.5+attacker.charge*1.5,ready?0xfff1e9:0xff3348,blink);
   }
   const activeAerialProjectiles=new Set();
   for(const b of game.bullets){

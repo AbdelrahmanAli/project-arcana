@@ -29,7 +29,7 @@ Main menu with settings, one health-based round, computer opponent, unlimited we
 
 Each round places mirrored T, L, or square crate formations near the river and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 
-The player's health is below the inventory. The opponent's health and equipped weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. Only the targeted fighter gets the blinking laser dot.
+The player's health is below the inventory. The opponent's health and equipped weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser blinks red on its wielder, and the player's charge bar above their fighter blinks red too.
 
 ## Structure
 
