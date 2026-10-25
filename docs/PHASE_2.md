@@ -39,7 +39,7 @@ These transparent, original pixel-art assets are loaded by the current game:
 | `breakable-crate-depth-frames.png` | 3 horizontal | Screen-aligned intact, cracked, and destroyed crate with a visible top face |
 | `oil-barrel-frames.png` | 3 horizontal | Intact, impact, wreck |
 
-Sprite sheets use equal-width cells. The waste and mushroom sheets are 4 × 543 by 724 pixels; crate and barrel sheets are 3 × 724 by 724 pixels. The single sprites are 1536 by 1024 pixels. Crop frames and scale them in PixiJS at runtime; the transparent margins keep their alignment stable. Earlier crate sheets remain in the folder as unused art studies.
+Sprite sheets use equal-width cells. The waste and mushroom sheets are 4 × 543 by 724 pixels; crate and barrel sheets are 3 × 724 by 724 pixels. The single sprites are 1536 by 1024 pixels. Crop frames and scale them in PixiJS at runtime; the transparent margins keep their alignment stable. Earlier crate sheets are archived in `docs/art-archive/` and are not included in the published site.
 
 The exact generation prompts are recorded in [`PHASE_2_ART_PROMPTS.md`](PHASE_2_ART_PROMPTS.md).
 

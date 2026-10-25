@@ -1,6 +1,5 @@
 node_modules/
 .pnpm-store/
-.pnpm-store/
 dist/
 .openai/
 test-output/

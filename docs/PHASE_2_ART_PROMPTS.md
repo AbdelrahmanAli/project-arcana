@@ -26,7 +26,7 @@ Generated with the built-in image tool. Each output uses a genuinely transparent
 
 ## Horizontal breakable crate replacement
 
-`breakable-crate-horizontal-frames.png` was generated with the built-in image tool using the earlier crate sheet as a style reference:
+`art-archive/breakable-crate-horizontal-frames.png` was generated with the built-in image tool using the earlier crate sheet as a style reference. It is archived rather than loaded by the game:
 
 > Create a NEW transparent pixel-art sprite sheet for a browser fighting game, using the attached existing crate sheet only as a reference for its olive-brown wood, dark steel bands, orange brass rivets, chunky polished arcade pixel-art rendering, and lighting. Three equal square cells in ONE horizontal row, with generous transparent padding and no separators. Cell 1: small intact military supply crate. Cell 2: the identical crate cracked open by one hit. Cell 3: the identical crate collapsed into low splintered debris. Crucial orientation: all crates are straight-on and screen-aligned, NOT rotated diagonally or in three-quarter perspective. The front face is a horizontal rectangle with parallel top and bottom edges; the vertical corner posts are truly vertical. A narrow top surface may be visible from slightly above, but its front edge stays perfectly horizontal. Keep all three frames at the same ground anchor and scale so they can swap without jumping. Silhouette should be compact and low enough to render around 40 by 40 world pixels. No people, scenery, shadows outside the object, text, borders, watermark, or checkerboard. Crisp detailed hand-pixelled style, transparent background, no blur or anti-aliased painting.
 

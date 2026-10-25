@@ -24,11 +24,19 @@ const WEAPON_ART_BOUNDS={
   laser:[1536,1024,33,418,1200,486],
 };
 function fitWeaponIcon(icon,type){
+  const fitKey=`${type}:${window.innerWidth}x${window.innerHeight}`;
+  if(icon.dataset.fitKey===fitKey)return;
   const art=WEAPON_ART_BOUNDS[type],width=icon.clientWidth,height=icon.clientHeight;
   if(!art||!width||!height)return;
   const [sourceW,sourceH,x,y,w,h]=art,scale=Math.min((width-6)/w,(height-3)/h);
   icon.style.setProperty('background-size',`${sourceW*scale}px ${sourceH*scale}px`,'important');
   icon.style.setProperty('background-position',`${width/2-(x+w/2)*scale}px ${height/2-(y+h/2)*scale}px`,'important');
+  icon.dataset.fitKey=fitKey;
+}
+function clearWeaponIconFit(icon){
+  delete icon.dataset.fitKey;
+  icon.style.removeProperty('background-size');
+  icon.style.removeProperty('background-position');
 }
 const healthCells=new Map(),lastHealth=new Map();
 for(const id of ['player-hp','opponent-hp']){
@@ -163,7 +171,16 @@ function releaseFire(cancel=false){
   $('fire').classList.toggle('pressed',held);
 }
 function clearInput(){keys.clear();stick=null;firePointer=null;input.x=0;input.y=0;releaseFire(true);}
-function reset(){game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');$('pause').textContent='Ⅱ';for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites]){for(const s of map.values())s.destroy();map.clear();}updateHud();app.ticker.start();}
+function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
+function reset(){
+  game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();
+  $('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');
+  document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');$('pause').textContent='Ⅱ';
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites])clearSpriteMap(map);
+  for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
+  toastUntil=0;$('toast').style.opacity=0;$('opponent-toast').style.opacity=0;$('opponent-toast').dataset.until='0';
+  updateHud();app.ticker.start();
+}
 function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
@@ -207,7 +224,7 @@ function updateHud(){
     ammo.textContent=slot?slot.ammo:'';
     ammoLine.style.width=slot?`${slot.ammo/WEAPONS[slot.type].ammo*45}%`:'0';
     el.setAttribute('aria-label',slot?`${WEAPONS[slot.type].name}, ${slot.ammo} shots, slot ${i+1}`:`Weapon slot ${i+1}, empty`);
-    if(slot){icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.classList.toggle('nuclear-icon',slot.type==='nuclear');icon.classList.toggle('atlas-icon',slot.type==='rifle'||slot.type==='shotgun');if(WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(icon,slot.type);else{icon.style.removeProperty('background-size');icon.style.removeProperty('background-position');}}
+    if(slot){icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.classList.toggle('nuclear-icon',slot.type==='nuclear');icon.classList.toggle('atlas-icon',slot.type==='rifle'||slot.type==='shotgun');if(WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(icon,slot.type);else clearWeaponIconFit(icon);}
   }
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
@@ -225,7 +242,7 @@ function updateHud(){
   badge.classList.toggle('laser-white',enemyWeapon==='laser'&&enemy.charge>0&&laserWhitePhase(game.time,enemy.charge>=1));
   $('opponent-charge').style.width=`${enemy.charge*100}%`;
   if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
-  else{badge.firstElementChild.style.removeProperty('background-size');badge.firstElementChild.style.removeProperty('background-position');}
+  else clearWeaponIconFit(badge.firstElementChild);
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
   const laserEquipped=game.weapon(p)==='laser';
   $('fire').classList.toggle('laser-equipped',laserEquipped);
