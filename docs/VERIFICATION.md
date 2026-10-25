@@ -1,5 +1,10 @@
 # The Tower Deal verification
 
+## Portrait phone width — 2026-10-25
+
+- At a 360 × 728 viewport, the arena spans the full 360-pixel width with no side gutters. The menu, both fire controls, and the health footer remain visible.
+- The portrait arena uses the available viewport height; pointer coordinates continue to map independently across the arena's width and height.
+
 ## Phase 3 — 2026-10-25
 
 - All 47 simulation tests pass. New checks cover one-weapon capacity, independent pistol and Tower-weapon cooldowns, and an empty special-fire action.
