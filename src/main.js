@@ -634,6 +634,9 @@ async function boot(){
     const section=new Sprite(new Texture({source:bg.source,frame:new Rectangle(0,sourceY,bg.width,sourceHeight)}));
     section.position.set(0,destY);section.width=W;section.height=destHeight;world.addChild(section);
   }
+  // The far wall is behind fighters: they stand in front of its stones near the back edge.
+  const farBarrier=new Sprite(rockArt);farBarrier.width=W;farBarrier.height=100;
+  farBarrier.position.set(0,-28);world.addChild(farBarrier);
   const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
   waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
   waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer);
@@ -671,13 +674,9 @@ async function boot(){
   stunDraw=new Graphics();world.addChild(stunDraw);
   // The front surface of the bubble must veil a fighter or corpse behind it.
   world.addChild(muzzleDraw,shieldGlass,shieldDraw);
-  // The same rocky escarpment closes both far edges. The southern copy is
-  // mirrored horizontally so it reads as a matching barrier without a repeat.
-  for(const [y,mirror] of [[-28,false],[H-69,true]]){
-    const barrier=new Sprite(rockArt);barrier.width=W;barrier.height=100;
-    barrier.position.set(mirror?W:0,y);if(mirror)barrier.scale.x*=-1;
-    world.addChild(barrier);
-  }
+  // The near wall stays in the foreground, where it can cover a fighter's feet.
+  const nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
+  nearBarrier.position.set(W,H-69);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
   draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER · PLAY';
   let accumulator=0,hudTime=0;
