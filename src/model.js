@@ -123,9 +123,9 @@ export class Match {
   emit(type, data={}) { this.events.push({type,...data}); }
   makeObstacles(){
     const formations={
-      T:[[-42,0],[0,0],[42,0],[0,42]],
-      L:[[0,0],[42,0],[0,42]],
-      square:[[0,0],[42,0],[0,42],[42,42]],
+      T:[[-33,0],[0,0],[33,0],[0,22]],
+      L:[[0,0],[33,0],[0,22]],
+      square:[[0,0],[33,0],[0,22],[33,22]],
     };
     const shape=Object.keys(formations)[Math.floor(this.random()*3)];
     const side=this.random()<.5?-1:1;
