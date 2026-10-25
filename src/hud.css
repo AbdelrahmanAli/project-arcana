@@ -46,6 +46,7 @@
 #opponent-hp .health-cell { background: #42352f; }
 #opponent-hp .health-cell i { background: linear-gradient(#ff9a74, #c45348); }
 .opponent-weapon {
+  position: relative;
   width: calc(68px * var(--hud-scale));
   height: calc(32px * var(--hud-scale));
   background: #12201cbd;
@@ -54,6 +55,42 @@
   box-shadow: 0 1px 3px #0006;
   overflow: hidden;
 }
+.opponent-weapon.charging {
+  border-color: #ff5c6c;
+  box-shadow: 0 0 10px #ff284cbb, inset 0 0 7px #ff284c77;
+  animation: opponentChargePulse .45s ease-in-out infinite alternate;
+}
+.opponent-charge-label {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 2px;
+  background: #330e17e8;
+  color: #fff0e7;
+  font: 700 calc(7px * var(--hud-scale)) 'IBM Plex Mono', monospace;
+  letter-spacing: .2px;
+}
+.opponent-charge-track {
+  display: none;
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 2px;
+  height: max(3px, calc(4px * var(--hud-scale)));
+  background: #2a0d13;
+  box-shadow: 0 0 0 1px #ff8d9066;
+}
+.opponent-charge-track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg,#c82139,#ff9a9c);
+  box-shadow: 0 0 6px #ff4f67;
+}
+.opponent-weapon.charging .opponent-charge-label,
+.opponent-weapon.charging .opponent-charge-track { display: block; }
+@keyframes opponentChargePulse { from { filter: brightness(.86); } to { filter: brightness(1.25); } }
 .weapon-picture {
   display: block;
   width: 100%;

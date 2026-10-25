@@ -103,7 +103,7 @@ export function segmentEllipseHit(a,b,ellipse) {
 function soldier(id, x, y) {
   return { id,x,y,hp:100,stun:0,radiated:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
 }
-const OBSTACLE_HALF={crate:{x:17,y:17},barrel:{x:12,y:20}};
+const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
 function blocksFighter(o,x,y){
   if(o.destroyed)return false;

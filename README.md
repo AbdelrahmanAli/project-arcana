@@ -29,7 +29,7 @@ Main menu with settings, one health-based round, computer opponent, unlimited we
 
 Each round places a random number of mirrored crates and oil barrels on the two banks. Intact crates block movement and shots, then leave passable debris when broken. Barrels explode when hit, damage either fighter nearby, and can set off other barrels. Fighters can walk behind the objects, around their solid ground footprints. Nuclear waste remains on the ground for the round and damages either fighter who stands in it.
 
-The player's health is below the inventory. The opponent's health and equipped weapon float above their head. The smart missile marks its captured target on the ground. Other attacks have no warning markers.
+The player's health is below the inventory. The opponent's health and equipped weapon float above their head; their weapon badge glows red and fills a charge meter while they wind up a laser shot. The smart missile marks its captured target on the ground. Other attacks have no warning markers.
 
 ## Structure
 
