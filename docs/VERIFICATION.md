@@ -6,7 +6,7 @@
 - The Vite production build succeeds, and the changes pass `git diff --check`.
 - Headless Chrome renders the menu and active match at 390 × 844 portrait and 844 × 390 landscape viewports. The arena, both transparent fire buttons, and health bar remain visible.
 - A two-contact browser input check moved the fighter while the pistol fired twice. The special-fire button shows an empty state before a pickup.
-- The expanded world is 480 × 880 units. Both playable banks are 240 units deep and stop before the stone river walls.
+- The expanded world is 480 × 880 units. Both playable banks are 250 units deep and stop before the stone river walls and outer barriers.
 
 ## Phase cleanup — 2026-10-25
 

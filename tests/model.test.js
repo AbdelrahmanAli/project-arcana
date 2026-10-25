@@ -361,8 +361,12 @@ test('movement stays on each bank and diagonal speed is normalized',()=>{
   const m=new Match(),p=m.players[0],start={x:p.x,y:p.y};m.move(p,1,1,.1);
   m.obstacles.forEach(o=>o.destroyed=true);
   assert.ok(Math.abs(Math.hypot(p.x-start.x,p.y-start.y)-17)<1e-8);
-  assert.equal(BANK_BOUNDS[0].minY,590,'southern fighter reaches the sand in front of the river wall');
-  assert.equal(BANK_BOUNDS[1].maxY,290,'northern fighter reaches the same river-facing depth');
+  assert.equal(BANK_BOUNDS[0].minY,560,'southern fighter reaches the sand in front of the river wall');
+  assert.equal(BANK_BOUNDS[1].maxY,320,'northern fighter reaches the same river-facing depth');
+  assert.equal(BANK_BOUNDS[0].minY-RIVER.bottom,39);
+  assert.equal(RIVER.top-BANK_BOUNDS[1].maxY,39);
+  assert.equal(BANK_BOUNDS[0].maxY,810,'southern fighter stops at the visible back wall');
+  assert.equal(BANK_BOUNDS[1].minY,70,'northern fighter stops at the visible back wall');
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
   assert.equal(BANK_BOUNDS[0].maxY+BANK_BOUNDS[1].minY,880);
   m.move(p,-100,-100,100);assert.equal(p.y,BANK_BOUNDS[0].minY);assert.ok(p.x>=38);
