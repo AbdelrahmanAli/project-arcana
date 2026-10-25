@@ -19,8 +19,8 @@ These values are the current starting point for playtesting, not locked rules:
 
 | Element | Proposed behavior |
 | --- | --- |
-| Nuclear launcher | 2 rounds, arcing flight over the Tower and shield, 10 initial damage, 1.4-second cooldown |
-| Waste | About 48 world units wide, stays for the round, 6 health per second while a fighter stands inside |
+| Nuclear launcher | 2 rounds, arcing flight over the Tower and shield, 16 center damage, 1.4-second cooldown |
+| Waste | About 48 world units wide, stays for the round, 5 health per second while a fighter stands inside |
 | Crate | Absorbs two direct shots: first cracks, second breaks. Later shots pass through. An explosion breaks it immediately. |
 | Oil barrel | First hit triggers one explosion, 65-unit radius and 22 damage at the center; destroyed wreck remains as a visual battle trace |
 

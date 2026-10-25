@@ -20,19 +20,19 @@ export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
-export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 6;
+export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
-export const FLAME_SPEED = 330;
+export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
   pistol: { name: 'SERVICE PISTOL', ammo: Infinity, damage: 5, speed: 540, cooldown: .48, frame: 13, color: 0xffdc80 },
-  rifle: { name: 'ASSAULT RIFLE', ammo: 12, damage: 7, speed: 650, cooldown: .15, frame: 8, color: 0xffdd77 },
-  shotgun: { name: 'TACTICAL SHOTGUN', ammo: 4, damage: 5, speed: 560, cooldown: .7, frame: 9, color: 0xffae58 },
-  grenade: { name: 'STUN LAUNCHER', ammo: 3, damage: 8, cooldown: 1.1, frame: 10, color: 0x59bbff },
-  missile: { name: 'SMART MISSILE', ammo: 2, damage: 30, speed: 430, cooldown: 1, frame: 11, color: 0xff7548 },
-  laser: { name: 'LASER GUN', ammo: 2, damage: 16, cooldown: .75, frame: 12, color: 0xff414c },
-  nuclear: { name: 'NUCLEAR LAUNCHER', ammo: 2, damage: 10, cooldown: 1.4, color: 0x9bf53d },
+  rifle: { name: 'ASSAULT RIFLE', ammo: 10, damage: 6, speed: 650, cooldown: .18, frame: 8, color: 0xffdd77 },
+  shotgun: { name: 'TACTICAL SHOTGUN', ammo: 4, damage: 7, speed: 560, cooldown: .8, frame: 9, color: 0xffae58 },
+  grenade: { name: 'STUN LAUNCHER', ammo: 2, damage: 7, cooldown: 1.1, frame: 10, color: 0x59bbff },
+  missile: { name: 'SMART MISSILE', ammo: 2, damage: 28, speed: 430, cooldown: 1, frame: 11, color: 0xff7548 },
+  laser: { name: 'LASER GUN', ammo: 1, damage: 16, cooldown: .75, frame: 12, color: 0xff414c },
+  nuclear: { name: 'NUCLEAR LAUNCHER', ammo: 2, damage: 16, cooldown: 1.4, color: 0x9bf53d },
 };
 export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'nuclear'];
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -285,7 +285,7 @@ export class Match {
     } else {
       let dx=0,dy=dir;
       if(type==='missile') { const d=Math.hypot(enemy.x-origin.x,enemy.y-origin.y); dx=(enemy.x-origin.x)/d; dy=(enemy.y-origin.y)/d; }
-      const offsets=type==='shotgun'?[-.17,-.085,0,.085,.17]:[0];
+      const offsets=type==='shotgun'?[-.10,-.05,0,.05,.10]:[0];
       for(const off of offsets) {
         this.bullets.push({id:this.id++,owner:p.id,shotId,type,x:origin.x,y:origin.y,vx:(dx+off)*def.speed,vy:dy*def.speed,damage:def.damage,color:def.color,life:2.3,travel:0,tx:enemy.x,ty:enemy.y,targetDistance:type==='missile'?Math.hypot(enemy.x-origin.x,enemy.y-origin.y):Infinity});
       }
@@ -313,7 +313,7 @@ export class Match {
       const d=distance(target,b);
       if(d>=radius)continue;
       this.damage(target,b.damage*(1-.4*d/radius));if(target.id!==b.owner)this.players[b.owner].hits++;
-      if(stunGrenade&&target.hp>0){target.stun=Math.max(target.stun,GRENADE_STUN_DURATION);target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
+      if(stunGrenade&&target.hp>0&&target.stun<=0){target.stun=GRENADE_STUN_DURATION;target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
     if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y});
     this.emit(effect,{x:b.x}); b.life=0;
@@ -487,7 +487,7 @@ export class Match {
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
       for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle);
-      for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-16*dt);p.burning=.14;}}
+      for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-FLAME_DAMAGE_PER_SECOND*dt);p.burning=.14;}}
       while(f.marked+70<f.reach){
         f.marked+=70;
         const x=f.x+f.dx*f.marked,y=f.y+f.dy*f.marked;

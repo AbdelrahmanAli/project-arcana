@@ -31,6 +31,8 @@ Each round places mirrored T, L, or square crate formations near the river and o
 
 The player's health is below the inventory. The opponent's health and equipped weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar.
 
+Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.md).
+
 ## Structure
 
 - `src/model.js`: rendering-independent match simulation, also used by the tests.
