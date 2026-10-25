@@ -182,7 +182,7 @@ function showDamage(playerId,amount){
   label.className=playerId===1?'damage-number opponent':'damage-number';
   label.textContent=`-${Math.max(1,Math.round(amount))}`;
   label.setAttribute('aria-hidden','true');
-  label.style.left=`${(p.x+(playerId===0?25:0))/W*100}%`;
+  label.style.left=`${(p.x+25)/W*100}%`;
   label.style.top=`${(p.y+(playerId===1?36:-20))/H*100}%`;
   label.addEventListener('animationend',()=>label.remove(),{once:true});
   $('arena').appendChild(label);
