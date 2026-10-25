@@ -58,6 +58,7 @@ for(let i=0;i<3;i++){
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
+const laserBlink=(time,ready)=>.08+.92*((1+Math.sin(time*(ready?28:16)))/2)**2;
 function projectedArc(g,x,y,rx,ry,start,end,width,color,alpha,wobble=0){
   const steps=12;
   for(let i=0;i<=steps;i++){
@@ -432,7 +433,7 @@ function render(){
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
-        const power=p.charge,ready=power>=1,blink=ready ? .66+.34*Math.sin(game.time*28) : .75+.2*Math.sin(game.time*12);
+        const power=p.charge,ready=power>=1,blink=laserBlink(game.time,ready);
         circle(draw,p.x+10,p.y,6+power*8,0xff1530,(.13+power*.2)*blink);
         circle(draw,p.x+10,p.y,2+power*4,ready?0xffe0e0:0xff3547,blink);
         if(p.id===0){
@@ -469,7 +470,7 @@ function render(){
   for(const attacker of game.players){
     if(attacker.hp<=0||game.weapon(attacker)!=='laser'||attacker.charge<=0)continue;
     const target=game.players[1-attacker.id];if(target.hp<=0)continue;
-    const ready=attacker.charge>=1,blink=ready?.58+.42*Math.sin(game.time*28):.72+.28*Math.sin(game.time*12);
+    const ready=attacker.charge>=1,blink=laserBlink(game.time,ready);
     circle(draw,target.x,target.y-6,7+attacker.charge*4,0xff1631,(ready?.25:.15)*blink);
     circle(draw,target.x,target.y-6,2.5+attacker.charge*1.5,ready?0xfff1e9:0xff3348,blink);
   }

@@ -1,8 +1,8 @@
 export const W = 480, H = 720;
 export const RIVER = { top: 273, bottom: 435, x: 240, y: 355 };
 export const BANK_BOUNDS = [
-  { minY: 500, maxY: 680 },
-  { minY: 30, maxY: 210 },
+  { minY: 450, maxY: 680 },
+  { minY: 30, maxY: 205 },
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
@@ -111,13 +111,54 @@ function blocksFighter(o,x,y){
   const nearX=clamp(x,o.x-14,o.x+14),nearY=clamp(y,o.y+6,o.y+16);
   return Math.hypot(x-nearX,y-nearY)<11;
 }
+function pathClear(a,b,crates){
+  const steps=Math.max(1,Math.ceil(distance(a,b)/7));
+  for(let i=0;i<=steps;i++){
+    const t=i/steps,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+    if(crates.some(crate=>blocksFighter(crate,x,y)))return false;
+  }
+  return true;
+}
+function routeAroundCrates(start,target,crates,bank){
+  if(!crates.length||pathClear(start,target,crates))return target;
+  const columns=24,rows=Math.ceil((bank.maxY-bank.minY)/18)+1,count=columns*rows;
+  const nodes=Array.from({length:count},(_,index)=>({
+    x:38+(index%columns)*(W-76)/(columns-1),
+    y:bank.minY+Math.floor(index/columns)*(bank.maxY-bank.minY)/(rows-1),
+  }));
+  const free=nodes.map(point=>!crates.some(crate=>blocksFighter(crate,point.x,point.y)));
+  const nearest=(point,reachable)=>{
+    let best=-1,bestDistance=Infinity;
+    for(let i=0;i<count;i++){
+      if(!free[i]||(reachable&&!pathClear(start,nodes[i],crates)))continue;
+      const d=distance(point,nodes[i]);if(d<bestDistance){best=i;bestDistance=d;}
+    }
+    return best;
+  };
+  const first=nearest(start,true),last=nearest(target,false);
+  if(first<0||last<0)return start;
+  const previous=new Int16Array(count).fill(-1),queue=[first];previous[first]=first;
+  for(let head=0;head<queue.length&&previous[last]<0;head++){
+    const at=queue[head],cx=at%columns,cy=Math.floor(at/columns);
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
+      const nx=cx+dx,ny=cy+dy;if(nx<0||nx>=columns||ny<0||ny>=rows)continue;
+      const next=ny*columns+nx;
+      if(!free[next]||previous[next]>=0||!pathClear(nodes[at],nodes[next],crates))continue;
+      previous[next]=at;queue.push(next);
+    }
+  }
+  if(previous[last]<0)return start;
+  const route=[];for(let at=last;at!==first;at=previous[at])route.push(nodes[at]);
+  for(const point of route)if(pathClear(start,point,crates))return point;
+  return route.at(-1)||target;
+}
 export class Match {
   constructor(random = Math.random) {
     this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,569),soldier(1,290,141)];
     this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
-    this.nextDrop=2.5; this.aiClock=0; this.aiMove={x:0,y:0}; this.aiFire=false; this.aiCharge=0;
+    this.nextDrop=2.5; this.aiClock=0; this.aiWaypoint=null; this.aiTarget=null; this.aiFire=false; this.aiCharge=0;
     this.finished=false; this.winner=null; this.ending=0; this.launches=0;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
@@ -204,11 +245,12 @@ export class Match {
   move(p,x,y,dt) {
     if(p.stun>0){p.moving=false;return;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
-    p.moving=l>.08;
+    const oldX=p.x,oldY=p.y;
     const nextX=clamp(p.x+x*scale*170*dt,38,W-38);
     if(!this.obstacles.some(o=>blocksFighter(o,nextX,p.y)))p.x=nextX;
     const nextY=clamp(p.y+y*scale*170*dt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
     if(!this.obstacles.some(o=>blocksFighter(o,p.x,nextY)))p.y=nextY;
+    p.moving=Math.hypot(p.x-oldX,p.y-oldY)>dt*2;
     if(p.moving) p.walk+=dt;
   }
   collect(p,item) {
@@ -342,15 +384,6 @@ export class Match {
       let tx=enemy.x,ty=(bank.minY+bank.maxY)/2+Math.sin(this.time*.6)*(bank.maxY-bank.minY)*.28;
       const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0).sort((a,b)=>distance(a,p)-distance(b,p));
       if(p.slots.includes(null)&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
-      for(const obstacle of this.obstacles){
-        if(obstacle.owner!==1||obstacle.destroyed||distance(p,obstacle)>170)continue;
-        if(segmentDistance(obstacle,p,{x:tx,y:ty})<39){
-          const upper=obstacle.y-44,lower=obstacle.y+44;
-          ty=upper>=bank.minY+16&&(p.y<obstacle.y||lower>bank.maxY-16)?upper:lower;
-          tx=obstacle.x+(p.x<obstacle.x?-42:42);
-          break;
-        }
-      }
       for(const b of this.bullets) {
         if(b.owner===1)continue;
         if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
@@ -358,12 +391,15 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
-      const dx=tx-p.x,dy=ty-p.y,l=Math.hypot(dx,dy);
-      this.aiMove=l>10?{x:dx/l,y:dy/l}:{x:0,y:0};
+      this.aiTarget={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
+      const crates=this.obstacles.filter(o=>o.owner===1&&o.type==='crate'&&!o.destroyed);
+      this.aiWaypoint=routeAroundCrates(p,this.aiTarget,crates,bank);
       const type=this.weapon(p);
       this.aiFire=['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29);
     }
-    this.move(p,this.aiMove.x,this.aiMove.y,dt);
+    const waypoint=this.aiWaypoint||p,dx=waypoint.x-p.x,dy=waypoint.y-p.y,l=Math.hypot(dx,dy);
+    this.move(p,l>4?dx/l:0,l>4?dy/l:0,dt);
+    if(l<=4&&this.aiTarget&&distance(p,this.aiTarget)>10)this.aiClock=0;
     if(this.weapon(p)==='laser') {
       if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1)this.fire(p,1);}
     } else if(this.aiFire) this.fire(p);

@@ -317,14 +317,27 @@ test('movement stays on each bank and diagonal speed is normalized',()=>{
   const m=new Match(),p=m.players[0],start={x:p.x,y:p.y};m.move(p,1,1,.1);
   m.obstacles.forEach(o=>o.destroyed=true);
   assert.ok(Math.abs(Math.hypot(p.x-start.x,p.y-start.y)-17)<1e-8);
-  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
-  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY+BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY,360);
-  assert.equal(BANK_BOUNDS[0].minY+BANK_BOUNDS[1].maxY,710);
+  assert.equal(BANK_BOUNDS[0].minY,450,'southern fighter reaches the sand in front of the river wall');
+  assert.equal(BANK_BOUNDS[1].maxY,205,'northern fighter remains on sand before the stone wall');
   assert.equal(BANK_BOUNDS[0].maxY+BANK_BOUNDS[1].minY,710);
   m.move(p,-100,-100,100);assert.equal(p.y,BANK_BOUNDS[0].minY);assert.ok(p.x>=38);
+  m.move(p,0,-1,.1);assert.equal(p.moving,false,'fighter does not animate walking into the river wall');
   m.move(p,100,100,100);assert.equal(p.y,BANK_BOUNDS[0].maxY);
   m.move(m.players[1],-100,-100,100);assert.equal(m.players[1].y,BANK_BOUNDS[1].minY);
   m.move(m.players[1],100,100,100);assert.equal(m.players[1].y,BANK_BOUNDS[1].maxY);
+});
+
+test('opponent navigates around grouped crates near a wall and does not detour around barrels',()=>{
+  const m=new Match(()=>.5),opponent=m.players[1];m.nextDrop=Infinity;m.fire=()=>false;
+  m.players[0].x=190;opponent.x=442;opponent.y=185;
+  m.obstacles=[
+    {id:1,owner:1,type:'crate',x:400,y:180,destroyed:false,hits:0},
+    {id:2,owner:1,type:'crate',x:367,y:180,destroyed:false,hits:0},
+    {id:3,owner:1,type:'barrel',x:420,y:130,destroyed:false},
+  ];
+  for(let i=0;i<480;i++)m.update(1/120);
+  assert.ok(opponent.x<345,`opponent escaped the right wall and cover at x=${opponent.x}`);
+  assert.ok(opponent.y>=BANK_BOUNDS[1].minY&&opponent.y<=BANK_BOUNDS[1].maxY);
 });
 
 test('fast projectiles use swept collision rather than skipping targets',()=>{
