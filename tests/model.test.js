@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, BLAST_RADIUS, GRENADE_STUN_DURATION, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, capacity, and never replace occupied slots',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -293,6 +293,19 @@ test('charged laser creates a straight sustained beam and a switch cancels charg
   const m=new Match(),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);p.slots[0]={type:'laser',ammo:2};p.selected=0;m.fire(p,1);
   assert.equal(m.beams.length,1);assert.equal(m.beams[0].x,p.x);assert.equal(m.beams[0].endY,0);
   p.charge=.8;m.select(p,0);assert.equal(p.charge,0);assert.equal(m.weapon(p),'pistol');
+});
+
+test('laser reaches full charge in 1.1 seconds and visibly stronger beams deal more damage',()=>{
+  const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+  p.x=enemy.x=240;p.slots[0]={type:'laser',ammo:2};p.selected=0;
+  for(let i=0;i<Math.ceil(LASER_CHARGE_TIME*120)+1;i++)m.update(1/120,{fire:true});
+  assert.equal(p.charge,1);assert.equal(p.shots,0,'holding charges without firing');
+  m.fire(p,p.charge);
+  assert.equal(enemy.hp,100-WEAPONS.laser.damage-LASER_BONUS_DAMAGE);
+  assert.equal(m.beams.at(-1).power,1);assert.equal(p.charge,0);
+  p.cooldown=0;m.fire(p,.5);
+  assert.equal(m.beams.at(-1).power,.5);
+  assert.equal(enemy.hp,100-WEAPONS.laser.damage*2-LASER_BONUS_DAMAGE*1.5);
 });
 
 test('movement stays on each bank and diagonal speed is normalized',()=>{

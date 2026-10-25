@@ -19,6 +19,7 @@ export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 78, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
+export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 6;
 export const BARREL_BLAST_RADIUS = 45, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330;
@@ -191,6 +192,7 @@ export class Match {
   fire(p,power=0) {
     if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.cooldown>0) return false;
     const type=this.weapon(p), def=WEAPONS[type], enemy=this.players[1-p.id];
+    const charge=type==='laser'?clamp(power,0,1):0;
     const dir=p.id===0?-1:1;
     p.cooldown=def.cooldown; p.flash=.09; p.shots++; p.charge=0;
     const origin={x:p.x,y:p.y+dir*24};
@@ -204,8 +206,8 @@ export class Match {
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='tower')this.hitTower(p.id,first.hit);
       else if(first?.kind==='obstacle')this.destroyObstacle(first.obstacle);
-      else if(first?.kind==='player'){this.damage(enemy,def.damage+Math.round(power*30));p.hits++;}
-      this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,age:0,life:.34});
+      else if(first?.kind==='player'){this.damage(enemy,def.damage+Math.round(charge*LASER_BONUS_DAMAGE));p.hits++;}
+      this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,power:charge,age:0,life:.34});
     } else if(type==='grenade'||type==='nuclear') {
       this.bullets.push({id:this.id++,owner:p.id,type,x:origin.x,y:origin.y,sx:origin.x,sy:origin.y,tx:enemy.x,ty:enemy.y,t:0,duration:type==='nuclear'?1:.9,damage:def.damage,color:def.color,life:1.4});
     } else {
@@ -333,7 +335,7 @@ export class Match {
     }
     this.move(p,this.aiMove.x,this.aiMove.y,dt);
     if(this.weapon(p)==='laser') {
-      if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/1.1);if(p.charge>=1)this.fire(p,1);}
+      if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1)this.fire(p,1);}
     } else if(this.aiFire) this.fire(p);
   }
   update(dt,input={x:0,y:0,fire:false}) {
@@ -355,7 +357,7 @@ export class Match {
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     this.updateTower(dt); this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
-    if(input.fire&&p.stun<=0){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/1.1);else this.fire(p);}
+    if(input.fire&&p.stun<=0){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
     this.think(dt);
     for(const i of this.pickups){
       if(i.flight>0){

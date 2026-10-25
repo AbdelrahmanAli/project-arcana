@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import './style.css';
 import './hud.css';
@@ -157,7 +157,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput
 function updateHud(){
   const p=game.players[0],enemy=game.players[1];
   for(let i=0;i<3;i++){
-    const slot=p.slots[i],{el,empty,icon,ammo,ammoLine}=slotViews[i];el.classList.toggle('empty',!slot);el.classList.toggle('selected',p.selected===i);el.setAttribute('aria-pressed',p.selected===i?'true':'false');
+    const slot=p.slots[i],{el,empty,icon,ammo,ammoLine}=slotViews[i];el.classList.toggle('empty',!slot);el.classList.toggle('selected',p.selected===i);el.classList.toggle('laser-charging',slot?.type==='laser'&&p.selected===i&&p.charge>0);el.classList.toggle('laser-ready',slot?.type==='laser'&&p.selected===i&&p.charge>=1);el.setAttribute('aria-pressed',p.selected===i?'true':'false');
     empty.hidden=!!slot;icon.hidden=!slot;
     ammo.textContent=slot?slot.ammo:'';
     ammoLine.style.width=slot?`${slot.ammo/WEAPONS[slot.type].ammo*45}%`:'0';
@@ -179,7 +179,13 @@ function updateHud(){
   if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
   else{badge.firstElementChild.style.removeProperty('background-size');badge.firstElementChild.style.removeProperty('background-position');}
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
-  $('charge').style.height=`${p.charge*100}%`;
+  const laserEquipped=game.weapon(p)==='laser';
+  $('fire').classList.toggle('laser-equipped',laserEquipped);
+  $('fire').classList.toggle('laser-charging',laserEquipped&&p.charge>0);
+  $('fire').classList.toggle('laser-ready',laserEquipped&&p.charge>=1);
+  $('charge').style.height=laserEquipped?`${p.charge*100}%`:'0';
+  $('fire').querySelector('b').textContent=laserEquipped?(p.charge>=1?'RELEASE':p.charge>0?`${Math.round(p.charge*100)}%`:'HOLD'):'FIRE';
+  $('fire').setAttribute('aria-label',laserEquipped?`Hold up to ${LASER_CHARGE_TIME.toFixed(1)} seconds, then release to fire laser. ${Math.round(p.charge*100)} percent charged`:'Fire selected weapon');
 }
 function render(){
   draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
@@ -379,6 +385,15 @@ function render(){
       corpse.visible=false;
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
+      if(game.weapon(p)==='laser'&&p.charge>0){
+        const power=p.charge,ready=power>=1,blink=ready ? .66+.34*Math.sin(game.time*28) : .75+.2*Math.sin(game.time*12);
+        circle(draw,p.x+10,p.y,6+power*8,0xff1530,(.13+power*.2)*blink);
+        circle(draw,p.x+10,p.y,2+power*4,ready?0xffe0e0:0xff3547,blink);
+        if(p.id===0){
+          draw.roundRect(p.x-19,p.y-50,38,6,2).fill({color:0x220c10,alpha:.9});
+          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xffebdf:0xff3946,alpha:blink});
+        }
+      }
     }else{
       const age=p.deathAge,blue=p.id===0;
       const frame=Math.min(3,Math.floor(age/DEATH_FRAME_STEP));
@@ -440,7 +455,15 @@ function render(){
     }
   }
   for(const [id,sprite] of aerialSprites)if(!activeAerialProjectiles.has(id)){sprite.destroy();aerialSprites.delete(id);}
-  for(const b of game.beams){const alpha=1-b.age/b.life,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},16,0xa70f22,alpha*.35);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},8,0xff283d,alpha);line(shotDraw,{x:b.x,y:b.y},{x:b.x,y:b.endY},2,0xffffff,alpha);}
+  for(const b of game.beams){
+    const alpha=1-b.age/b.life,power=b.power??0,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;
+    const start={x:b.x,y:b.y},end={x:b.x,y:b.endY};
+    line(shotDraw,start,end,8+16*power,0xa70f22,alpha*(.24+.18*power));
+    line(shotDraw,start,end,4+8*power,0xff283d,alpha);
+    line(shotDraw,start,end,1.5+3*power,0xffffff,alpha);
+    circle(draw,b.x,b.endY,3+8*power,0xff3647,alpha*.7);
+    if(power>.8)circle(draw,b.x,b.endY,2+4*power,0xfff3e9,alpha);
+  }
   for(const e of game.effects){
     const k=e.age/e.life;
     if(e.type==='nuclearBlast'){
