@@ -379,11 +379,11 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
     assert.ok(southCrates.length>=3&&southCrates.length<=4&&southBarrels.length>=1&&southBarrels.length<=2);
     const shape=southCrates[0].formation;layouts.add(shape);
     assert.ok(['T','L','square'].includes(shape));
-    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=515&&o.y<=537));
+    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=515&&o.y<=532));
     const actual=southCrates.map(o=>`${o.x},${o.y}`).sort();
     const origin=southCrates.find(o=>o.y===515&&[80,400].includes(o.x));
     assert.ok(origin);
-    const offsets={T:[[-33,0],[0,0],[33,0],[0,22]],L:[[0,0],[33,0],[0,22]],square:[[0,0],[33,0],[0,22],[33,22]]};
+    const offsets={T:[[-33,0],[0,0],[33,0],[0,17]],L:[[0,0],[33,0],[0,17]],square:[[0,0],[33,0],[0,17],[33,17]]};
     assert.deepEqual(actual,offsets[shape].map(([x,y])=>`${origin.x+x},${515+y}`).sort());
     for(const [index,south] of southObjects.entries()){
       const north=northObjects[index];assert.equal(south.type,north.type);

@@ -58,6 +58,22 @@ for(let i=0;i<3;i++){
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
+function drawBlastZone(g,x,y,radius,fade){
+  const a=Math.max(0,Math.min(1,fade));
+  g.circle(x,y+3,radius).fill({color:0xa91125,alpha:a*.2});
+  g.circle(x,y+3,radius+8).stroke({color:0xe80021,width:13,alpha:a*.25});
+  g.circle(x,y+3,radius+4).stroke({color:0xff1732,width:8,alpha:a*.46});
+  g.circle(x,y+3,radius).stroke({color:0xff3540,width:2.5,alpha:a});
+}
+function drawTargetLock(g,x,y,radius,time){
+  const pulse=.72+.18*Math.sin(time*10);
+  g.circle(x,y+3,radius).fill({color:0xa91125,alpha:.07*pulse});
+  g.circle(x,y+3,radius+6).stroke({color:0xe80021,width:10,alpha:.22*pulse});
+  g.circle(x,y+3,radius).stroke({color:0xff3540,width:2,alpha:pulse});
+  g.circle(x,y+3,10).stroke({color:0xffad9c,width:1.5,alpha:pulse});
+  line(g,{x:x-6,y:y+3},{x:x+6,y:y+3},1.5,0xffad9c,pulse);
+  line(g,{x,y:y-3},{x,y:y+9},1.5,0xffad9c,pulse);
+}
 function createShieldGlass(){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
   const ctx=canvas.getContext('2d');
@@ -224,6 +240,10 @@ function render(){
     if(!sprite){sprite=new Sprite((obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
     else if(sprite.parent!==layer)layer.addChild(sprite);
     const crate=obstacle.type==='crate',frames=crate?crateFrames:barrelFrames;
+    if(crate&&!obstacle.destroyed){
+      groundDraw.ellipse(obstacle.x+2,obstacle.y+17,20,5).fill({color:0x16110c,alpha:.5});
+      groundDraw.ellipse(obstacle.x+1,obstacle.y+14,16,3).fill({color:0x39261a,alpha:.38});
+    }
     sprite.texture=frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
     sprite.width=crate?40:44;sprite.height=crate?40:54;
     sprite.position.set(obstacle.x,obstacle.y+(crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
@@ -426,12 +446,8 @@ function render(){
   }
   const activeAerialProjectiles=new Set();
   for(const b of game.bullets){
+    if(b.type==='missile'||b.type==='grenade'||b.type==='nuclear')drawTargetLock(groundDraw,b.tx,b.ty,BLAST_RADIUS[b.type],game.time);
     if(b.type==='missile'){
-      const pulse=.7+.3*Math.sin(game.time*8);
-      groundDraw.ellipse(b.tx,b.ty,BLAST_RADIUS.missile,BLAST_RADIUS.missile*.32).stroke({color:0xff4c32,width:2,alpha:pulse*.65});
-      groundDraw.ellipse(b.tx,b.ty,20,8).stroke({color:0xff9c62,width:1.5,alpha:pulse});
-      groundDraw.moveTo(b.tx-8,b.ty).lineTo(b.tx+8,b.ty).stroke({color:0xff9c62,width:1,alpha:pulse});
-      groundDraw.moveTo(b.tx,b.ty-7).lineTo(b.tx,b.ty+7).stroke({color:0xff9c62,width:1,alpha:pulse});
       groundDraw.ellipse(b.x,b.y+3,7,3).fill({color:0x142526,alpha:.35});
     }
     if(b.type==='grenade'||b.type==='nuclear'){
@@ -472,12 +488,14 @@ function render(){
     const k=e.age/e.life;
     if(e.type==='nuclearBlast'){
       const radius=9+k*BLAST_RADIUS.nuclear;
+      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.nuclear,1-k);
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.58,radius*.22).fill({color:0x6bd822,alpha:(1-k)*.34});
       circle(draw,e.x,e.y-10,8+k*24,0xa5ff56,(1-k)*.46);
       for(let n=0;n<12;n++){const a=n*Math.PI/6+e.seed;rect(draw,e.x+Math.cos(a)*radius*.8,e.y-8+Math.sin(a)*radius*.55,3,3,n%3?0x83f53a:0xe5ff8c,1-k);}
     }else if(e.type==='stunBlast'){
       const radius=8+k*BLAST_RADIUS.grenade;
+      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.grenade,1-k);
       groundDraw.ellipse(e.x,e.y+3,radius,radius*.32).stroke({color:0x5bcaff,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.62,radius*.19).fill({color:0x1266cb,alpha:(1-k)*.34});
       circle(draw,e.x,e.y-9,10+k*25,0x3195ff,(1-k)*.44);
@@ -493,9 +511,8 @@ function render(){
       s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?126:112;s.height=towerHit?52:barrelHit?126:112;s.alpha=1-k*.28;
       if(!towerHit){
         const radius=8+k*(barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile);
+        drawBlastZone(groundDraw,e.x,e.y,barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile,1-k);
         if(barrelHit){
-          groundDraw.circle(e.x,e.y+3,BARREL_BLAST_RADIUS).fill({color:0xbe192d,alpha:(1-k)*.18});
-          groundDraw.circle(e.x,e.y+3,radius).stroke({color:0xff4a54,width:3,alpha:(1-k)*.85});
           groundDraw.ellipse(e.x,e.y+4,radius*.64,radius*.28).fill({color:0xff612e,alpha:(1-k)*.22});
         }else{
           groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
