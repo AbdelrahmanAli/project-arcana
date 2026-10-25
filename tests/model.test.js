@@ -231,7 +231,7 @@ test('grenades and missiles capture opponent position and do not home after firi
 });
 
 test('larger blasts reach fighters farther from the impact point',()=>{
-  for(const [type,offset] of [['grenade',70],['missile',50]]){
+  for(const [type,offset] of [['grenade',55],['missile',50]]){
     const m=new Match(()=>.5),enemy=m.players[1];
     m.explode({owner:0,type,x:enemy.x-offset,y:enemy.y,damage:WEAPONS[type].damage,life:1});
     assert.ok(offset<BLAST_RADIUS[type]);

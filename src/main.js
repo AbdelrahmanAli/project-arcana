@@ -58,21 +58,47 @@ for(let i=0;i<3;i++){
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
-function drawBlastZone(g,x,y,radius,fade){
-  const a=Math.max(0,Math.min(1,fade));
-  g.circle(x,y+3,radius).fill({color:0xa91125,alpha:a*.2});
-  g.circle(x,y+3,radius+8).stroke({color:0xe80021,width:13,alpha:a*.25});
-  g.circle(x,y+3,radius+4).stroke({color:0xff1732,width:8,alpha:a*.46});
-  g.circle(x,y+3,radius).stroke({color:0xff3540,width:2.5,alpha:a});
+function projectedArc(g,x,y,rx,ry,start,end,width,color,alpha,wobble=0){
+  const steps=12;
+  for(let i=0;i<=steps;i++){
+    const angle=start+(end-start)*i/steps,rough=1+wobble*Math.sin(angle*9+rx);
+    const px=x+Math.cos(angle)*rx*rough,py=y+3+Math.sin(angle)*ry*rough;
+    if(i===0)g.moveTo(px,py);else g.lineTo(px,py);
+  }
+  g.stroke({color,width,alpha});
 }
-function drawTargetLock(g,x,y,radius,time){
-  const pulse=.72+.18*Math.sin(time*10);
-  g.circle(x,y+3,radius).fill({color:0xa91125,alpha:.07*pulse});
-  g.circle(x,y+3,radius+6).stroke({color:0xe80021,width:10,alpha:.22*pulse});
-  g.circle(x,y+3,radius).stroke({color:0xff3540,width:2,alpha:pulse});
-  g.circle(x,y+3,10).stroke({color:0xffad9c,width:1.5,alpha:pulse});
-  line(g,{x:x-6,y:y+3},{x:x+6,y:y+3},1.5,0xffad9c,pulse);
-  line(g,{x,y:y-3},{x,y:y+9},1.5,0xffad9c,pulse);
+const AREA_COLORS={
+  missile:{fill:0x9b1524,halo:0xe71129,edge:0xff5445,spark:0xff9e55,center:0xffa46e},
+  grenade:{fill:0x0c4e9e,halo:0x0b73dd,edge:0x69d8ff,spark:0xa1eeff,center:0xc2f7ff},
+  nuclear:{fill:0x255c13,halo:0x4fbd16,edge:0xa8f75a,spark:0xe4ff85,center:0xf2ffac},
+};
+function drawBlastZone(g,x,y,radius,progress,type){
+  const colors=AREA_COLORS[type]||AREA_COLORS.missile;
+  const fade=Math.max(0,1-progress),spread=radius*(.8+.2*Math.min(1,progress*5));
+  g.ellipse(x,y+3,spread,spread*.72).fill({color:colors.fill,alpha:fade*.13});
+  for(let i=0;i<5;i++){
+    const start=i*Math.PI*2/5+.09,end=start+.9;
+    projectedArc(g,x,y,spread+5,(spread+5)*.72,start,end,9,colors.halo,fade*.22,.025);
+    projectedArc(g,x,y,spread,spread*.72,start,end,2.5,colors.edge,fade*.9,.025);
+  }
+  for(let i=0;i<9;i++){
+    const angle=i*Math.PI*2/9+progress*.3,px=x+Math.cos(angle)*spread,py=y+3+Math.sin(angle)*spread*.72;
+    line(g,{x:px,y:py},{x:px+Math.cos(angle)*6,y:py+Math.sin(angle)*4},1.5,colors.spark,fade*.65);
+  }
+}
+function drawTargetLock(g,x,y,radius,time,type){
+  const colors=AREA_COLORS[type]||AREA_COLORS.missile;
+  const pulse=.72+.2*Math.sin(time*9),phase=time*.3;
+  g.ellipse(x,y+3,radius,radius*.72).fill({color:colors.fill,alpha:.07*pulse});
+  for(let i=0;i<4;i++){
+    const start=i*Math.PI/2+phase+.08,end=start+1.18;
+    projectedArc(g,x,y,radius+4,(radius+4)*.72,start,end,8,colors.halo,.16*pulse);
+    projectedArc(g,x,y,radius,radius*.72,start,end,2,colors.edge,.86*pulse);
+  }
+  projectedArc(g,x,y,radius*.38,radius*.27,phase*2,phase*2+.85,2,colors.spark,.55*pulse);
+  g.ellipse(x,y+3,9,6).stroke({color:colors.center,width:1.3,alpha:.7*pulse});
+  line(g,{x:x-5,y:y+3},{x:x+5,y:y+3},1,colors.center,pulse);
+  line(g,{x,y:y-2},{x,y:y+8},1,colors.center,pulse);
 }
 function createShieldGlass(){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=512;
@@ -240,10 +266,6 @@ function render(){
     if(!sprite){sprite=new Sprite((obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
     else if(sprite.parent!==layer)layer.addChild(sprite);
     const crate=obstacle.type==='crate',frames=crate?crateFrames:barrelFrames;
-    if(crate&&!obstacle.destroyed){
-      groundDraw.ellipse(obstacle.x+2,obstacle.y+17,20,5).fill({color:0x16110c,alpha:.5});
-      groundDraw.ellipse(obstacle.x+1,obstacle.y+14,16,3).fill({color:0x39261a,alpha:.38});
-    }
     sprite.texture=frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
     sprite.width=crate?40:44;sprite.height=crate?40:54;
     sprite.position.set(obstacle.x,obstacle.y+(crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
@@ -444,9 +466,16 @@ function render(){
       }
     }
   }
+  for(const attacker of game.players){
+    if(attacker.hp<=0||game.weapon(attacker)!=='laser'||attacker.charge<=0)continue;
+    const target=game.players[1-attacker.id];if(target.hp<=0)continue;
+    const ready=attacker.charge>=1,blink=ready?.58+.42*Math.sin(game.time*28):.72+.28*Math.sin(game.time*12);
+    circle(draw,target.x,target.y-6,7+attacker.charge*4,0xff1631,(ready?.25:.15)*blink);
+    circle(draw,target.x,target.y-6,2.5+attacker.charge*1.5,ready?0xfff1e9:0xff3348,blink);
+  }
   const activeAerialProjectiles=new Set();
   for(const b of game.bullets){
-    if(b.type==='missile'||b.type==='grenade'||b.type==='nuclear')drawTargetLock(groundDraw,b.tx,b.ty,BLAST_RADIUS[b.type],game.time);
+    if(b.type==='missile'||b.type==='grenade'||b.type==='nuclear')drawTargetLock(groundDraw,b.tx,b.ty,BLAST_RADIUS[b.type],game.time,b.type);
     if(b.type==='missile'){
       groundDraw.ellipse(b.x,b.y+3,7,3).fill({color:0x142526,alpha:.35});
     }
@@ -488,14 +517,14 @@ function render(){
     const k=e.age/e.life;
     if(e.type==='nuclearBlast'){
       const radius=9+k*BLAST_RADIUS.nuclear;
-      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.nuclear,1-k);
+      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.nuclear,k,'nuclear');
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.58,radius*.22).fill({color:0x6bd822,alpha:(1-k)*.34});
       circle(draw,e.x,e.y-10,8+k*24,0xa5ff56,(1-k)*.46);
       for(let n=0;n<12;n++){const a=n*Math.PI/6+e.seed;rect(draw,e.x+Math.cos(a)*radius*.8,e.y-8+Math.sin(a)*radius*.55,3,3,n%3?0x83f53a:0xe5ff8c,1-k);}
     }else if(e.type==='stunBlast'){
       const radius=8+k*BLAST_RADIUS.grenade;
-      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.grenade,1-k);
+      drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.grenade,k,'grenade');
       groundDraw.ellipse(e.x,e.y+3,radius,radius*.32).stroke({color:0x5bcaff,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.62,radius*.19).fill({color:0x1266cb,alpha:(1-k)*.34});
       circle(draw,e.x,e.y-9,10+k*25,0x3195ff,(1-k)*.44);
@@ -511,7 +540,7 @@ function render(){
       s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?126:112;s.height=towerHit?52:barrelHit?126:112;s.alpha=1-k*.28;
       if(!towerHit){
         const radius=8+k*(barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile);
-        drawBlastZone(groundDraw,e.x,e.y,barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile,1-k);
+        drawBlastZone(groundDraw,e.x,e.y,barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile,k,'missile');
         if(barrelHit){
           groundDraw.ellipse(e.x,e.y+4,radius*.64,radius*.28).fill({color:0xff612e,alpha:(1-k)*.22});
         }else{
@@ -576,7 +605,7 @@ async function boot(){
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
   const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,crateArt,barrelArt]=await Promise.all([
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
-    ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','breakable-crate-horizontal-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
+    ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));

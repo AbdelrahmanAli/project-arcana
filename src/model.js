@@ -17,7 +17,7 @@ export const TOWER_GEOMETRY = {
 // The head remains visible inside the open hatch after the exposed shaft retracts.
 export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
-export const BLAST_RADIUS = { grenade: 78, missile: 58, nuclear: 52 };
+export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 6;
