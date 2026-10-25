@@ -1,8 +1,8 @@
 export const W = 480, H = 720;
 export const RIVER = { top: 273, bottom: 435, x: 240, y: 355 };
 export const BANK_BOUNDS = [
-  { minY: 458, maxY: 680 },
-  { minY: 30, maxY: 252 },
+  { minY: 500, maxY: 680 },
+  { minY: 30, maxY: 210 },
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
@@ -21,7 +21,7 @@ export const BLAST_RADIUS = { grenade: 78, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 6;
-export const BARREL_BLAST_RADIUS = 45, BARREL_DAMAGE = 22;
+export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330;
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
@@ -106,11 +106,9 @@ function soldier(id, x, y) {
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
 function blocksFighter(o,x,y){
-  if(o.destroyed)return false;
-  // Only the object's footprint blocks walking. Its tall sprite is allowed to
-  // overlap a fighter walking behind it, with depth sorting handling the view.
-  const crate=o.type==='crate',halfWidth=crate?14:12;
-  const nearX=clamp(x,o.x-halfWidth,o.x+halfWidth),nearY=clamp(y,o.y+(crate?6:8),o.y+(crate?16:20));
+  if(o.destroyed||o.type==='barrel')return false;
+  // Crates are solid cover; barrels can be walked past while still blocking shots.
+  const nearX=clamp(x,o.x-14,o.x+14),nearY=clamp(y,o.y+6,o.y+16);
   return Math.hypot(x-nearX,y-nearY)<11;
 }
 export class Match {
@@ -124,14 +122,31 @@ export class Match {
   }
   emit(type, data={}) { this.events.push({type,...data}); }
   makeObstacles(){
-    const crateCount=1+Math.floor(this.random()*3),barrelCount=1+Math.floor(this.random()*2);
-    const types=[...Array(crateCount).fill('crate'),...Array(barrelCount).fill('barrel')];
-    const anchors=[{x:130,y:508},{x:350,y:508},{x:130,y:625},{x:350,y:625},{x:262,y:489},{x:262,y:647}];
-    for(let i=anchors.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[anchors[i],anchors[j]]=[anchors[j],anchors[i]];}
-    for(let i=types.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[types[i],types[j]]=[types[j],types[i]];}
-    const south=types.map((type,i)=>({type,x:anchors[i].x+(this.random()-.5)*24,y:anchors[i].y+(this.random()-.5)*20}));
-    return [...south.map(o=>({...o,id:this.id++,owner:0,destroyed:false,flash:0})),
-      ...south.map(o=>({...o,id:this.id++,owner:1,x:W-o.x,y:2*RIVER.y-o.y,destroyed:false,flash:0}))];
+    const formations={
+      T:[[-42,0],[0,0],[42,0],[0,42]],
+      L:[[0,0],[42,0],[0,42]],
+      square:[[0,0],[42,0],[0,42],[42,42]],
+    };
+    const shape=Object.keys(formations)[Math.floor(this.random()*3)];
+    const side=this.random()<.5?-1:1;
+    const originX=side<0?80:400;
+    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:515+dy,formation:shape}));
+    const barrelCount=1+Math.floor(this.random()*2);
+    const clear=point=>Math.hypot(point.x-190,point.y-569)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
+    for(let i=0;i<barrelCount;i++){
+      let point;
+      for(let attempt=0;attempt<24;attempt++){
+        const candidate={x:55+this.random()*370,y:510+this.random()*155};
+        if(clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52)){point=candidate;break;}
+      }
+      if(!point){
+        const fallback=[{x:240,y:640},{x:240,y:520},{x:170,y:640},{x:310,y:640},{x:170,y:520},{x:310,y:520}];
+        point=fallback.find(candidate=>clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52));
+      }
+      if(point)south.push({type:'barrel',...point});
+    }
+    return [...south.map(o=>({...o,id:this.id++,owner:0,destroyed:false,hits:0,flash:0})),
+      ...south.map(o=>({...o,id:this.id++,owner:1,x:W-o.x,y:2*RIVER.y-o.y,destroyed:false,hits:0,flash:0}))];
   }
   nearestObstacleHit(a,b){
     let nearest=null;
@@ -145,16 +160,30 @@ export class Match {
   damageAreaObjects(x,y,radius){
     for(const obstacle of this.obstacles)if(!obstacle.destroyed&&Math.hypot(obstacle.x-x,obstacle.y-y)<radius+Math.min(OBSTACLE_HALF[obstacle.type].x,OBSTACLE_HALF[obstacle.type].y))this.destroyObstacle(obstacle);
   }
+  hitObstacle(obstacle,shotId){
+    if(obstacle.destroyed)return false;
+    if(obstacle.type==='crate'&&shotId!==undefined){
+      if(obstacle.lastHitShot===shotId)return true;
+      obstacle.lastHitShot=shotId;
+    }
+    if(obstacle.type==='crate'&&(obstacle.hits||0)===0){
+      obstacle.hits=1;obstacle.flash=.15;
+      this.effects.push({id:this.id++,type:'crateHit',x:obstacle.x,y:obstacle.y,age:0,life:.24,seed:this.random()});
+      this.emit('crateHit',{x:obstacle.x});
+      return true;
+    }
+    return this.destroyObstacle(obstacle);
+  }
   destroyObstacle(obstacle){
     if(obstacle.destroyed)return false;
-    obstacle.destroyed=true;obstacle.flash=.15;
+    obstacle.destroyed=true;obstacle.hits=obstacle.type==='crate'?2:obstacle.hits;obstacle.flash=.15;
     if(obstacle.type==='crate'){
       this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
       this.emit('crateBreak',{x:obstacle.x});
     }else{
-      this.effects.push({id:this.id++,type:'barrelBlast',x:obstacle.x,y:obstacle.y,age:0,life:.6,seed:this.random()});
+      this.effects.push({id:this.id++,type:'barrelBlast',x:obstacle.x,y:obstacle.y,age:0,life:.9,seed:this.random()});
       this.effects.push({id:this.id++,type:'smoke',x:obstacle.x,y:obstacle.y,age:0,life:2,seed:this.random()});
-      this.mark('scorch',obstacle.x,obstacle.y,1.15);
+      this.mark('scorch',obstacle.x,obstacle.y,1.5);
       for(const player of this.players){
         const d=Math.hypot(player.x-obstacle.x,player.y-obstacle.y);
         if(d<BARREL_BLAST_RADIUS)this.damage(player,BARREL_DAMAGE*(1-.4*d/BARREL_BLAST_RADIUS),obstacle.x,obstacle.y);
@@ -195,6 +224,7 @@ export class Match {
     const charge=type==='laser'?clamp(power,0,1):0;
     const dir=p.id===0?-1:1;
     p.cooldown=def.cooldown; p.flash=.09; p.shots++; p.charge=0;
+    const shotId=this.id++;
     const origin={x:p.x,y:p.y+dir*24};
     if(type==='laser') {
       const end={x:origin.x,y:p.id===0?0:H};
@@ -205,7 +235,7 @@ export class Match {
       const hits=[shieldHit&&{kind:'tower',hit:shieldHit},bodyHit&&{kind:'tower',hit:bodyHit},obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit}].filter(Boolean);
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='tower')this.hitTower(p.id,first.hit);
-      else if(first?.kind==='obstacle')this.destroyObstacle(first.obstacle);
+      else if(first?.kind==='obstacle')this.hitObstacle(first.obstacle,shotId);
       else if(first?.kind==='player'){this.damage(enemy,def.damage+Math.round(charge*LASER_BONUS_DAMAGE));p.hits++;}
       this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,power:charge,age:0,life:.34});
     } else if(type==='grenade'||type==='nuclear') {
@@ -215,7 +245,7 @@ export class Match {
       if(type==='missile') { const d=Math.hypot(enemy.x-origin.x,enemy.y-origin.y); dx=(enemy.x-origin.x)/d; dy=(enemy.y-origin.y)/d; }
       const offsets=type==='shotgun'?[-.17,-.085,0,.085,.17]:[0];
       for(const off of offsets) {
-        this.bullets.push({id:this.id++,owner:p.id,type,x:origin.x,y:origin.y,vx:(dx+off)*def.speed,vy:dy*def.speed,damage:def.damage,color:def.color,life:2.3,travel:0,tx:enemy.x,ty:enemy.y,targetDistance:type==='missile'?Math.hypot(enemy.x-origin.x,enemy.y-origin.y):Infinity});
+        this.bullets.push({id:this.id++,owner:p.id,shotId,type,x:origin.x,y:origin.y,vx:(dx+off)*def.speed,vy:dy*def.speed,damage:def.damage,color:def.color,life:2.3,travel:0,tx:enemy.x,ty:enemy.y,targetDistance:type==='missile'?Math.hypot(enemy.x-origin.x,enemy.y-origin.y):Infinity});
       }
     }
     if(p.selected>=0) { const slot=p.slots[p.selected]; slot.ammo--; if(slot.ammo<=0){p.slots[p.selected]=null;p.selected=-1;} }
@@ -390,7 +420,7 @@ export class Match {
       const bodyHit=segmentTowerHit(prev,b,this.tower);
       const obstacleHit=this.nearestObstacleHit(prev,b);
       const towerHit=shieldHit||bodyHit;
-      if(obstacleHit&&(!towerHit||distance(prev,obstacleHit.hit)<=distance(prev,towerHit))){this.destroyObstacle(obstacleHit.obstacle);b.life=0;continue;}
+      if(obstacleHit&&(!towerHit||distance(prev,obstacleHit.hit)<=distance(prev,towerHit))){this.hitObstacle(obstacleHit.obstacle,b.shotId);b.life=0;continue;}
       if(shieldHit){this.hitTower(b.owner,shieldHit);b.life=0;continue;}
       if(bodyHit&&this.hitTower(b.owner,bodyHit)){b.life=0;continue;}
       if(b.x<0||b.x>W||b.y<0||b.y>H)b.life=0;
@@ -419,7 +449,7 @@ export class Match {
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
-      for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.destroyObstacle(obstacle);
+      for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle);
       for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-16*dt);p.hurt=.05;}}
       while(f.marked+70<f.reach){
         f.marked+=70;

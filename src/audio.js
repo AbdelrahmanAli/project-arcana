@@ -99,6 +99,7 @@ export class Sound {
     this.clips.nuclear=new Howl({src:[nuclearLaunchWav()],format:['wav'],volume:.32,preload:true,pool:8});
     this.clips.nuclearBlast=new Howl({src:[nuclearBlastWav()],format:['wav'],volume:.34,preload:true,pool:8});
     this.clips.crateBreak=new Howl({src:[wav(.25,180,.9,12)],format:['wav'],volume:.25,preload:true,pool:8});
+    this.clips.crateHit=new Howl({src:[wav(.11,225,.72,18)],format:['wav'],volume:.19,preload:true,pool:8});
     this.clips.barrelBlast=new Howl({src:[wav(.64,62,.9,5)],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});

@@ -49,8 +49,8 @@
 .opponent-hud { z-index:4; }
 .overlay.result { animation:resultFade .9s ease both; }
 .overlay.result .overlay-card { animation:resultRise .9s .25s ease both; }
-.game-unit.ended .console { pointer-events:none; }
-.game-unit.ended .console::after { content:""; position:absolute; z-index:8; inset:0; background:#0d171ac7; }
+.game-unit:is(.ended,.paused) .console { pointer-events:none; }
+.game-unit:is(.ended,.paused) .console::after { content:""; position:absolute; z-index:8; inset:0; background:#0d171ac7; }
 @keyframes resultFade { from { opacity:0; } to { opacity:1; } }
 @keyframes resultRise { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 @media(max-width:700px){ .menu-card { padding:14px; } .menu-card h2 { font-size:56px; } .game-top #menu-open { font-size:8px; } }

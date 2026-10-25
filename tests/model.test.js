@@ -23,7 +23,7 @@ test('spending final shot frees the slot and restores unlimited pistol',()=>{
 });
 
 test('each launch creates a pair with independent rolls and valid bank positions',()=>{
-  let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match(()=>values[i++%values.length]);i=0;m.launch();
+  let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match();m.obstacles.forEach(o=>o.destroyed=true);m.random=()=>values[i++%values.length];m.launch();
   assert.equal(m.pickups.length,2);assert.equal(m.pickups[0].type,'rifle');assert.equal(m.pickups[1].type,'nuclear');
   assert.ok(m.pickups[0].y>RIVER.bottom);assert.ok(m.pickups[1].y<RIVER.top);
   for(const item of m.pickups)assert.ok(item.y>=BANK_BOUNDS[item.owner].minY+20&&item.y<=BANK_BOUNDS[item.owner].maxY-20);
@@ -80,6 +80,7 @@ test('tower impact belongs to the exposed shaft, not its submerged base',()=>{
   assert.ok(TOWER_ACTIVE_HEIGHT<(TOWER_GEOMETRY.shaftBaseY-TOWER_GEOMETRY.apertureTop)/TOWER_GEOMETRY.shaftHeight);
   assert.equal(towerBodyBounds({height:TOWER_ACTIVE_HEIGHT}),null);
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   m.tower.phase='deliver';m.tower.height=1;m.players[0].x=RIVER.x;
   m.fire(m.players[0]);for(let i=0;i<65;i++)m.update(1/120);
   const impact=m.effects.find(e=>e.type==='towerImpact');
@@ -101,8 +102,9 @@ test('visible launcher arms absorb shots only while they are extended',()=>{
 
 test('opposing rounds cancel before either can damage a player on the crossing frame',()=>{
   const m=new Match();m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   const shot=(owner,y,vy)=>({id:owner,owner,type:'pistol',x:RIVER.x,y,vx:0,vy,damage:5,color:0xffdc80,life:1,travel:0});
-  m.players[1].x=RIVER.x;
+  m.players[1].x=RIVER.x;m.players[1].y=60;
   m.bullets=[shot(0,154,-690),shot(1,122,690)];
   m.update(1/30);
   assert.equal(m.players[1].hp,100);
@@ -125,6 +127,7 @@ test('blood and blast marks remain after their smoke and sparks fade',()=>{
 
 test('a shot striking the tower during weapon delivery fires one paired retaliation',()=>{
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   m.tower.phase='deliver';m.tower.height=1;m.launch();
   const p=m.players[0];p.x=RIVER.x;
   assert.equal(m.fire(p),true);
@@ -270,6 +273,7 @@ test('grenade dodge or a hit outside its radius avoids the stun',()=>{
 
 test('smart missiles clear the raised tower and shield before striking their marked target',()=>{
   const m=new Match(),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
   p.slots[0]={type:'missile',ammo:1};p.selected=0;m.fire(p);
   for(let i=0;i<150;i++)m.update(1/120);
@@ -280,6 +284,7 @@ test('smart missiles clear the raised tower and shield before striking their mar
 
 test('grenades arc over the raised tower and shield before landing',()=>{
   const m=new Match(),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
   p.slots[0]={type:'grenade',ammo:1};p.selected=0;m.fire(p);
   for(let i=0;i<120;i++)m.update(1/120);
@@ -310,9 +315,10 @@ test('laser reaches full charge in 1.1 seconds and visibly stronger beams deal m
 
 test('movement stays on each bank and diagonal speed is normalized',()=>{
   const m=new Match(),p=m.players[0],start={x:p.x,y:p.y};m.move(p,1,1,.1);
+  m.obstacles.forEach(o=>o.destroyed=true);
   assert.ok(Math.abs(Math.hypot(p.x-start.x,p.y-start.y)-17)<1e-8);
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
-  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY+BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY,444);
+  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY+BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY,360);
   assert.equal(BANK_BOUNDS[0].minY+BANK_BOUNDS[1].maxY,710);
   assert.equal(BANK_BOUNDS[0].maxY+BANK_BOUNDS[1].minY,710);
   m.move(p,-100,-100,100);assert.equal(p.y,BANK_BOUNDS[0].minY);assert.ok(p.x>=38);
@@ -367,21 +373,31 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
   for(let round=0;round<40;round++){
     const m=new Match(random);
     const southObjects=m.obstacles.filter(o=>o.owner===0),northObjects=m.obstacles.filter(o=>o.owner===1);
-    assert.ok(southObjects.length>=2&&southObjects.length<=5);
+    assert.ok(southObjects.length>=4&&southObjects.length<=6);
     assert.equal(southObjects.length,northObjects.length);
-    const crates=southObjects.filter(o=>o.type==='crate').length,barrels=southObjects.filter(o=>o.type==='barrel').length;
-    assert.ok(crates>=1&&crates<=3&&barrels>=1&&barrels<=2);
-    layouts.add(`${crates}:${barrels}`);
+    const southCrates=southObjects.filter(o=>o.type==='crate'),southBarrels=southObjects.filter(o=>o.type==='barrel');
+    assert.ok(southCrates.length>=3&&southCrates.length<=4&&southBarrels.length>=1&&southBarrels.length<=2);
+    const shape=southCrates[0].formation;layouts.add(shape);
+    assert.ok(['T','L','square'].includes(shape));
+    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=515&&o.y<=557));
+    const actual=southCrates.map(o=>`${o.x},${o.y}`).sort();
+    const origin=southCrates.find(o=>o.y===515&&[80,400].includes(o.x));
+    assert.ok(origin);
+    const offsets={T:[[-42,0],[0,0],[42,0],[0,42]],L:[[0,0],[42,0],[0,42]],square:[[0,0],[42,0],[0,42],[42,42]]};
+    assert.deepEqual(actual,offsets[shape].map(([x,y])=>`${origin.x+x},${515+y}`).sort());
     for(const [index,south] of southObjects.entries()){
       const north=northObjects[index];assert.equal(south.type,north.type);
       assert.equal(south.x+north.x,480);assert.equal(south.y+north.y,710);
     }
     for(const player of m.players)for(const obstacle of m.obstacles)assert.ok(Math.hypot(player.x-obstacle.x,player.y-obstacle.y)>55);
-    for(const [index,obstacle] of southObjects.entries())for(const other of southObjects.slice(index+1))assert.ok(Math.hypot(obstacle.x-other.x,obstacle.y-other.y)>64);
+    for(const barrel of southBarrels){
+      assert.ok(barrel.x>=55&&barrel.x<=425&&barrel.y>=510&&barrel.y<=665);
+      for(const other of southObjects)if(other!==barrel)assert.ok(Math.hypot(barrel.x-other.x,barrel.y-other.y)>51);
+    }
     for(let launch=0;launch<6;launch++)m.launch();
     for(const item of m.pickups)for(const obstacle of m.obstacles)assert.ok(Math.hypot(item.x-obstacle.x,item.y-obstacle.y)>=57);
   }
-  assert.ok(layouts.size>1,'rounds vary the number of crates and barrels');
+  assert.equal(layouts.size,3,'rounds include T, L, and square formations');
 });
 
 test('crates stop movement and shots, then leave passable debris',()=>{
@@ -391,22 +407,35 @@ test('crates stop movement and shots, then leave passable debris',()=>{
   m.move(p,1,0,.3);assert.equal(p.x,190,'solid crate blocks walking');
   crate.x=p.x;crate.y=p.y-70;enemy.x=p.x;
   m.fire(p);for(let i=0;i<90;i++)m.update(1/120);
-  assert.equal(crate.destroyed,true);assert.equal(enemy.hp,100,'first round is absorbed');
+  assert.equal(crate.hits,1);assert.equal(crate.destroyed,false);assert.equal(enemy.hp,100,'first round is absorbed');
+  assert.ok(m.events.some(e=>e.type==='crateHit'));
+  p.cooldown=0;m.fire(p);for(let i=0;i<110;i++)m.update(1/120);
+  assert.equal(crate.hits,2);assert.equal(crate.destroyed,true);assert.equal(enemy.hp,100,'second round breaks the crate but remains blocked');
   assert.ok(m.events.some(e=>e.type==='crateBreak'));
   p.cooldown=0;m.fire(p);for(let i=0;i<110;i++)m.update(1/120);
-  assert.equal(enemy.hp,95,'later round passes through debris');
+  assert.equal(enemy.hp,95,'third round passes through debris');
   crate.x=p.x+45;crate.y=p.y;m.move(p,1,0,.3);assert.ok(p.x>190,'debris does not block walking');
 });
 
-test('fighter can pass behind intact crates and barrels without walking through their bases',()=>{
+test('crate footprints are solid while barrels do not block movement',()=>{
   for(const type of ['barrel','crate']){
     const m=new Match(()=>.5),p=m.players[0],obstacle=m.obstacles.find(o=>o.type===type&&o.owner===0);
     m.obstacles.filter(o=>o!==obstacle).forEach(o=>o.destroyed=true);
     obstacle.x=p.x+45;obstacle.y=p.y+15;
     m.move(p,1,0,.3);assert.ok(p.x>190,`upper side of ${type} is passable`);
     p.x=190;obstacle.y=p.y-10;
-    m.move(p,1,0,.3);assert.equal(p.x,190,`${type} ground footprint remains solid`);
+    m.move(p,1,0,.3);assert.equal(p.x,type==='crate'?190:241,`${type} has the expected walking collision`);
   }
+});
+
+test('one shotgun blast cracks a crate once and an explosion destroys it immediately',()=>{
+  const m=new Match(()=>.5),p=m.players[0],crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===0);
+  m.think=()=>{};m.nextDrop=Infinity;m.obstacles.filter(o=>o!==crate).forEach(o=>o.destroyed=true);
+  crate.x=p.x;crate.y=p.y-70;p.slots[0]={type:'shotgun',ammo:2};p.selected=0;
+  m.fire(p);for(let i=0;i<90;i++)m.update(1/120);
+  assert.equal(crate.hits,1);assert.equal(crate.destroyed,false,'pellets from one trigger pull count as one shot');
+  m.explode({owner:0,type:'missile',x:crate.x,y:crate.y,damage:0,life:1});
+  assert.equal(crate.destroyed,true,'blast skips the cracked state');
 });
 
 test('barrels explode once, hurt either fighter, and chain into nearby objects',()=>{
@@ -421,15 +450,26 @@ test('barrels explode once, hurt either fighter, and chain into nearby objects',
   assert.equal(m.events.filter(e=>e.type==='barrelBlast').length,2);
   assert.equal(m.destroyObstacle(barrel),false);
   assert.equal(m.events.filter(e=>e.type==='barrelBlast').length,2);
-  assert.equal(BARREL_BLAST_RADIUS,45);
+  assert.equal(BARREL_BLAST_RADIUS,65);
+});
+
+test('barrel blast reaches a fighter near the edge of the wider red zone',()=>{
+  const m=new Match(()=>.5),barrel=m.obstacles.find(o=>o.type==='barrel'&&o.owner===0);
+  m.obstacles.filter(o=>o!==barrel).forEach(o=>o.destroyed=true);
+  m.players[0].x=barrel.x+60;m.players[0].y=barrel.y;
+  m.players[1].x=barrel.x+70;m.players[1].y=barrel.y;
+  m.destroyObstacle(barrel);
+  assert.ok(m.players[0].hp<100);
+  assert.equal(m.players[1].hp,100);
 });
 
 test('blast areas and laser destroy cover at the first intersection',()=>{
   const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
   const crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===1);crate.x=p.x;crate.y=190;enemy.x=p.x;
   p.slots[0]={type:'laser',ammo:2};p.selected=0;m.fire(p,1);
-  assert.equal(crate.destroyed,true);assert.equal(enemy.hp,100);
+  assert.equal(crate.hits,1);assert.equal(crate.destroyed,false);assert.equal(enemy.hp,100);
   assert.ok(m.beams.at(-1).endY>enemy.y);
+  p.cooldown=0;m.fire(p,1);assert.equal(crate.destroyed,true);
   const barrel=m.obstacles.find(o=>o.type==='barrel'&&o.owner===1);barrel.x=260;barrel.y=130;
   m.explode({owner:0,type:'grenade',x:260,y:130,damage:0,life:1});
   assert.equal(barrel.destroyed,true,'grenade blast ignites barrel');
@@ -437,6 +477,7 @@ test('blast areas and laser destroy cover at the first intersection',()=>{
 
 test('nuclear grenade arcs over the tower, then permanent waste harms either fighter',()=>{
   const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
   p.slots[0]={type:'nuclear',ammo:2};p.selected=0;m.fire(p);
   assert.equal(p.slots[0].ammo,1);assert.equal(m.bullets[0].type,'nuclear');

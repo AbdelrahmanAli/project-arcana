@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import './style.css';
 import './hud.css';
@@ -118,13 +118,13 @@ function releaseFire(cancel=false){
   $('fire').classList.toggle('pressed',held);
 }
 function clearInput(){keys.clear();stick=null;firePointer=null;input.x=0;input.y=0;releaseFire(true);}
-function reset(){game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended');$('pause').textContent='Ⅱ';for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites]){for(const s of map.values())s.destroy();map.clear();}updateHud();app.ticker.start();}
-function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
+function reset(){game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();$('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');document.querySelector('.game-unit').classList.remove('ended','paused');$('pause').textContent='Ⅱ';for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites]){for(const s of map.values())s.destroy();map.clear();}updateHud();app.ticker.start();}
+function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
 $('pause').addEventListener('click',pause);
-function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');$('menu-home').classList.remove('hidden');$('settings-panel').classList.add('hidden');}
+function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelector('.game-unit').classList.remove('paused');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');$('menu-home').classList.remove('hidden');$('settings-panel').classList.add('hidden');}
 $('menu-play').addEventListener('click',reset);
 $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
@@ -224,7 +224,7 @@ function render(){
     if(!sprite){sprite=new Sprite((obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
     else if(sprite.parent!==layer)layer.addChild(sprite);
     const crate=obstacle.type==='crate',frames=crate?crateFrames:barrelFrames;
-    sprite.texture=frames[obstacle.destroyed?(obstacle.flash>0?1:2):0];
+    sprite.texture=frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
     sprite.width=crate?40:44;sprite.height=crate?40:54;
     sprite.position.set(obstacle.x,obstacle.y+(crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
     sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
@@ -490,13 +490,21 @@ function render(){
       let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);world.addChild(s);blastSprites.set(e.id,s);}
       const towerHit=e.type==='towerImpact';
       const barrelHit=e.type==='barrelBlast';
-      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?90:112;s.height=towerHit?52:barrelHit?90:112;s.alpha=1-k*.28;
+      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?126:112;s.height=towerHit?52:barrelHit?126:112;s.alpha=1-k*.28;
       if(!towerHit){
-        const radius=8+k*(barrelHit?45:BLAST_RADIUS.missile);
-        groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
-        groundDraw.ellipse(e.x,e.y+4,radius*.65,radius*.17).fill({color:0x6b3d24,alpha:(1-k)*.15});
+        const radius=8+k*(barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile);
+        if(barrelHit){
+          groundDraw.circle(e.x,e.y+3,BARREL_BLAST_RADIUS).fill({color:0xbe192d,alpha:(1-k)*.18});
+          groundDraw.circle(e.x,e.y+3,radius).stroke({color:0xff4a54,width:3,alpha:(1-k)*.85});
+          groundDraw.ellipse(e.x,e.y+4,radius*.64,radius*.28).fill({color:0xff612e,alpha:(1-k)*.22});
+        }else{
+          groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
+          groundDraw.ellipse(e.x,e.y+4,radius*.65,radius*.17).fill({color:0x6b3d24,alpha:(1-k)*.15});
+        }
       }
       for(let n=0;n<7;n++){const a=n*2.4+e.seed;rect(draw,e.x+Math.cos(a)*k*43,e.y+Math.sin(a)*k*43,3,3,0xffb65c,1-k);}
+    }else if(e.type==='crateHit'){
+      for(let n=0;n<5;n++){const a=n*2.4+e.seed;rect(draw,e.x+Math.cos(a)*k*12,e.y-6+Math.sin(a)*k*8,2+n%2,2,n%2?0xb67b3d:0xe1b377,1-k);}
     }else if(e.type==='crateBreak'){
       for(let n=0;n<12;n++){
         const a=n*2.4+e.seed,travel=k*(22+n%4*4);

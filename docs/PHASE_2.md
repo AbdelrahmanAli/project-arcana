@@ -9,9 +9,9 @@ Keep the current single-round player-versus-computer duel. Add one new weapon an
 ## Confirmed behavior
 
 - **Nuclear launcher:** Fires a green-glowing grenade that leaves radioactive waste on the ground. Waste damages either fighter standing in it. A projectile will normally land on the opposing bank, but the hazard rule does not exempt its shooter.
-- **Breakable crates:** Solid cover. They block movement and shots until destroyed, then leave low debris that no longer blocks either.
-- **Oil barrels:** Explode when hit and damage any fighter near the barrel, regardless of who fired. The damaged barrel sprite can flash briefly on impact; the gameplay explosion should occur immediately.
-- **Randomized arena:** Choose one to three crates and one or two barrels per bank at the start of each round. Use mirrored layouts across the river, with the same object types and distances on both banks. Keep each fighter's spawn and routes to possible weapon drops clear, and preserve multiple firing lanes.
+- **Breakable crates:** Solid cover. They block movement and shots, crack on the first direct shot, and break on the second. Explosions destroy them immediately. Low debris no longer blocks movement or shots.
+- **Oil barrels:** Fighters can pass behind or through their ground position. A shot makes a barrel explode immediately, damaging either fighter in its radius regardless of who fired. The red ground zone shows the blast area after detonation.
+- **Randomized arena:** Group three or four crates in a T, L, or square formation near the river on each bank. Place one or two barrels independently anywhere on the open sand. Mirror the layout across the river so both fighters face the same cover, while keeping spawn points and routes to weapon drops clear.
 
 ## First balance pass to test
 
@@ -21,10 +21,10 @@ These values are the current starting point for playtesting, not locked rules:
 | --- | --- |
 | Nuclear launcher | 2 rounds, arcing flight over the Tower and shield, 10 initial damage, 1.4-second cooldown |
 | Waste | About 48 world units wide, stays for the round, 6 health per second while a fighter stands inside |
-| Crate | Absorbs the first hit and breaks; shots fired afterward pass through the cleared space |
-| Oil barrel | First hit triggers one explosion, about 45-unit radius and 22 damage at the center; destroyed wreck remains as a visual battle trace |
+| Crate | Absorbs two direct shots: first cracks, second breaks. Later shots pass through. An explosion breaks it immediately. |
+| Oil barrel | First hit triggers one explosion, 65-unit radius and 22 damage at the center; destroyed wreck remains as a visual battle trace |
 
-Area attacks should be able to destroy crates and ignite barrels. A barrel should trigger only once, even if several pellets or a laser hit in one simulation tick. No randomized placement may overlap a fighter, the river, the Tower base, or an active drop route. The solid walking footprint of each object is smaller than its drawn sprite, so fighters can walk behind it.
+Area attacks destroy crates and ignite barrels. A barrel triggers only once, even if several pellets or a laser hit in one simulation tick. No randomized placement may overlap a fighter, the river, the Tower base, or an active drop route. Only crates have a solid walking footprint; barrel art can overlap a fighter without stopping movement.
 
 ## Art prepared
 
