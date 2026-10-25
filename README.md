@@ -25,7 +25,7 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Implemented
 
-Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with launch and moving flight audio, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with a dedicated launch sound, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
 
 Each round places mirrored T, L, or square crate formations near the river and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 
@@ -35,7 +35,7 @@ The player's health is below the inventory. The opponent's health and equipped w
 
 - `src/model.js`: rendering-independent match simulation, also used by the tests.
 - `src/main.js`: Pixi scene, pointer/keyboard controls and HUD.
-- `src/audio.js`: original synthesized placeholder effects, played through Howler.
+- `src/audio.js`: Howler playback for the game's effects, including a CC0 smart missile sound and synthesized prototype effects.
 - `public/art/`: generated environment, sprite atlas and visual target.
 - `docs/DESIGN.md`: decisions, tuning proposals, and future scope.
 - `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
@@ -44,6 +44,6 @@ The player's health is below the inventory. The opponent's health and equipped w
 
 ## Current limits
 
-This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by selected weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Sound is synthesized placeholder audio; no soundtrack yet. AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
+This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by selected weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Most sound is synthesized prototype audio; no soundtrack yet. The smart missile sound source is recorded in [`docs/AUDIO_SOURCES.md`](docs/AUDIO_SOURCES.md). AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
 
 The original visual-target image contains the earlier HUD concept; the live game implements the revised health-bar layout. Artwork is original generated imagery inspired by detailed arcade military pixel art, not extracted game assets.

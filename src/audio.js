@@ -44,42 +44,6 @@ function grenadeLaunchWav() {
     return (clack*.27+thump*.5+vent*.26)*Math.min(1,t/.006);
   });
 }
-function missileIgnitionWav() {
-  let seed=8147,bassNoise=0,air=0;
-  return pcmWav(.58,t=>{
-    seed=(seed*1664525+1013904223)>>>0;
-    const white=seed/2147483648-1;
-    bassNoise=bassNoise*.9+white*.1;
-    air=air*.42+white*.58;
-    const clamp=Math.min(1,t/.004);
-    const latch=(air*.7+Math.sin(2*Math.PI*470*t)*.3)*Math.exp(-t*70)*.45;
-    const kick=Math.sin(2*Math.PI*(86*t-30*t*t))*Math.exp(-t*12)*.52;
-    const rocket=(bassNoise*.5+(air-bassNoise)*.18)*Math.min(1,Math.max(0,t-.035)*35)*Math.exp(-t*3.8);
-    return (latch+kick+rocket)*clamp;
-  });
-}
-function missileFlightWav() {
-  const duration=.72,rate=22050,samples=new Float32Array(Math.floor(duration*rate));
-  let seed=3671,low=0,mid=0,phase=0;
-  for(let i=0;i<samples.length;i++){
-    const t=i/rate;
-    seed=(seed*1664525+1013904223)>>>0;
-    const white=seed/2147483648-1;
-    low=low*.92+white*.08;
-    mid=mid*.55+white*.45;
-    phase+=2*Math.PI*(680+58*Math.sin(2*Math.PI*t/duration))/rate;
-    const rush=low*.55+mid*.3+white*.065;
-    const whistle=Math.sin(phase)*.075+Math.sin(phase*1.98)*.025;
-    samples[i]=rush*.58+whistle;
-  }
-  // Match the tail to the beginning so the exhaust can loop during long flights.
-  const seam=Math.floor(rate*.09);
-  for(let i=0;i<seam;i++){
-    const at=samples.length-seam+i,blend=(i+1)/seam;
-    samples[at]=samples[at]*(1-blend)+samples[i]*blend;
-  }
-  return pcmWav(duration,(_t,i)=>samples[i]);
-}
 function stunBlastWav() {
   let seed=7727;
   return pcmWav(.55,t=>{
@@ -124,14 +88,13 @@ function waterWav() {
   });
 }
 export class Sound {
-  constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.missileVoices=new Map();}
+  constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;}
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
     const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
-    this.clips.missile=new Howl({src:[missileIgnitionWav()],format:['wav'],volume:.37,preload:true,pool:8});
-    this.clips.missileFlight=new Howl({src:[missileFlightWav()],format:['wav'],volume:.15,loop:true,preload:true,pool:8});
+    this.clips.missile=new Howl({src:[`${import.meta.env.BASE_URL}audio/smart-missile.mp3`],format:['mp3'],volume:.4,preload:true,pool:8});
     this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
     this.clips.stunBlast=new Howl({src:[stunBlastWav()],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.nuclear=new Howl({src:[nuclearLaunchWav()],format:['wav'],volume:.32,preload:true,pool:8});
@@ -147,24 +110,6 @@ export class Sound {
     Howler.ctx?.resume();
   }
   play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
-  syncMissiles(bullets){
-    if(!this.ready)return;
-    const active=new Set();
-    for(const missile of bullets){
-      if(missile.type!=='missile')continue;
-      active.add(missile.id);
-      let voice=this.missileVoices.get(missile.id);
-      if(voice===undefined){voice=this.clips.missileFlight.play();this.missileVoices.set(missile.id,voice);}
-      const progress=Math.min(1,missile.travel/missile.targetDistance);
-      this.clips.missileFlight.stereo((missile.x/480-.5)*.7,voice);
-      this.clips.missileFlight.volume(.11+.12*progress,voice);
-      this.clips.missileFlight.rate(.87+.35*progress,voice);
-    }
-    for(const [missileId,voice] of this.missileVoices)if(!active.has(missileId)){
-      this.clips.missileFlight.stop(voice);
-      this.missileVoices.delete(missileId);
-    }
-  }
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
   tower(phase,height,progress){
     if(!this.ready)return;
@@ -177,5 +122,5 @@ export class Sound {
     if(wet)this.clips.water.volume(.025+.06*Math.min(1,height*2));
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.towerPhase=null;this.missileVoices.clear();Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.towerPhase=null;Howler.stop();}
 }
