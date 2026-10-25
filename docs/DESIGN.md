@@ -10,9 +10,9 @@ One round, one health bar per fighter, no healing for now. Each player remains o
 
 ## Controls and interface
 
-Touch anywhere in the gameplay area and drag to establish a floating joystick. No fixed joystick. Fire and weapon buttons retain their own input. Two simultaneous fingers can move and fire. Straight-shooting weapons fire across the river, so positioning determines aim. Aimed weapons capture an opponent position and then travel without homing. Hold/release weapons use the same FIRE button.
+Touch anywhere in the gameplay area and drag to establish a floating joystick. No fixed joystick. Two translucent buttons on the right fire the pistol and carried Tower weapon independently. Multiple fingers can move and fire together. Straight-shooting weapons fire across the river, so positioning determines aim. Aimed weapons capture an opponent position and then travel without homing. The Laser Gun charges while its button is held and fires on release.
 
-Three inventory slots. The weak pistol is the default when no picked weapon is selected. Full inventory blocks pickups: spend an entire weapon to free its slot. No swapping or discarding. Depleted selected weapons fall back to pistol. Player health sits BELOW the weapon slots. Opponent health follows ABOVE their head. No large upper health HUD.
+Each fighter carries at most one Tower weapon. The weak pistol is always available, even while a Tower weapon is loaded. A carried weapon blocks new pickups until all of its ammunition is spent. No swapping or discarding. Player health sits BELOW the expanded arena. Opponent health and held weapon follow ABOVE their head. No large upper health HUD. The river remains centered and both banks have equal playable depth.
 
 No generic attack warnings or flame pre-warnings. The smart missile shows its captured impact point on the ground. Actual projectiles, effects and character animations convey the other attacks. Pickup blinking during expiry remains required.
 
@@ -24,13 +24,13 @@ The first hit while rising or descending causes two flame jets: toward the trigg
 
 ## Current balance — playtest values
 
-100 health, movement 170 world units/second for both players. Weak pistol: 5 damage, unlimited ammunition, 0.48-second cooldown. Rifle: 10 rounds at 6 damage each. Shotgun: 4 shells with five 7-damage pellets, tightened so three can connect when both fighters approach the river and one typically connects at long range. Stun Launcher: 2 shots, 0.9-second flight to captured position, 7 center damage, 60-unit blast radius, 2.2-second movement and firing stun that cannot be extended while active. Smart Missile: 2 shots at 28 center damage, travels toward a captured position, 58-unit blast radius. Laser Gun: 1 beam, 16–46 damage over a maximum 1.1-second charge. Nuclear Launcher: 2 grenades at 16 center damage, followed by permanent waste that deals 5 damage per second. Inventory pickups do not automatically select themselves. See [BALANCE.md](BALANCE.md) for the full tuning table.
+100 health, movement 170 world units/second for both players. Weak pistol: 5 damage, unlimited ammunition, 0.48-second cooldown. Rifle: 10 rounds at 6 damage each. Shotgun: 4 shells with five 7-damage pellets, tightened so three can connect when both fighters approach the river and one typically connects at long range. Stun Launcher: 2 shots, 0.9-second flight to captured position, 7 center damage, 60-unit blast radius, 2.2-second movement and firing stun that cannot be extended while active. Smart Missile: 2 shots at 28 center damage, travels toward a captured position, 58-unit blast radius. Laser Gun: 1 beam, 16–46 damage over a maximum 1.1-second charge. Nuclear Launcher: 2 grenades at 16 center damage, followed by permanent waste that deals 5 damage per second. Pistol and Tower weapon have separate firing cooldowns. See [BALANCE.md](BALANCE.md) for the full tuning table.
 
 First rise begins 2.5 seconds after starting. Rise 5.2 seconds, delivery 2.0 seconds, descent 5.4 seconds, then 4.8 seconds resting. Lift uses eased acceleration/deceleration with a fixed base and separately masked tower shaft, cascading water, droplets and spreading ripples. Each supply takes 0.75 seconds to land. Flame speed 330 units/second, damaging trail active for up to 4.2 seconds from launch, 20 damage per second while inside. Actual hit/collision rules use fixed simulation ticks and swept bullet tests. Similar conventional shots cancel upon collision. The grenade is an arcing projectile that passes above the tower.
 
 Both health bars use twenty discrete rectangular cells (five HP each, with partial fill on the last cell). Opponent equipped-weapon artwork appears directly below their health bar and above their head, following their position and returning to a pistol icon when ammunition is exhausted.
 
-AI re-evaluates visible combat every 0.2–0.32 seconds, pursues pickups, lines up shots, dodges nearby projectiles, and obeys the same inventory and ammo limits. It never reads future player input. Balance must be judged in real play rather than inferred from equal stats.
+AI re-evaluates visible combat every 0.2–0.32 seconds, pursues pickups, lines up shots, dodges nearby projectiles, and obeys the same one-weapon and ammo limits. It can fire its pistol while carrying a Tower weapon. It never reads future player input. Balance must be judged in real play rather than inferred from equal stats.
 
 ## Art milestone
 

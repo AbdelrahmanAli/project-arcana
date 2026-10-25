@@ -1,8 +1,8 @@
-export const W = 480, H = 720;
-export const RIVER = { top: 273, bottom: 435, x: 240, y: 355 };
+export const W = 480, H = 880;
+export const RIVER = { top: 359, bottom: 521, x: 240, y: 440 };
 export const BANK_BOUNDS = [
-  { minY: 450, maxY: 680 },
-  { minY: 30, maxY: 205 },
+  { minY: 590, maxY: 830 },
+  { minY: 50, maxY: 290 },
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
@@ -101,7 +101,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -154,7 +154,7 @@ function routeAroundCrates(start,target,crates,bank){
 }
 export class Match {
   constructor(random = Math.random) {
-    this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,569),soldier(1,290,141)];
+    this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,700),soldier(1,290,180)];
     this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
@@ -171,17 +171,17 @@ export class Match {
     const shape=Object.keys(formations)[Math.floor(this.random()*3)];
     const side=this.random()<.5?-1:1;
     const originX=side<0?80:400;
-    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:515+dy,formation:shape}));
+    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:610+dy,formation:shape}));
     const barrelCount=1+Math.floor(this.random()*2);
-    const clear=point=>Math.hypot(point.x-190,point.y-569)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
+    const clear=point=>Math.hypot(point.x-190,point.y-700)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
     for(let i=0;i<barrelCount;i++){
       let point;
       for(let attempt=0;attempt<24;attempt++){
-        const candidate={x:55+this.random()*370,y:510+this.random()*155};
+        const candidate={x:55+this.random()*370,y:590+this.random()*220};
         if(clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52)){point=candidate;break;}
       }
       if(!point){
-        const fallback=[{x:240,y:640},{x:240,y:520},{x:170,y:640},{x:310,y:640},{x:170,y:520},{x:310,y:520}];
+        const fallback=[{x:240,y:780},{x:240,y:585},{x:170,y:780},{x:310,y:780},{x:170,y:585},{x:310,y:585}];
         point=fallback.find(candidate=>clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52));
       }
       if(point)south.push({type:'barrel',...point});
@@ -240,8 +240,7 @@ export class Match {
     if(this.marks.length>140)this.marks.shift();
     this.marksRevision++;
   }
-  weapon(p) { return p.slots[p.selected]?.type || 'pistol'; }
-  select(p,index) { p.selected = index>=0 && p.slots[index] ? (p.selected===index ? -1:index) : -1; p.charge=0; }
+  weapon(p) { return p.slot?.type || 'pistol'; }
   move(p,x,y,dt) {
     if(p.stun>0){p.moving=false;return;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
@@ -255,17 +254,19 @@ export class Match {
   }
   collect(p,item) {
     if(item.owner!==p.id || item.flight>0 || item.ttl<=0 || distance(p,item)>29) return false;
-    const slot=p.slots.indexOf(null);
-    if(slot<0) return false;
-    p.slots[slot]={type:item.type,ammo:WEAPONS[item.type].ammo}; item.ttl=0;
+    if(p.slot) return false;
+    p.slot={type:item.type,ammo:WEAPONS[item.type].ammo}; item.ttl=0;
     this.emit('pickup',{player:p.id,weapon:item.type}); return true;
   }
-  fire(p,power=0) {
-    if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.cooldown>0) return false;
-    const type=this.weapon(p), def=WEAPONS[type], enemy=this.players[1-p.id];
+  fire(p,power=0,mode='auto') {
+    if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0) return false;
+    if(mode==='special'&&!p.slot)return false;
+    const special=mode==='special'||(mode==='auto'&&!!p.slot),cooldownKey=special?'specialCooldown':'pistolCooldown';
+    if(p[cooldownKey]>0)return false;
+    const type=special?p.slot.type:'pistol', def=WEAPONS[type], enemy=this.players[1-p.id];
     const charge=type==='laser'?clamp(power,0,1):0;
     const dir=p.id===0?-1:1;
-    p.cooldown=def.cooldown; p.flash=.09; p.shots++; p.charge=0;
+    p[cooldownKey]=def.cooldown; p.flash=.09; p.shots++; if(special)p.charge=0;
     const shotId=this.id++;
     const origin={x:p.x,y:p.y+dir*24};
     if(type==='laser') {
@@ -290,7 +291,7 @@ export class Match {
         this.bullets.push({id:this.id++,owner:p.id,shotId,type,x:origin.x,y:origin.y,vx:(dx+off)*def.speed,vy:dy*def.speed,damage:def.damage,color:def.color,life:2.3,travel:0,tx:enemy.x,ty:enemy.y,targetDistance:type==='missile'?Math.hypot(enemy.x-origin.x,enemy.y-origin.y):Infinity});
       }
     }
-    if(p.selected>=0) { const slot=p.slots[p.selected]; slot.ammo--; if(slot.ammo<=0){p.slots[p.selected]=null;p.selected=-1;} }
+    if(special && --p.slot.ammo<=0)p.slot=null;
     this.emit('shot',{weapon:type,player:p.id,x:p.x}); return true;
   }
   damage(p,amount,x=p.x,y=p.y) {
@@ -379,12 +380,11 @@ export class Match {
     this.aiClock-=dt;
     if(this.aiClock<=0) {
       this.aiClock=.2+this.random()*.12;
-      if(p.selected<0){const idx=p.slots.findIndex(Boolean);if(idx>=0)this.select(p,idx);}
       const bank=BANK_BOUNDS[1];
       // Patrol almost the full bank depth, including the sand beside the river wall.
       let tx=enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
       const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0).sort((a,b)=>distance(a,p)-distance(b,p));
-      if(p.slots.includes(null)&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
+      if(!p.slot&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {
         if(b.owner===1)continue;
         if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
@@ -401,11 +401,12 @@ export class Match {
     const waypoint=this.aiWaypoint||p,dx=waypoint.x-p.x,dy=waypoint.y-p.y,l=Math.hypot(dx,dy);
     this.move(p,l>4?dx/l:0,l>4?dy/l:0,dt);
     if(l<=4&&this.aiTarget&&distance(p,this.aiTarget)>10)this.aiClock=0;
-    if(this.weapon(p)==='laser') {
+    if(p.slot?.type==='laser') {
       if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1)this.fire(p,1);}
-    } else if(this.aiFire) this.fire(p);
+    } else if(p.slot&&this.aiFire) this.fire(p);
+    if(Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol');
   }
-  update(dt,input={x:0,y:0,fire:false}) {
+  update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;
     dt=Math.min(dt,1/30); this.time+=dt;
     if(this.ending>0){
@@ -420,11 +421,12 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.cooldown=Math.max(0,p.cooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     this.updateTower(dt); this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
-    if(input.fire&&p.stun<=0){if(this.weapon(p)==='laser')p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
+    if(input.pistol)this.fire(p,0,'pistol');
+    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
     this.think(dt);
     for(const i of this.pickups){
       if(i.flight>0){

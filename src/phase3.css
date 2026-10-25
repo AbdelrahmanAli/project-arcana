@@ -1,0 +1,112 @@
+/* The controls float over the expanded arena; the footer only holds health. */
+#arena { aspect-ratio: 6 / 11; }
+.console { padding: 5px 10px max(7px, env(safe-area-inset-bottom)); }
+.player-health { margin: 0; padding: 3px 2px; }
+.fire-controls {
+  position: absolute;
+  z-index: 4;
+  right: clamp(8px, 3%, 16px);
+  bottom: clamp(18px, 4%, 34px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+.fire-control {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: clamp(56px, 15vw, 70px);
+  height: clamp(56px, 15vw, 70px);
+  padding: 5px;
+  overflow: hidden;
+  border: 2px solid #f5d58bbd;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 36%, #9e9f7860, #101c20a8 66%, #081315a8 72%);
+  box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ebd39c22, 0 0 9px #f2d28b33;
+  color: #fff1c5;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fire-control::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px dashed #ffe2a688;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.fire-control.pressed {
+  background: radial-gradient(circle at 40% 36%, #f0bf7a88, #533a2cb8 68%, #151a1ccc 73%);
+  border-color: #fff1be;
+  box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ffe4af55, 0 0 17px #ffda7e99;
+}
+.fire-control b {
+  position: relative;
+  z-index: 2;
+  font: 700 clamp(7px, 1.8vw, 9px) 'IBM Plex Mono', monospace;
+  letter-spacing: .3px;
+  text-shadow: 1px 1px #131d1d, 0 0 4px #131d1d;
+}
+.pistol-fire svg {
+  position: relative;
+  width: 27px;
+  height: 27px;
+  margin-bottom: 1px;
+  filter: drop-shadow(1px 1px 1px #000b);
+}
+.special-fire { border-color: #e9bb70c7; }
+.special-fire.empty { opacity: .68; }
+.special-fire.empty .fire-control-art { opacity: 0; }
+.special-fire .fire-control-art {
+  display: block;
+  width: 72%;
+  height: 55%;
+  background: url('/art/sprites.png') no-repeat;
+  background-size: 400% 400%;
+  image-rendering: pixelated;
+  transform: rotate(-7deg);
+  filter: drop-shadow(1px 2px 2px #000c);
+}
+.special-fire .fire-control-art.atlas-icon { transform: none; }
+.special-fire .fire-control-art:is(.laser-icon,.stun-icon,.missile-icon,.nuclear-icon) { transform: rotate(-4deg); }
+.special-fire strong {
+  position: absolute;
+  z-index: 2;
+  right: 7px;
+  top: 6px;
+  min-width: 12px;
+  color: #fff1c3;
+  font: 800 11px 'IBM Plex Mono', monospace;
+  text-shadow: 1px 1px 2px #000;
+}
+.special-fire[data-weapon="grenade"] { border-color: #79d9ffcc; box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #73ccff33, 0 0 11px #5cc5ff77; }
+.special-fire[data-weapon="nuclear"] { border-color: #a4fa66dd; box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #6fc33b33, 0 0 11px #8cf04f77; }
+.special-fire[data-weapon="missile"] { border-color: #ff9d73dd; }
+.special-fire.laser-equipped { border-color: #ff8791dd; }
+.special-fire.laser-charging { box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ff4b5f66, 0 0 17px #ff4056aa; }
+.special-fire.laser-ready { animation: laserReadyPulse .35s ease-in-out infinite alternate; }
+.special-fire #charge { z-index: 0; background: linear-gradient(#ff9d9d22, #ff344f88); }
+.game-unit:is(.ended,.paused,.menu-open) .fire-controls { pointer-events: none; }
+.game-unit:is(.ended,.paused,.menu-open) .fire-control { pointer-events: none; filter: grayscale(.8) brightness(.55); }
+@media (min-width: 900px) and (max-height: 940px) {
+  .game-unit { max-width: min(470px, calc((100dvh - 100px) * .54545)); }
+}
+@media (max-width: 700px) {
+  .game-unit { max-width: min(100vw, calc((100dvh - 78px) * .54545)); }
+  .console { padding: 4px 9px max(6px, env(safe-area-inset-bottom)); }
+  .player-health { padding: 3px 0; }
+}
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
+  .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .54545)); }
+  .fire-controls { gap: 6px; bottom: 9px; right: 6px; }
+  .fire-control { width: 44px; height: 44px; padding: 2px; }
+  .fire-control::before { inset: 3px; }
+  .fire-control b { font-size: 6px; }
+  .pistol-fire svg { width: 19px; height: 19px; }
+  .special-fire strong { top: 2px; right: 3px; font-size: 7px; }
+}

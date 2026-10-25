@@ -2,6 +2,8 @@
 
 These are the current 100-health, one-round playtest values. Direct-hit totals assume every shot connects; shots can miss, hit cover, or be canceled by opposing conventional rounds.
 
+The pistol is always available, including while carrying a Tower weapon. Both fire actions have their own cooldown; their combined damage still needs real-match playtesting.
+
 | Weapon | Ammo | Damage | Role |
 | --- | ---: | ---: | --- |
 | Service pistol | Unlimited | 5 per hit | Reliable fallback; 0.48-second cooldown. |

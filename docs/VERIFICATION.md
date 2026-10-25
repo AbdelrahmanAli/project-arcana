@@ -1,5 +1,13 @@
 # The Tower Deal verification
 
+## Phase 3 — 2026-10-25
+
+- All 47 simulation tests pass. New checks cover one-weapon capacity, independent pistol and Tower-weapon cooldowns, and an empty special-fire action.
+- The Vite production build succeeds, and the changes pass `git diff --check`.
+- Headless Chrome renders the menu and active match at 390 × 844 portrait and 844 × 390 landscape viewports. The arena, both transparent fire buttons, and health bar remain visible.
+- A two-contact browser input check moved the fighter while the pistol fired twice. The special-fire button shows an empty state before a pickup.
+- The expanded world is 480 × 880 units. Both playable banks are 240 units deep and stop before the stone river walls.
+
 ## Phase cleanup — 2026-10-25
 
 - All 46 simulation tests pass, including tower cycles, projectile interactions, navigation around cover, hazards, death, and a seeded autonomous match.
@@ -13,4 +21,4 @@
 - Local preview responded with HTTP 200. In-app browser checks covered menu and Settings, match start, movement, firing, inventory pickup and selection, HUD positions, tower, shield, and flame effects.
 - The generated sprite atlas has RGBA transparency. `prototype-preview.png` is a screenshot of the running prototype, while `public/art/visual-target.png` is the earlier art target.
 
-Physical iOS and Android playtesting remains to be done, particularly simultaneous two-finger input, browser audio unlock, device performance, safe areas, and orientation changes. Balance and animation quality still need playtesting across longer matches.
+Physical iOS and Android playtesting remains to be done, particularly native two-finger input, browser audio unlock, device performance, safe areas, and orientation changes. Balance and animation quality still need playtesting across longer matches.

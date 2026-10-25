@@ -18,18 +18,17 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Controls
 
-- Phone / mouse: drag anywhere in the arena to create a floating joystick. Use another finger to tap a weapon slot or hold FIRE without stopping movement. Hold FIRE to shoot repeated ordinary shots. Hold and release FIRE for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46. The muzzle, selected slot, FIRE button, and beam show the charge.
-- Desktop: WASD or arrows to move; Space to fire; 1/2/3 to select a slot; 0 for the pistol; Escape to pause.
-- Tap an equipped slot again to return to the pistol.
-- Walk over a landed pickup to collect it. A full inventory rejects pickups. Use all ammunition to free a slot; there is no discard or swap action.
+- Phone / mouse: drag anywhere in the arena to create a floating joystick. Two transparent buttons on the right fire the unlimited pistol and the currently held Tower weapon independently. Another finger can fire while moving. Hold and release the upper button for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
+- Desktop: WASD or arrows to move; Space fires the pistol; E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
+- Walk over a landed pickup to collect it. Each fighter can carry one Tower weapon, and cannot collect another until its ammunition is spent. There is no discard or swap action.
 
 ## Implemented
 
-Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, three inventory slots, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with a dedicated launch sound, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, one carried Tower weapon, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with a dedicated launch sound, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
 
 Each round places mirrored T, L, or square crate formations near the river and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 
-The player's health is below the inventory. The opponent's health and equipped weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar.
+The player's health is below the expanded arena. The opponent's health and held Tower weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar. Both banks now have equal playable depth.
 
 Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.md).
 
@@ -37,6 +36,7 @@ Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.
 
 - `src/model.js`: rendering-independent match simulation, also used by the tests.
 - `src/main.js`: Pixi scene, pointer/keyboard controls and HUD.
+- `src/phase3.css`: transparent dual-fire controls and expanded arena layout.
 - `src/audio.js`: Howler playback for the game's effects, including a CC0 smart missile sound and synthesized prototype effects.
 - `public/art/`: generated environment, sprite atlas and visual target.
 - `docs/art-archive/`: unused source art retained for reference without adding it to the published game.
@@ -44,9 +44,10 @@ Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.
 - `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
 - `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
 - `docs/PHASE_2.md`: implemented nuclear launcher and destructible-arena rules, plus sprite details.
+- `docs/PHASE_3.md`: one-weapon rules, dual-fire controls, and larger symmetric arena.
 
 ## Current limits
 
-This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by selected weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Most sound is synthesized prototype audio; no soundtrack yet. Third-party sound sources are recorded in [`docs/AUDIO_SOURCES.md`](docs/AUDIO_SOURCES.md). AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
+This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by held weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Most sound is synthesized prototype audio; no soundtrack yet. Third-party sound sources are recorded in [`docs/AUDIO_SOURCES.md`](docs/AUDIO_SOURCES.md). AI and weapon balance are initial tuning. No multiplayer, character selector, healing, alternate maps, save progression, or controller support. Touch controls are implemented but still need testing on physical iOS and Android phones.
 
 The original visual-target image contains the earlier HUD concept; the live game implements the revised health-bar layout. Artwork is original generated imagery inspired by detailed arcade military pixel art, not extracted game assets.

@@ -5,12 +5,13 @@ import './style.css';
 import './hud.css';
 import './arcana.css';
 import './compact-landscape.css';
+import './phase3.css';
 
 const $=id=>document.getElementById(id);
 const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
-const input={x:0,y:0,fire:false};
-const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
+const input={x:0,y:0,pistol:false,special:false};
+const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
@@ -48,20 +49,6 @@ function updateHealth(id,hp){
   lastHealth.set(id,hp);
   healthCells.get(id).forEach((fill,i)=>fill.style.transform=`scaleX(${Math.max(0,Math.min(1,(hp-i*5)/5))})`);
   $(id).setAttribute('aria-valuenow',Math.ceil(hp));
-}
-const slotViews=[];
-for(let i=0;i<3;i++){
-  const el=document.createElement('button');el.className='slot empty';el.dataset.slot=i;el.setAttribute('aria-label',`Weapon slot ${i+1}, empty`);el.innerHTML=`<small>${i+1}</small><span class="empty-mark">—</span><span class="icon" hidden></span><b class="ammo"></b><i class="ammo-line"></i>`;
-  const selectSlot=()=>{if(started&&!paused&&!game.finished&&game.ending<=0){game.select(game.players[0],i);updateHud();}};
-  el.addEventListener('pointerdown',e=>{
-    if(e.button!==0)return;
-    e.preventDefault();
-    selectSlot();
-  });
-  // A touch can emit a click after pointerdown. Only keyboard activation needs click.
-  el.addEventListener('click',e=>{if(e.detail===0)selectSlot();});
-  $('slots').appendChild(el);
-  slotViews.push({el,empty:el.querySelector('.empty-mark'),icon:el.querySelector('.icon'),ammo:el.querySelector('.ammo'),ammoLine:el.querySelector('.ammo-line')});
 }
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
@@ -163,14 +150,19 @@ function drawScorchMark(g,mark){
   }
 }
 function point(e){const r=$('arena').getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
-function releaseFire(cancel=false){
-  const held=firePointer!==null||keys.has('Space');
-  if(!cancel&&input.fire&&!held&&!paused&&started&&game.weapon(game.players[0])==='laser')game.fire(game.players[0],game.players[0].charge);
-  input.fire=held;
-  if(!held)game.players[0].charge=0;
-  $('fire').classList.toggle('pressed',held);
+function releaseFire(mode,cancel=false){
+  const held=firePointers[mode]!==null||keys.has(mode==='pistol'?'Space':'KeyE');
+  const player=game.players[0];
+  if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&player.slot?.type==='laser')game.fire(player,player.charge,'special');
+  input[mode]=held;
+  if(mode==='special'&&!held)player.charge=0;
+  $(`${mode}-fire`).classList.toggle('pressed',held);
 }
-function clearInput(){keys.clear();stick=null;firePointer=null;input.x=0;input.y=0;releaseFire(true);}
+function clearInput(){
+  keys.clear();stick=null;firePointers.pistol=null;firePointers.special=null;
+  input.x=0;input.y=0;input.pistol=false;input.special=false;game.players[0].charge=0;
+  $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
+}
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
 function reset(){
   game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();
@@ -195,37 +187,55 @@ $('settings-back').addEventListener('click',()=>{$('settings-panel').classList.a
 function toggleSound(){const muted=sound.toggle();for(const id of ['sound','settings-sound'])$(id).textContent=muted?'SOUND OFF':'SOUND ON';$('sound').setAttribute('aria-label',muted?'Enable sound':'Mute sound');}
 $('sound').addEventListener('click',toggleSound);$('settings-sound').addEventListener('click',toggleSound);
 $('arena').addEventListener('pointerdown',e=>{
-  if(e.target.closest('.overlay, .main-menu')||!started||paused||game.finished||game.ending>0||stick)return;
+  if(e.target.closest('.overlay, .main-menu, .fire-controls')||!started||paused||game.finished||game.ending>0||stick)return;
   e.preventDefault();const p=point(e);stick={id:e.pointerId,x:p.x,y:p.y,dx:0,dy:0};$('arena').setPointerCapture(e.pointerId);
 });
 $('arena').addEventListener('pointermove',e=>{if(stick?.id===e.pointerId){const p=point(e);stick.dx=p.x-stick.x;stick.dy=p.y-stick.y;const l=Math.hypot(stick.dx,stick.dy);if(l>43){stick.dx*=43/l;stick.dy*=43/l;}}});
 for(const name of ['pointerup','pointercancel','lostpointercapture'])$('arena').addEventListener(name,e=>{if(stick?.id===e.pointerId)stick=null;});
-$('fire').addEventListener('pointerdown',e=>{if(!started||paused||game.finished||game.ending>0||firePointer!==null)return;e.preventDefault();const wasFiring=input.fire;firePointer=e.pointerId;$('fire').setPointerCapture(e.pointerId);input.fire=true;if(!wasFiring&&game.weapon(game.players[0])!=='laser')game.fire(game.players[0]);$('fire').classList.add('pressed');});
-$('fire').addEventListener('pointerup',e=>{if(e.pointerId===firePointer){firePointer=null;releaseFire();}});
-for(const name of ['pointercancel','lostpointercapture'])$('fire').addEventListener(name,e=>{if(e.pointerId===firePointer){firePointer=null;releaseFire(true);}});
+for(const mode of ['pistol','special']){
+  const button=$(`${mode}-fire`);
+  button.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!started||paused||game.finished||game.ending>0||firePointers[mode]!==null||mode==='special'&&!game.players[0].slot)return;
+    e.preventDefault();e.stopPropagation();
+    const wasFiring=input[mode];firePointers[mode]=e.pointerId;button.setPointerCapture(e.pointerId);input[mode]=true;
+    if(!wasFiring&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
+    button.classList.add('pressed');
+  });
+  button.addEventListener('pointerup',e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode);}});
+  for(const name of ['pointercancel','lostpointercapture'])button.addEventListener(name,e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode,true);}});
+}
 document.addEventListener('contextmenu',e=>{if(e.target.closest('.game-unit'))e.preventDefault();});
 window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
   if(e.code==='Escape'&&!e.repeat){pause();return;}
   if(!started||paused||game.finished||game.ending>0)return;
-  const wasFiring=input.fire;keys.add(e.code);
-  if(e.code==='Space'){input.fire=true;if(!wasFiring&&!e.repeat&&game.weapon(game.players[0])!=='laser')game.fire(game.players[0]);$('fire').classList.add('pressed');}
-  if(!e.repeat&&/^Digit[0-3]$/.test(e.code)){const n=Number(e.code.at(-1));if(n===0){game.players[0].selected=-1;game.players[0].charge=0;}else game.select(game.players[0],n-1);}
+  const mode=e.code==='Space'?'pistol':e.code==='KeyE'?'special':null;
+  const wasFiring=mode&&input[mode];keys.add(e.code);
+  if(mode&&(mode==='pistol'||game.players[0].slot)){
+    input[mode]=true;
+    if(!wasFiring&&!e.repeat&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
+    $(`${mode}-fire`).classList.add('pressed');
+  }
 });
-window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space')releaseFire();});
+window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space')releaseFire('pistol');if(e.code==='KeyE')releaseFire('special');});
 window.addEventListener('blur',()=>{clearInput();if(started&&!paused&&!game.finished)pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(started&&!paused&&!game.finished)pause();}});
 
 function updateHud(){
   const p=game.players[0],enemy=game.players[1];
-  for(let i=0;i<3;i++){
-    const slot=p.slots[i],{el,empty,icon,ammo,ammoLine}=slotViews[i];el.classList.toggle('empty',!slot);el.classList.toggle('selected',p.selected===i);el.classList.toggle('laser-charging',slot?.type==='laser'&&p.selected===i&&p.charge>0);el.classList.toggle('laser-ready',slot?.type==='laser'&&p.selected===i&&p.charge>=1);el.setAttribute('aria-pressed',p.selected===i?'true':'false');
-    empty.hidden=!!slot;icon.hidden=!slot;
-    ammo.textContent=slot?slot.ammo:'';
-    ammoLine.style.width=slot?`${slot.ammo/WEAPONS[slot.type].ammo*45}%`:'0';
-    el.setAttribute('aria-label',slot?`${WEAPONS[slot.type].name}, ${slot.ammo} shots, slot ${i+1}`:`Weapon slot ${i+1}, empty`);
-    if(slot){icon.classList.toggle('laser-icon',slot.type==='laser');icon.classList.toggle('stun-icon',slot.type==='grenade');icon.classList.toggle('missile-icon',slot.type==='missile');icon.classList.toggle('nuclear-icon',slot.type==='nuclear');icon.classList.toggle('atlas-icon',slot.type==='rifle'||slot.type==='shotgun');if(WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(icon,slot.type);else clearWeaponIconFit(icon);}
-  }
+  const special=$('special-fire'),specialArt=special.querySelector('.fire-control-art'),slot=p.slot;
+  special.classList.toggle('empty',!slot);special.classList.toggle('laser-equipped',slot?.type==='laser');
+  special.classList.toggle('laser-charging',slot?.type==='laser'&&p.charge>0);
+  special.classList.toggle('laser-ready',slot?.type==='laser'&&p.charge>=1);
+  special.dataset.weapon=slot?.type||'';
+  special.setAttribute('aria-disabled',slot?'false':'true');
+  special.setAttribute('aria-label',slot?`Fire ${WEAPONS[slot.type].name}, ${slot.ammo} shots remaining`:'No Tower weapon');
+  $('special-ammo').textContent=slot?slot.ammo:'';
+  $('special-label').textContent=slot?.type==='laser'?(p.charge>=1?'RELEASE':p.charge>0?`${Math.round(p.charge*100)}%`:'HOLD'):slot?'SPECIAL':'EMPTY';
+  $('charge').style.height=slot?.type==='laser'?`${p.charge*100}%`:'0';
+  for(const type of ['laser','grenade','missile','nuclear'])specialArt.classList.toggle(({grenade:'stun',laser:'laser',missile:'missile',nuclear:'nuclear'})[type]+'-icon',slot?.type===type);
+  specialArt.classList.toggle('atlas-icon',slot?.type==='rifle'||slot?.type==='shotgun');
+  if(slot&&WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(specialArt,slot.type);else clearWeaponIconFit(specialArt);
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
   hud.style.setProperty('--hud-scale',scale);
@@ -244,13 +254,6 @@ function updateHud(){
   if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
   else clearWeaponIconFit(badge.firstElementChild);
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
-  const laserEquipped=game.weapon(p)==='laser';
-  $('fire').classList.toggle('laser-equipped',laserEquipped);
-  $('fire').classList.toggle('laser-charging',laserEquipped&&p.charge>0);
-  $('fire').classList.toggle('laser-ready',laserEquipped&&p.charge>=1);
-  $('charge').style.height=laserEquipped?`${p.charge*100}%`:'0';
-  $('fire').querySelector('b').textContent=laserEquipped?(p.charge>=1?'RELEASE':p.charge>0?`${Math.round(p.charge*100)}%`:'HOLD'):'FIRE';
-  $('fire').setAttribute('aria-label',laserEquipped?`Hold up to ${LASER_CHARGE_TIME.toFixed(1)} seconds, then release to fire laser. ${Math.round(p.charge*100)} percent charged`:'Fire selected weapon');
 }
 function render(){
   draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
@@ -642,7 +645,7 @@ async function boot(){
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the
   // original lower edge instead of placing a second wall across playable sand.
-  const artTop=bg.height*248/H,artBottom=bg.height*410/H;
+  const artTop=bg.height*248/720,artBottom=bg.height*410/720;
   for(const [sourceY,sourceHeight,destY,destHeight] of [
     [0,artTop,0,RIVER.top],
     [artTop,artBottom-artTop,RIVER.top,RIVER.bottom-RIVER.top],
@@ -653,7 +656,7 @@ async function boot(){
   }
   // The far wall is behind fighters: they stand in front of its stones near the back edge.
   const farBarrier=new Sprite(rockArt);farBarrier.width=W;farBarrier.height=100;
-  farBarrier.position.set(0,-28);world.addChild(farBarrier);
+  farBarrier.position.set(0,-58);world.addChild(farBarrier);
   const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
   waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
   waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer);
@@ -693,7 +696,7 @@ async function boot(){
   world.addChild(muzzleDraw,shieldGlass,shieldDraw);
   // The near wall stays in the foreground, where it can cover a fighter's feet.
   const nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
-  nearBarrier.position.set(W,H-69);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
+  nearBarrier.position.set(W,H-35);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
   draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER · PLAY';
   let accumulator=0,hudTime=0;
