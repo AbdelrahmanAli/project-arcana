@@ -1,5 +1,5 @@
 /* The controls float over the expanded arena; the footer only holds health. */
-#arena { aspect-ratio: 6 / 11; }
+#arena { aspect-ratio: 24 / 47; }
 .console { padding: 5px 10px max(7px, env(safe-area-inset-bottom)); }
 .player-health { margin: 0; padding: 3px 2px; }
 .fire-controls {
@@ -94,15 +94,15 @@
 .game-unit:is(.ended,.paused,.menu-open) .fire-controls { pointer-events: none; }
 .game-unit:is(.ended,.paused,.menu-open) .fire-control { pointer-events: none; filter: grayscale(.8) brightness(.55); }
 @media (min-width: 900px) and (max-height: 940px) {
-  .game-unit { max-width: min(470px, calc((100dvh - 100px) * .54545)); }
+  .game-unit { max-width: min(470px, calc((100dvh - 100px) * .51064)); }
 }
 @media (max-width: 700px) {
-  .game-unit { max-width: min(100vw, calc((100dvh - 78px) * .54545)); }
+  .game-unit { max-width: min(100vw, calc((100dvh - 78px) * .51064)); }
   .console { padding: 4px 9px max(6px, env(safe-area-inset-bottom)); }
   .player-health { padding: 3px 0; }
 }
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
-  .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .54545)); }
+  .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .51064)); }
   .fire-controls { gap: 6px; bottom: 9px; right: 6px; }
   .fire-control { width: 44px; height: 44px; padding: 2px; }
   .fire-control::before { inset: 3px; }

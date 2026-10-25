@@ -1,8 +1,8 @@
-export const W = 480, H = 880;
-export const RIVER = { top: 359, bottom: 521, x: 240, y: 440 };
+export const W = 480, H = 940;
+export const RIVER = { top: 419, bottom: 581, x: 240, y: 500 };
 export const BANK_BOUNDS = [
-  { minY: 530, maxY: 810 },
-  { minY: 70, maxY: 290 },
+  { minY: 590, maxY: 870 },
+  { minY: 70, maxY: 350 },
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
@@ -154,7 +154,7 @@ function routeAroundCrates(start,target,crates,bank){
 }
 export class Match {
   constructor(random = Math.random) {
-    this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,700),soldier(1,290,180)];
+    this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,760),soldier(1,290,240)];
     this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
@@ -171,17 +171,17 @@ export class Match {
     const shape=Object.keys(formations)[Math.floor(this.random()*3)];
     const side=this.random()<.5?-1:1;
     const originX=side<0?80:400;
-    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:610+dy,formation:shape}));
+    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:670+dy,formation:shape}));
     const barrelCount=1+Math.floor(this.random()*2);
-    const clear=point=>Math.hypot(point.x-190,point.y-700)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
+    const clear=point=>Math.hypot(point.x-190,point.y-760)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
     for(let i=0;i<barrelCount;i++){
       let point;
       for(let attempt=0;attempt<24;attempt++){
-        const candidate={x:55+this.random()*370,y:590+this.random()*220};
+        const candidate={x:55+this.random()*370,y:650+this.random()*220};
         if(clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52)){point=candidate;break;}
       }
       if(!point){
-        const fallback=[{x:240,y:780},{x:240,y:585},{x:170,y:780},{x:310,y:780},{x:170,y:585},{x:310,y:585}];
+        const fallback=[{x:240,y:840},{x:240,y:645},{x:170,y:840},{x:310,y:840},{x:170,y:645},{x:310,y:645}];
         point=fallback.find(candidate=>clear(candidate)&&south.filter(o=>o.type==='barrel').every(o=>Math.hypot(candidate.x-o.x,candidate.y-o.y)>52));
       }
       if(point)south.push({type:'barrel',...point});

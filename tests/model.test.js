@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -354,19 +354,22 @@ test('shotgun rewards moving to the river while remaining weak from the back of 
     return 100-enemy.hp;
   };
   assert.equal(fireAtRange(BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY),WEAPONS.shotgun.damage*3);
-  assert.equal(fireAtRange(700,180),WEAPONS.shotgun.damage);
+  assert.equal(fireAtRange(760,240),WEAPONS.shotgun.damage);
 });
 
 test('movement stays on each bank and diagonal speed is normalized',()=>{
   const m=new Match(),p=m.players[0],start={x:p.x,y:p.y};m.move(p,1,1,.1);
   m.obstacles.forEach(o=>o.destroyed=true);
   assert.ok(Math.abs(Math.hypot(p.x-start.x,p.y-start.y)-17)<1e-8);
-  assert.equal(BANK_BOUNDS[0].minY,530,'southern fighter reaches the foot of the river wall');
-  assert.equal(BANK_BOUNDS[1].maxY,290,'northern fighter stops on the sand before the upper river wall');
+  assert.equal(BANK_BOUNDS[0].minY,590,'southern fighter reaches the foot of the river wall');
+  assert.equal(BANK_BOUNDS[1].maxY,350,'northern fighter stops on the sand before the upper river wall');
   assert.equal(BANK_BOUNDS[0].minY-RIVER.bottom,9);
   assert.equal(RIVER.top-BANK_BOUNDS[1].maxY,69);
-  assert.equal(BANK_BOUNDS[0].maxY,810,'southern fighter stops at the visible back wall');
+  assert.equal(BANK_BOUNDS[0].maxY,870,'southern fighter stops at the visible back wall');
   assert.equal(BANK_BOUNDS[1].minY,70,'northern fighter stops at the visible back wall');
+  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,280);
+  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY,'both fighters have equal movement depth');
+  assert.equal(BANK_BOUNDS[0].maxY+BANK_BOUNDS[1].minY,H,'the outer margins mirror each other');
   m.move(p,-100,-100,100);assert.equal(p.y,BANK_BOUNDS[0].minY);assert.ok(p.x>=38);
   m.move(p,0,-1,.1);assert.equal(p.moving,false,'fighter does not animate walking into the river wall');
   m.move(p,100,100,100);assert.equal(p.y,BANK_BOUNDS[0].maxY);
@@ -451,19 +454,19 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
     assert.ok(southCrates.length>=3&&southCrates.length<=4&&southBarrels.length>=1&&southBarrels.length<=2);
     const shape=southCrates[0].formation;layouts.add(shape);
     assert.ok(['T','L','square'].includes(shape));
-    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=610&&o.y<=627));
+    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=670&&o.y<=687));
     const actual=southCrates.map(o=>`${o.x},${o.y}`).sort();
-    const origin=southCrates.find(o=>o.y===610&&[80,400].includes(o.x));
+    const origin=southCrates.find(o=>o.y===670&&[80,400].includes(o.x));
     assert.ok(origin);
     const offsets={T:[[-33,0],[0,0],[33,0],[0,17]],L:[[0,0],[33,0],[0,17]],square:[[0,0],[33,0],[0,17],[33,17]]};
-    assert.deepEqual(actual,offsets[shape].map(([x,y])=>`${origin.x+x},${610+y}`).sort());
+    assert.deepEqual(actual,offsets[shape].map(([x,y])=>`${origin.x+x},${670+y}`).sort());
     for(const [index,south] of southObjects.entries()){
       const north=northObjects[index];assert.equal(south.type,north.type);
-      assert.equal(south.x+north.x,480);assert.equal(south.y+north.y,880);
+      assert.equal(south.x+north.x,480);assert.equal(south.y+north.y,2*RIVER.y);
     }
     for(const player of m.players)for(const obstacle of m.obstacles)assert.ok(Math.hypot(player.x-obstacle.x,player.y-obstacle.y)>55);
     for(const barrel of southBarrels){
-      assert.ok(barrel.x>=55&&barrel.x<=425&&barrel.y>=590&&barrel.y<=810);
+      assert.ok(barrel.x>=55&&barrel.x<=425&&barrel.y>=650&&barrel.y<=870);
       for(const other of southObjects)if(other!==barrel)assert.ok(Math.hypot(barrel.x-other.x,barrel.y-other.y)>51);
     }
     for(let launch=0;launch<6;launch++)m.launch();
@@ -537,7 +540,7 @@ test('barrel blast reaches a fighter near the edge of the wider red zone',()=>{
 
 test('blast areas and laser destroy cover at the first intersection',()=>{
   const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
-  const crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===1);crate.x=p.x;crate.y=190;enemy.x=p.x;
+  const crate=m.obstacles.find(o=>o.type==='crate'&&o.owner===1);crate.x=p.x;crate.y=enemy.y+10;enemy.x=p.x;
   p.slot={type:'laser',ammo:2};m.fire(p,1);
   assert.equal(crate.hits,1);assert.equal(crate.destroyed,false);assert.equal(enemy.hp,100);
   assert.ok(m.beams.at(-1).endY>enemy.y);

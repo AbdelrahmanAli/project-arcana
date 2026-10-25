@@ -6,7 +6,7 @@
 - The Vite production build succeeds, and the changes pass `git diff --check`.
 - Headless Chrome renders the menu and active match at 390 × 844 portrait and 844 × 390 landscape viewports. The arena, both transparent fire buttons, and health bar remain visible.
 - A two-contact browser input check moved the fighter while the pistol fired twice. The special-fire button shows an empty state before a pickup.
-- The expanded world is 480 × 880 units. The lower fighter reaches the foot of the river wall; the upper fighter stops before the taller upper wall. Both stop before the outer barriers.
+- The expanded world is 480 × 940 units. Both fighters have 280 units of movement depth. The lower fighter reaches the foot of the river wall; the upper fighter stops before the taller upper wall. Both stop before the outer barriers.
 
 ## Phase cleanup — 2026-10-25
 
