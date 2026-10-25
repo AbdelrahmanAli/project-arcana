@@ -65,6 +65,11 @@
   border-color: #fff1be;
   box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ffe4af55, 0 0 17px #ffda7e99;
 }
+.dodge-fire { margin-bottom: 16px; border-color: #a7dbe0c9; color: #d5fbff; }
+.dodge-fire svg { position: relative; width: 28px; height: 28px; margin-bottom: 1px; filter: drop-shadow(1px 1px 1px #000b); }
+.dodge-fire strong { position: absolute; top: 5px; right: 6px; font: 800 8px 'IBM Plex Mono', monospace; }
+.dodge-fire.cooldown { opacity: .55; }
+.dodge-fire.rolling { border-color: #d9ffff; box-shadow: 0 0 15px #80ecffbb, inset 0 0 8px #a4f1ff77; }
 .fire-control b {
   position: relative;
   z-index: 2;
@@ -135,5 +140,8 @@
   .fire-control::before { inset: 3px; }
   .fire-control b { font-size: 6px; }
   .pistol-fire svg { width: 19px; height: 19px; }
+  .dodge-fire { margin-bottom: 7px; }
+  .dodge-fire svg { width: 19px; height: 19px; }
+  .dodge-fire strong { top: 2px; right: 3px; font-size: 6px; }
   .special-fire strong { top: 2px; right: 3px; font-size: 7px; }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -375,6 +375,67 @@ test('movement stays on each bank and diagonal speed is normalized',()=>{
   m.move(p,100,100,100);assert.equal(p.y,BANK_BOUNDS[0].maxY);
   m.move(m.players[1],-100,-100,100);assert.equal(m.players[1].y,BANK_BOUNDS[1].minY);
   m.move(m.players[1],100,100,100);assert.equal(m.players[1].y,BANK_BOUNDS[1].maxY);
+});
+
+test('dive roll selects all eight directions and travels a fixed distance before cooldown',()=>{
+  const directions=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
+  directions.forEach(([x,y],direction)=>{
+    const m=new Match(()=>.5),p=m.players[0];m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+    const start={x:p.x,y:p.y};
+    assert.equal(m.dodge(p,x,y),true);assert.equal(p.dodgeDir,direction);
+    assert.equal(m.dodge(p,x,y),false,'roll cannot restart while active');
+    for(let i=0;i<60;i++)m.update(1/120);
+    assert.equal(p.dodgeTime,0);
+    assert.ok(Math.hypot(p.x-start.x,p.y-start.y)<=DODGE_DISTANCE+.01);
+    assert.ok(Math.hypot(p.x-start.x,p.y-start.y)>DODGE_DISTANCE-3);
+    assert.equal(m.dodge(p,x,y),false,'cooldown prevents an immediate second roll');
+    for(let i=0;i<300;i++)m.update(1/120);
+    assert.equal(p.dodgeCooldown,0);assert.equal(m.dodge(p,x,y),true);
+  });
+  assert.ok(DODGE_COOLDOWN>DODGE_DURATION);
+});
+
+test('a roll stays inside the bank and cannot pass solid cover',()=>{
+  const m=new Match(()=>.5),p=m.players[0];m.think=()=>{};m.nextDrop=Infinity;
+  const crate=m.obstacles.find(o=>o.owner===0&&o.type==='crate');
+  m.obstacles.filter(o=>o!==crate).forEach(o=>o.destroyed=true);
+  crate.x=p.x+50;crate.y=p.y;
+  m.dodge(p,1,0);
+  for(let i=0;i<60;i++)m.update(1/120);
+  assert.ok(p.x<crate.x-14,'crate interrupts the roll');
+  const edge=new Match(()=>.5),fighter=edge.players[0];edge.think=()=>{};edge.nextDrop=Infinity;edge.obstacles.forEach(o=>o.destroyed=true);
+  fighter.y=BANK_BOUNDS[0].minY+10;edge.dodge(fighter,0,-1);
+  for(let i=0;i<60;i++)edge.update(1/120);
+  assert.equal(fighter.y,BANK_BOUNDS[0].minY);
+});
+
+test('rolling ignores direct, blast, stun, and ground damage until animation ends',()=>{
+  const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+  assert.equal(m.dodge(p,1,0),true);
+  assert.equal(m.damage(p,20),0);
+  enemy.x=p.x;enemy.slot={type:'laser',ammo:1};
+  m.fire(enemy,1,'special');
+  assert.equal(p.hp,100,'a laser beam passes over a rolling fighter');
+  m.explode({owner:1,type:'grenade',x:p.x,y:p.y,damage:7,life:1});
+  assert.equal(p.stun,0);
+  m.bullets.push({id:1001,owner:1,type:'pistol',x:p.x,y:p.y,vx:0,vy:0,damage:5,life:1,travel:0});
+  m.waste.push({id:999,x:p.x,y:p.y});
+  m.flames.push({id:1000,x:p.x-20,y:p.y,dx:1,dy:0,age:0,reach:40,maxReach:40,endAge:null,marked:0,life:1});
+  m.update(1/120);
+  assert.equal(p.hp,100);assert.equal(p.radiated,0);assert.equal(p.burning,0);
+  assert.ok(m.bullets.some(b=>b.id===1001),'the pistol round is not consumed by the invulnerable fighter');
+  m.waste=[];m.flames=[];
+  for(let i=0;i<60;i++)m.update(1/120);
+  assert.equal(p.dodgeTime,0);
+  assert.equal(m.damage(p,20),20);assert.equal(p.hp,80);
+});
+
+test('the opponent rolls away from a locked explosive shortly before impact',()=>{
+  const m=new Match(()=>.5),enemy=m.players[1];m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+  m.bullets.push({owner:0,type:'grenade',t:.7,duration:.9,tx:enemy.x,ty:enemy.y});
+  m.think(1/120);
+  assert.ok(enemy.dodgeTime>0);
+  assert.ok(enemy.dodgeCooldown>0);
 });
 
 test('opponent navigates around grouped crates near a wall and does not detour around barrels',()=>{

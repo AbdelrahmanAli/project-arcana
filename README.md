@@ -18,13 +18,16 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Controls
 
-- Phone / mouse: drag anywhere in the arena to create a floating joystick. Two transparent buttons on the right fire the unlimited pistol and the currently held Tower weapon independently. Another finger can fire while moving. Hold and release the upper button for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
-- Desktop: WASD or arrows to move; Space fires the pistol; E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
+- Phone / mouse: drag anywhere in the arena to create a floating joystick. Three transparent buttons on the right dodge, fire the held Tower weapon, and fire the unlimited pistol. Another finger can dodge or fire while moving. Hold and release the middle button for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
+- Desktop: WASD or arrows to move; Shift dive rolls in the movement direction; Space fires the pistol; E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
+- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 2.6-second cooldown. Solid cover and bank edges stop its movement.
 - Walk over a landed pickup to collect it. Each fighter can carry one Tower weapon, and cannot collect another until its ammunition is spent. There is no discard or swap action.
 
 ## Implemented
 
 Main menu with settings, one health-based round, computer opponent, unlimited weak pistol, six pickup weapons, one carried Tower weapon, paired independent random drops, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, one retaliation per cycle, absorbing bubble shield, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with a dedicated launch sound, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+
+Both fighters have eight-direction dive-roll animations. The computer opponent can use a roll to evade an incoming explosive.
 
 Each round places mirrored T, L, or square crate formations near the river and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 

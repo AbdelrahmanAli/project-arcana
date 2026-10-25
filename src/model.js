@@ -19,6 +19,7 @@ export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
+export const DODGE_DURATION = .46, DODGE_DISTANCE = 112, DODGE_COOLDOWN = 2.6;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
@@ -101,7 +102,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -243,14 +244,28 @@ export class Match {
   weapon(p) { return p.slot?.type || 'pistol'; }
   move(p,x,y,dt) {
     if(p.stun>0){p.moving=false;return;}
+    const rolling=p.dodgeTime>0;
+    if(rolling){x=p.dodgeX;y=p.dodgeY;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
     const oldX=p.x,oldY=p.y;
-    const nextX=clamp(p.x+x*scale*170*dt,38,W-38);
+    const speed=rolling?DODGE_DISTANCE/DODGE_DURATION:170;
+    const travelDt=rolling?Math.min(dt,p.dodgeTime):dt;
+    const nextX=clamp(p.x+x*scale*speed*travelDt,38,W-38);
     if(!this.obstacles.some(o=>blocksFighter(o,nextX,p.y)))p.x=nextX;
-    const nextY=clamp(p.y+y*scale*170*dt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
+    const nextY=clamp(p.y+y*scale*speed*travelDt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
     if(!this.obstacles.some(o=>blocksFighter(o,p.x,nextY)))p.y=nextY;
     p.moving=Math.hypot(p.x-oldX,p.y-oldY)>dt*2;
     if(p.moving) p.walk+=dt;
+  }
+  dodge(p,x=0,y=0){
+    if(this.finished||this.ending>0||p.hp<=0||p.stun>0||p.dodgeTime>0||p.dodgeCooldown>0)return false;
+    const length=Math.hypot(x,y);
+    p.dodgeX=length>.1?x/length:0;
+    p.dodgeY=length>.1?y/length:(p.id===0?-1:1);
+    p.dodgeDir=Math.round(Math.atan2(p.dodgeX,-p.dodgeY)/(Math.PI/4)+8)%8;
+    p.dodgeTime=DODGE_DURATION;p.dodgeCooldown=DODGE_COOLDOWN;p.charge=0;
+    this.emit('dodge',{player:p.id,x:p.x});
+    return true;
   }
   collect(p,item) {
     if(item.owner!==p.id || item.flight>0 || item.ttl<=0 || distance(p,item)>29) return false;
@@ -259,7 +274,7 @@ export class Match {
     this.emit('pickup',{player:p.id,weapon:item.type}); return true;
   }
   fire(p,power=0,mode='auto') {
-    if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0) return false;
+    if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.dodgeTime>0) return false;
     if(mode==='special'&&!p.slot)return false;
     const special=mode==='special'||(mode==='auto'&&!!p.slot),cooldownKey=special?'specialCooldown':'pistolCooldown';
     if(p[cooldownKey]>0)return false;
@@ -274,7 +289,7 @@ export class Match {
       const shieldHit=this.tower.shield?segmentEllipseHit(origin,end,towerShieldBounds(this.tower)):null;
       const bodyHit=!shieldHit?segmentTowerHit(origin,end,this.tower):null;
       const obstacleHit=this.nearestObstacleHit(origin,end);
-      const victimHit=enemy.hp>0?segmentRectHit(origin,end,{left:enemy.x-16,right:enemy.x+16,top:enemy.y-16,bottom:enemy.y+16}):null;
+      const victimHit=enemy.hp>0&&enemy.dodgeTime<=0?segmentRectHit(origin,end,{left:enemy.x-16,right:enemy.x+16,top:enemy.y-16,bottom:enemy.y+16}):null;
       const hits=[shieldHit&&{kind:'tower',hit:shieldHit},bodyHit&&{kind:'tower',hit:bodyHit},obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit}].filter(Boolean);
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='tower')this.hitTower(p.id,first.hit);
@@ -295,18 +310,20 @@ export class Match {
     this.emit('shot',{weapon:type,player:p.id,x:p.x}); return true;
   }
   damage(p,amount,x=p.x,y=p.y) {
-    if(p.hp<=0) return;
+    if(p.hp<=0||p.dodgeTime>0) return 0;
     const dealt=Math.min(p.hp,amount);
     p.hp=Math.max(0,p.hp-amount); p.hurt=.13;
     this.effects.push({id:this.id++,type:'blood',x,y,age:0,life:1.1,seed:this.random()});
     this.mark('blood',x,y+18,.6+this.random()*.5);
     this.emit('hit',{player:p.id});
     if(dealt>0)this.emit('damage',{player:p.id,amount:dealt});
+    return dealt;
   }
   damageOverTime(p,amount){
-    if(p.hp<=0)return;
+    if(p.hp<=0||p.dodgeTime>0)return 0;
     const dealt=Math.min(p.hp,amount);
     p.hp-=dealt;p.hazardDamage+=dealt;
+    return dealt;
   }
   flushHazardDamage(dt){
     for(const p of this.players){
@@ -329,8 +346,9 @@ export class Match {
     for(const target of targets){
       const d=distance(target,b);
       if(d>=radius)continue;
-      this.damage(target,b.damage*(1-.4*d/radius));if(target.id!==b.owner)this.players[b.owner].hits++;
-      if(stunGrenade&&target.hp>0&&target.stun<=0){target.stun=GRENADE_STUN_DURATION;target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
+      const dealt=this.damage(target,b.damage*(1-.4*d/radius));
+      if(dealt>0&&target.id!==b.owner)this.players[b.owner].hits++;
+      if(dealt>0&&stunGrenade&&target.hp>0&&target.stun<=0){target.stun=GRENADE_STUN_DURATION;target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
     if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y});
     this.emit(effect,{x:b.x}); b.life=0;
@@ -393,6 +411,13 @@ export class Match {
   think(dt) {
     const p=this.players[1],enemy=this.players[0];
     if(p.stun>0){p.moving=false;p.charge=0;return;}
+    if(p.dodgeTime<=0&&p.dodgeCooldown<=0){
+      const threat=this.bullets.find(b=>b.owner===0&&(
+        (['grenade','nuclear'].includes(b.type)&&b.t/b.duration>.68&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18)||
+        (b.type==='missile'&&b.targetDistance-b.travel<130&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS.missile+18)
+      ));
+      if(threat)this.dodge(p,p.x===threat.tx?(p.x>=W/2?1:-1):p.x-threat.tx,p.y-threat.ty);
+    }
     this.aiClock-=dt;
     if(this.aiClock<=0) {
       this.aiClock=.2+this.random()*.12;
@@ -417,6 +442,7 @@ export class Match {
     const waypoint=this.aiWaypoint||p,dx=waypoint.x-p.x,dy=waypoint.y-p.y,l=Math.hypot(dx,dy);
     this.move(p,l>4?dx/l:0,l>4?dy/l:0,dt);
     if(l<=4&&this.aiTarget&&distance(p,this.aiTarget)>10)this.aiClock=0;
+    if(p.dodgeTime>0){p.charge=0;return;}
     if(p.slot?.type==='laser') {
       if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1)this.fire(p,1);}
     } else if(p.slot&&this.aiFire) this.fire(p);
@@ -437,12 +463,12 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
-    this.updateTower(dt); this.move(this.players[0],input.x||0,input.y||0,dt);
+    this.updateTower(dt);if(input.dodge)this.dodge(this.players[0],input.x||0,input.y||0);this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
     if(input.pistol)this.fire(p,0,'pistol');
-    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
+    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
     this.think(dt);
     for(const i of this.pickups){
       if(i.flight>0){
@@ -492,20 +518,20 @@ export class Match {
     for(const b of this.bullets){
       if(b.life<=0||!standard(b))continue;
       const victim=this.players[1-b.owner];
-      if(segmentDistance(victim,{x:b.prevX,y:b.prevY},b)<15){
-        this.damage(victim,b.damage);this.players[b.owner].hits++;b.life=0;
+      if(victim.dodgeTime<=0&&segmentDistance(victim,{x:b.prevX,y:b.prevY},b)<15){
+        if(this.damage(victim,b.damage)>0)this.players[b.owner].hits++;b.life=0;
       }
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
     for(const player of this.players)if(player.hp>0&&this.waste.some(waste=>distance(player,waste)<WASTE_RADIUS)){
-      this.damageOverTime(player,WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
+      if(this.damageOverTime(player,WASTE_DAMAGE_PER_SECOND*dt)>0)player.radiated=.14;
     }
     for(const f of this.flames){
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
       for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle);
-      for(const p of this.players){if(segmentDistance(p,f,end)<21){this.damageOverTime(p,FLAME_DAMAGE_PER_SECOND*dt);p.burning=.14;}}
+      for(const p of this.players){if(segmentDistance(p,f,end)<21&&this.damageOverTime(p,FLAME_DAMAGE_PER_SECOND*dt)>0)p.burning=.14;}
       while(f.marked+70<f.reach){
         f.marked+=70;
         const x=f.x+f.dx*f.marked,y=f.y+f.dy*f.marked;
@@ -521,6 +547,7 @@ export class Match {
     }
     this.flames=this.flames.filter(f=>f.life>0);
     this.flushHazardDamage(dt);
+    for(const p of this.players)p.dodgeTime=Math.max(0,p.dodgeTime-dt);
     for(const e of this.effects)e.age+=dt;
     this.effects=this.effects.filter(e=>e.age<e.life);
     for(const b of this.beams)b.age+=dt;
