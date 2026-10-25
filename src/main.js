@@ -698,6 +698,7 @@ async function boot(){
         if(event.type==='stun'&&event.player===1){const label=$('opponent-toast');label.textContent='STUNNED';label.style.opacity=1;label.dataset.until=String(performance.now()+1800);}
       }
       game.events=[];
+      sound.syncMissiles(game.bullets);
       sound.burn(game.flames.length>0);
       sound.tower(game.tower.phase,game.tower.height,game.tower.progress);
     } else accumulator=0;
