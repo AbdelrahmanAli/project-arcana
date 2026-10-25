@@ -381,7 +381,8 @@ export class Match {
       this.aiClock=.2+this.random()*.12;
       if(p.selected<0){const idx=p.slots.findIndex(Boolean);if(idx>=0)this.select(p,idx);}
       const bank=BANK_BOUNDS[1];
-      let tx=enemy.x,ty=(bank.minY+bank.maxY)/2+Math.sin(this.time*.6)*(bank.maxY-bank.minY)*.28;
+      // Patrol almost the full bank depth, including the sand beside the river wall.
+      let tx=enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
       const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0).sort((a,b)=>distance(a,p)-distance(b,p));
       if(p.slots.includes(null)&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {

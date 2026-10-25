@@ -340,6 +340,18 @@ test('opponent navigates around grouped crates near a wall and does not detour a
   assert.ok(opponent.y>=BANK_BOUNDS[1].minY&&opponent.y<=BANK_BOUNDS[1].maxY);
 });
 
+test('opponent patrol reaches the river-facing edge of its bank',()=>{
+  const m=new Match(()=>.5),opponent=m.players[1];m.nextDrop=Infinity;m.fire=()=>false;
+  m.obstacles.forEach(o=>o.destroyed=true);
+  let farthestY=opponent.y;
+  for(let i=0;i<600;i++){
+    m.update(1/120);
+    farthestY=Math.max(farthestY,opponent.y);
+  }
+  assert.ok(farthestY>=BANK_BOUNDS[1].maxY-8,`opponent stopped ${Math.round(BANK_BOUNDS[1].maxY-farthestY)} pixels short of the front limit`);
+  assert.ok(opponent.y<=BANK_BOUNDS[1].maxY,'opponent stays on the sand');
+});
+
 test('fast projectiles use swept collision rather than skipping targets',()=>{
   assert.equal(segmentDistance({x:10,y:15},{x:10,y:0},{x:10,y:30}),0);
   const m=new Match();m.think=()=>{};m.nextDrop=Infinity;const enemy=m.players[1];
