@@ -11,7 +11,7 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,fire:false};
 const keys=new Set();let stick=null,firePointer=null,toastUntil=0;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -428,17 +428,17 @@ function render(){
     const corpse=corpses[p.id];
     if(p.hp>0){
       let frame=base;if(p.flash>0)frame=base+3;else if(p.moving)frame=base+1+Math.floor(p.walk*9)%2;
-      s.visible=true;s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=p.radiated>0?0xb5ff92:p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
+      const hazardTint=p.burning>0?0xff5750:p.radiated>0?0x80ff68:null;
+      const hazardBlink=Math.sin(game.time*21+p.id*.4)>0;
+      s.visible=true;s.texture=textures[frame];s.position.set(p.x,p.y);s.width=78;s.height=78;s.rotation=0;s.alpha=1;s.tint=hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
       corpse.visible=false;
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
-        const power=p.charge,ready=power>=1,blink=laserBlink(game.time,ready);
-        circle(draw,p.x+10,p.y,6+power*8,0xff1530,(.13+power*.2)*blink);
-        circle(draw,p.x+10,p.y,2+power*4,ready?0xffe0e0:0xff3547,blink);
+        const power=p.charge,ready=power>=1;
         if(p.id===0){
           draw.roundRect(p.x-19,p.y-50,38,6,2).fill({color:0x220c10,alpha:.9});
-          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xffebdf:0xff3946,alpha:blink});
+          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xffebdf:0xff3946,alpha:1});
         }
       }
     }else{
@@ -521,7 +521,12 @@ function render(){
       drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.nuclear,k,'nuclear');
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.58,radius*.22).fill({color:0x6bd822,alpha:(1-k)*.34});
-      circle(draw,e.x,e.y-10,8+k*24,0xa5ff56,(1-k)*.46);
+      let cloud=blastSprites.get(e.id);
+      if(!cloud){cloud=new Sprite(mushroomFrames[0]);cloud.anchor.set(.5,1);world.addChild(cloud);blastSprites.set(e.id,cloud);}
+      cloud.texture=mushroomFrames[Math.min(3,Math.floor(k*4))];
+      cloud.position.set(e.x,e.y+15);cloud.width=130;cloud.height=160;
+      cloud.alpha=k<.8?1:Math.max(0,(1-k)/.2);
+      if(k<.18)circle(draw,e.x,e.y-8,8+k*34,0xeaffaa,(.18-k)*2.8);
       for(let n=0;n<12;n++){const a=n*Math.PI/6+e.seed;rect(draw,e.x+Math.cos(a)*radius*.8,e.y-8+Math.sin(a)*radius*.55,3,3,n%3?0x83f53a:0xe5ff8c,1-k);}
     }else if(e.type==='stunBlast'){
       const radius=8+k*BLAST_RADIUS.grenade;
@@ -593,7 +598,7 @@ function render(){
       for(let i=0;i<10;i++){const a=i*2.4+e.seed,spread=23*Math.min(1,k*3)*(1+effectNoise(e.seed,i)*.4);const x=e.x+Math.cos(a)*spread,y=e.y+Math.sin(a)*spread;rect(groundDraw,x,y,3+i%4,2+i%3,i%3?0x8c0c17:0xd12730,1-k*.35);}
     }else{for(let n=0;n<6;n++){const a=n*1.05;rect(draw,e.x+Math.cos(a)*k*30,e.y+Math.sin(a)*k*30,3,3,0xffdf92,1-k);}}
   }
-  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast').map(e=>e.id));
+  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast'||e.type==='nuclearBlast').map(e=>e.id));
   for(const [id,s]of blastSprites)if(!activeBlast.has(id)){s.destroy();blastSprites.delete(id);}
   if(stick){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
@@ -604,18 +609,18 @@ async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.ticker.maxFPS=60;
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,crateArt,barrelArt]=await Promise.all([
+  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
-    ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
+    ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,crateArt,barrelArt])art.source.scaleMode='nearest';
+  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
-  wasteFrames=cut(wasteArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
+  wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the

@@ -35,10 +35,11 @@ These transparent, original pixel-art assets are loaded by the current game:
 | `nuclear-launcher.png` | 1 | Pickup and equipped weapon icon |
 | `nuclear-grenade.png` | 1 | Arcing projectile |
 | `nuclear-waste-frames.png` | 4 horizontal | Looping ground hazard |
+| `nuclear-mushroom-frames.png` | 4 horizontal | Ground flash, rising cloud, full mushroom, fading smoke |
 | `breakable-crate-depth-frames.png` | 3 horizontal | Screen-aligned intact, cracked, and destroyed crate with a visible top face |
 | `oil-barrel-frames.png` | 3 horizontal | Intact, impact, wreck |
 
-Sprite sheets use equal-width cells. The waste sheet is 4 × 543 by 724 pixels; crate and barrel sheets are 3 × 724 by 724 pixels. The single sprites are 1536 by 1024 pixels. Crop frames and scale them in PixiJS at runtime; the transparent margins keep their alignment stable. Earlier crate sheets remain in the folder as unused art studies.
+Sprite sheets use equal-width cells. The waste and mushroom sheets are 4 × 543 by 724 pixels; crate and barrel sheets are 3 × 724 by 724 pixels. The single sprites are 1536 by 1024 pixels. Crop frames and scale them in PixiJS at runtime; the transparent margins keep their alignment stable. Earlier crate sheets remain in the folder as unused art studies.
 
 The exact generation prompts are recorded in [`PHASE_2_ART_PROMPTS.md`](PHASE_2_ART_PROMPTS.md).
 

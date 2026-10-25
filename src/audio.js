@@ -44,6 +44,20 @@ function grenadeLaunchWav() {
     return (clack*.27+thump*.5+vent*.26)*Math.min(1,t/.006);
   });
 }
+function cruiseMissileLaunchWav() {
+  let seed=8147,roar=0,air=0;
+  return pcmWav(1.05,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    roar=roar*.88+white*.12;
+    air=air*.55+white*.45;
+    const ignition=Math.sin(2*Math.PI*(92-28*t)*t)*Math.exp(-t*15)*.38;
+    const spool=Math.min(1,t/.18)*Math.exp(-Math.max(0,t-.42)*2.9);
+    const turbine=Math.sin(2*Math.PI*(230*t+240*t*t))*spool*.16;
+    const exhaust=(roar*.62+air*.15)*spool*.6;
+    return (ignition+turbine+exhaust)*Math.min(1,t/.009);
+  });
+}
 function stunBlastWav() {
   let seed=7727;
   return pcmWav(.55,t=>{
@@ -92,8 +106,9 @@ export class Sound {
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
-    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],missile:[.45,160,.8],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
+    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
+    this.clips.missile=new Howl({src:[cruiseMissileLaunchWav()],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
     this.clips.stunBlast=new Howl({src:[stunBlastWav()],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.nuclear=new Howl({src:[nuclearLaunchWav()],format:['wav'],volume:.32,preload:true,pool:8});

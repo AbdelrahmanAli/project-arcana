@@ -496,6 +496,7 @@ test('nuclear grenade arcs over the tower, then permanent waste harms either fig
   assert.equal(p.slots[0].ammo,1);assert.equal(m.bullets[0].type,'nuclear');
   for(let i=0;i<130;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);assert.ok(enemy.hp<90&&enemy.hp>80);
+  assert.ok(m.effects.some(e=>e.type==='nuclearBlast'&&e.life>=1.4),'mushroom animation remains visible after impact');
   assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
   assert.equal(m.waste.length,1);assert.ok(m.events.some(e=>e.type==='nuclearBlast'));
   const hp=enemy.hp;for(let i=0;i<120;i++)m.update(1/120);
@@ -508,6 +509,24 @@ test('nuclear grenade arcs over the tower, then permanent waste harms either fig
   assert.equal(m.waste.length,2,'waste remains after ten more seconds');
   const before=p.hp;p.x=m.waste[1].x;m.update(1/120);assert.ok(p.hp<before,'old waste still hurts on reentry');
   assert.equal(WASTE_RADIUS,24);assert.ok(DROP_TYPES.includes('nuclear'));
+});
+
+test('waste and fire expose separate short-lived damage states for each fighter',()=>{
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
+  const p=m.players[0],enemy=m.players[1];
+  m.waste.push({id:999,x:p.x,y:p.y});
+  m.update(1/120);
+  assert.ok(p.radiated>0&&p.burning===0&&p.hp<100);
+  p.x+=80;m.waste=[];
+  for(let i=0;i<25;i++)m.update(1/120);
+  assert.equal(p.radiated,0);
+  m.flames.push({id:1000,x:enemy.x,y:enemy.y,dx:1,dy:0,age:0,reach:40,maxReach:40,endAge:null,marked:0,life:.5});
+  m.update(1/120);
+  assert.ok(enemy.burning>0&&enemy.radiated===0&&enemy.hp<100);
+  m.flames=[];
+  for(let i=0;i<25;i++)m.update(1/120);
+  assert.equal(enemy.burning,0);
 });
 
 test('seeded autonomous match runs to a result without invalid positions or unbounded entities',()=>{
