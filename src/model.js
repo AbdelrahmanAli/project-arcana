@@ -103,14 +103,14 @@ export function segmentEllipseHit(a,b,ellipse) {
 function soldier(id, x, y) {
   return { id,x,y,hp:100,stun:0,radiated:0,slots:[null,null,null],selected:-1,cooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
 }
-const OBSTACLE_HALF={crate:{x:22,y:20},barrel:{x:12,y:20}};
+const OBSTACLE_HALF={crate:{x:17,y:17},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
 function blocksFighter(o,x,y){
   if(o.destroyed)return false;
   // Only the object's footprint blocks walking. Its tall sprite is allowed to
   // overlap a fighter walking behind it, with depth sorting handling the view.
-  const halfWidth=o.type==='barrel'?12:18;
-  const nearX=clamp(x,o.x-halfWidth,o.x+halfWidth),nearY=clamp(y,o.y+8,o.y+20);
+  const crate=o.type==='crate',halfWidth=crate?14:12;
+  const nearX=clamp(x,o.x-halfWidth,o.x+halfWidth),nearY=clamp(y,o.y+(crate?6:8),o.y+(crate?16:20));
   return Math.hypot(x-nearX,y-nearY)<11;
 }
 export class Match {

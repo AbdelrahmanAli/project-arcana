@@ -219,11 +219,11 @@ function render(){
     liveObstacles.add(obstacle.id);
     let sprite=obstacleSprites.get(obstacle.id);
     if(!sprite){sprite=new Sprite((obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);obstacleLayer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
-    const frames=obstacle.type==='crate'?crateFrames:barrelFrames;
+    const crate=obstacle.type==='crate',frames=crate?crateFrames:barrelFrames;
     sprite.texture=frames[obstacle.destroyed?(obstacle.flash>0?1:2):0];
-    sprite.width=obstacle.type==='crate'?54:44;sprite.height=obstacle.type==='crate'?54:54;
-    sprite.position.set(obstacle.x,obstacle.y-5);sprite.zIndex=obstacle.destroyed?-1:obstacle.y+17;
-    sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-3&&player.y>obstacle.y-38&&Math.abs(player.x-obstacle.x)<(obstacle.type==='crate'?27:20)) ? .68 : 1;
+    sprite.width=crate?40:44;sprite.height=crate?40:54;
+    sprite.position.set(obstacle.x,obstacle.y+(crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
+    sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
   const t=game.tower;
