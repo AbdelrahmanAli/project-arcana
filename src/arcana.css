@@ -1,3 +1,8 @@
+.shell, .shell * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 .hidden { display: none !important; }
 .game-top #menu-open { color: #e7c77e; }
 .main-menu { position:absolute; inset:0; z-index:6; display:grid; place-items:center; background:linear-gradient(155deg,#091819b8,#121e22e8 65%,#0e1213ee); backdrop-filter:blur(2px); }
