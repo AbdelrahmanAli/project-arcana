@@ -478,7 +478,7 @@ function render(){
       const hazardBlink=Math.sin(game.time*21+p.id*.4)>0;
       const rolling=p.dodgeTime>0;
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
-      s.visible=true;s.texture=rolling?rollFrames[p.id][p.dodgeDir][rollFrame]:textures[frame];s.position.set(p.x,p.y);s.width=rolling?90:78;s.height=rolling?90:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
+      s.visible=true;s.texture=rolling?rollFrames[p.id][p.dodgeDir][rollFrame]:textures[frame];s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
       corpse.visible=false;
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(rolling)groundDraw.ellipse(p.x,p.y+24,24,8).stroke({color:0xb9eff3,width:2,alpha:.5});
