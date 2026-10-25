@@ -1,8 +1,8 @@
 export const W = 480, H = 880;
 export const RIVER = { top: 359, bottom: 521, x: 240, y: 440 };
 export const BANK_BOUNDS = [
-  { minY: 560, maxY: 810 },
-  { minY: 70, maxY: 320 },
+  { minY: 530, maxY: 810 },
+  { minY: 70, maxY: 290 },
 ];
 export const TOWER_BASE_Y = RIVER.y+19;
 export const TOWER_TIMING = { rise: 5.2, deliver: 2.0, lower: 5.4, rest: 4.8 };
