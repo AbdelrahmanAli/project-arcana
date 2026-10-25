@@ -496,7 +496,7 @@ test('nuclear grenade arcs over the tower, then permanent waste harms either fig
   assert.equal(p.slots[0].ammo,1);assert.equal(m.bullets[0].type,'nuclear');
   for(let i=0;i<130;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);assert.ok(enemy.hp<90&&enemy.hp>80);
-  assert.ok(m.effects.some(e=>e.type==='nuclearBlast'&&e.life>=1.4),'mushroom animation remains visible after impact');
+  assert.ok(m.effects.some(e=>e.type==='nuclearBlast'&&e.life>=.9&&e.life<=1),'mushroom animation resolves promptly after impact');
   assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
   assert.equal(m.waste.length,1);assert.ok(m.events.some(e=>e.type==='nuclearBlast'));
   const hp=enemy.hp;for(let i=0;i<120;i++)m.update(1/120);
@@ -527,6 +527,13 @@ test('waste and fire expose separate short-lived damage states for each fighter'
   m.flames=[];
   for(let i=0;i<25;i++)m.update(1/120);
   assert.equal(enemy.burning,0);
+});
+
+test('nearby nuclear impacts each leave waste beneath their own cloud',()=>{
+  const m=new Match(()=>.5);
+  for(const [x,y] of [[100,120],[112,132]])m.explode({type:'nuclear',x,y,owner:0,damage:0,life:1});
+  assert.deepEqual(m.waste.map(({x,y})=>[x,y]),[[100,120],[112,132]]);
+  assert.deepEqual(m.effects.filter(e=>e.type==='nuclearBlast').map(({x,y})=>[x,y]),[[100,120],[112,132]]);
 });
 
 test('seeded autonomous match runs to a result without invalid positions or unbounded entities',()=>{

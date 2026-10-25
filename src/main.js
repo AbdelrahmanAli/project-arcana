@@ -58,7 +58,9 @@ for(let i=0;i<3;i++){
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
-const laserBlink=(time,ready)=>.08+.92*((1+Math.sin(time*(ready?28:16)))/2)**2;
+const laserWhitePhase=(time,ready)=>Math.sin(time*(ready?28:16))>0;
+// Source-pixel centers of the painted ground burst in each 543 x 724 frame.
+const MUSHROOM_IMPACT_POINTS=[[254,593],[260,594],[269,595],[285,594]];
 function projectedArc(g,x,y,rx,ry,start,end,width,color,alpha,wobble=0){
   const steps=12;
   for(let i=0;i<=steps;i++){
@@ -220,6 +222,7 @@ function updateHud(){
   badge.firstElementChild.classList.toggle('missile-icon',enemyWeapon==='missile');
   badge.firstElementChild.classList.toggle('nuclear-icon',enemyWeapon==='nuclear');
   badge.classList.toggle('charging',enemyWeapon==='laser'&&enemy.charge>0);
+  badge.classList.toggle('laser-white',enemyWeapon==='laser'&&enemy.charge>0&&laserWhitePhase(game.time,enemy.charge>=1));
   $('opponent-charge').style.width=`${enemy.charge*100}%`;
   if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
   else{badge.firstElementChild.style.removeProperty('background-size');badge.firstElementChild.style.removeProperty('background-position');}
@@ -435,12 +438,12 @@ function render(){
       groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
-        const power=p.charge,ready=power>=1,blink=laserBlink(game.time,ready);
-        circle(draw,p.x,p.y-6,7+power*4,0xff1631,(ready?.25:.15)*blink);
-        circle(draw,p.x,p.y-6,2.5+power*1.5,ready?0xff7180:0xff3348,blink);
+        const power=p.charge,ready=power>=1,white=laserWhitePhase(game.time,ready);
+        circle(draw,p.x,p.y-6,7+power*4,white?0xffe9e4:0xff1631,ready?.28:.2);
+        circle(draw,p.x,p.y-6,2.5+power*1.5,white?0xffffff:0xff263d,1);
         if(p.id===0){
           draw.roundRect(p.x-19,p.y-50,38,6,2).fill({color:0x220c10,alpha:.9});
-          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:ready?0xff5262:0xff263d,alpha:.35+.65*blink});
+          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:white?0xffffff:ready?0xff5262:0xff263d,alpha:1});
         }
       }
     }else{
@@ -517,10 +520,12 @@ function render(){
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.58,radius*.22).fill({color:0x6bd822,alpha:(1-k)*.34});
       let cloud=blastSprites.get(e.id);
-      if(!cloud){cloud=new Sprite(mushroomFrames[0]);cloud.anchor.set(.5,1);world.addChild(cloud);blastSprites.set(e.id,cloud);}
-      cloud.texture=mushroomFrames[Math.min(3,Math.floor(k*4))];
-      cloud.position.set(e.x,e.y+15);cloud.width=130;cloud.height=160;
-      cloud.alpha=k<.8?1:Math.max(0,(1-k)/.2);
+      if(!cloud){cloud=new Sprite(mushroomFrames[0]);world.addChild(cloud);blastSprites.set(e.id,cloud);}
+      const frame=k<.11?0:k<.29?1:k<.64?2:3;
+      cloud.texture=mushroomFrames[frame];
+      cloud.anchor.set(MUSHROOM_IMPACT_POINTS[frame][0]/543,MUSHROOM_IMPACT_POINTS[frame][1]/724);
+      cloud.position.set(e.x,e.y+7);cloud.width=130;cloud.height=160;
+      cloud.alpha=k<.72?1:Math.max(0,(1-k)/.28);
       if(k<.18)circle(draw,e.x,e.y-8,8+k*34,0xeaffaa,(.18-k)*2.8);
       for(let n=0;n<12;n++){const a=n*Math.PI/6+e.seed;rect(draw,e.x+Math.cos(a)*radius*.8,e.y-8+Math.sin(a)*radius*.55,3,3,n%3?0x83f53a:0xe5ff8c,1-k);}
     }else if(e.type==='stunBlast'){

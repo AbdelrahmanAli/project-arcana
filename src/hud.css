@@ -58,7 +58,10 @@
 .opponent-weapon.charging {
   border-color: #ff5c6c;
   box-shadow: 0 0 10px #ff284cbb, inset 0 0 7px #ff284c77;
-  animation: opponentChargePulse .45s ease-in-out infinite alternate;
+}
+.opponent-weapon.charging.laser-white {
+  border-color: #fff;
+  box-shadow: 0 0 10px #fff9, inset 0 0 7px #fffc;
 }
 .opponent-charge-label {
   display: none;
@@ -88,9 +91,12 @@
   background: linear-gradient(90deg,#c82139,#ff9a9c);
   box-shadow: 0 0 6px #ff4f67;
 }
+.opponent-weapon.laser-white .opponent-charge-track i {
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+}
 .opponent-weapon.charging .opponent-charge-label,
 .opponent-weapon.charging .opponent-charge-track { display: block; }
-@keyframes opponentChargePulse { from { filter: brightness(.86); } to { filter: brightness(1.25); } }
 .weapon-picture {
   display: block;
   width: 100%;

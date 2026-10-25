@@ -303,7 +303,7 @@ export class Match {
   explode(b) {
     const stunGrenade=b.type==='grenade',nuclear=b.type==='nuclear';
     const effect=nuclear?'nuclearBlast':stunGrenade?'stunBlast':'explosion';
-    this.effects.push({id:this.id++,type:effect,x:b.x,y:b.y,age:0,life:nuclear?1.5:stunGrenade?.65:.55,seed:this.random()});
+    this.effects.push({id:this.id++,type:effect,x:b.x,y:b.y,age:0,life:nuclear?.95:stunGrenade?.65:.55,seed:this.random()});
     this.effects.push({id:this.id++,type:'smoke',x:b.x,y:b.y,age:0,life:nuclear?1.5:stunGrenade?1.2:2.4,seed:this.random()});
     this.mark('scorch',b.x,b.y,nuclear?.8:stunGrenade?.6:1.3);
     const radius=BLAST_RADIUS[b.type];
@@ -315,7 +315,7 @@ export class Match {
       this.damage(target,b.damage*(1-.4*d/radius));if(target.id!==b.owner)this.players[b.owner].hits++;
       if(stunGrenade&&target.hp>0){target.stun=Math.max(target.stun,GRENADE_STUN_DURATION);target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
-    if(nuclear&&!this.waste.some(waste=>distance(waste,b)<WASTE_RADIUS))this.waste.push({id:this.id++,x:b.x,y:b.y});
+    if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y});
     this.emit(effect,{x:b.x}); b.life=0;
   }
   hitTower(owner,impact=RIVER) {
