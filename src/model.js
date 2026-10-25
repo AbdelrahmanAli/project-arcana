@@ -101,7 +101,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -296,10 +296,26 @@ export class Match {
   }
   damage(p,amount,x=p.x,y=p.y) {
     if(p.hp<=0) return;
+    const dealt=Math.min(p.hp,amount);
     p.hp=Math.max(0,p.hp-amount); p.hurt=.13;
     this.effects.push({id:this.id++,type:'blood',x,y,age:0,life:1.1,seed:this.random()});
     this.mark('blood',x,y+18,.6+this.random()*.5);
     this.emit('hit',{player:p.id});
+    if(dealt>0)this.emit('damage',{player:p.id,amount:dealt});
+  }
+  damageOverTime(p,amount){
+    if(p.hp<=0)return;
+    const dealt=Math.min(p.hp,amount);
+    p.hp-=dealt;p.hazardDamage+=dealt;
+  }
+  flushHazardDamage(dt){
+    for(const p of this.players){
+      if(p.hazardDamage<=0)continue;
+      p.hazardPopupClock+=dt;
+      if(p.hazardPopupClock<.4&&p.hp>0)continue;
+      const shown=Math.floor(p.hazardDamage+1e-6);
+      if(shown>0){this.emit('damage',{player:p.id,amount:shown});p.hazardDamage-=shown;p.hazardPopupClock=0;}
+    }
   }
   explode(b) {
     const stunGrenade=b.type==='grenade',nuclear=b.type==='nuclear';
@@ -482,14 +498,14 @@ export class Match {
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
     for(const player of this.players)if(player.hp>0&&this.waste.some(waste=>distance(player,waste)<WASTE_RADIUS)){
-      player.hp=Math.max(0,player.hp-WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
+      this.damageOverTime(player,WASTE_DAMAGE_PER_SECOND*dt);player.radiated=.14;
     }
     for(const f of this.flames){
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
       for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle);
-      for(const p of this.players){if(segmentDistance(p,f,end)<21){p.hp=Math.max(0,p.hp-FLAME_DAMAGE_PER_SECOND*dt);p.burning=.14;}}
+      for(const p of this.players){if(segmentDistance(p,f,end)<21){this.damageOverTime(p,FLAME_DAMAGE_PER_SECOND*dt);p.burning=.14;}}
       while(f.marked+70<f.reach){
         f.marked+=70;
         const x=f.x+f.dx*f.marked,y=f.y+f.dy*f.marked;
@@ -504,6 +520,7 @@ export class Match {
       }
     }
     this.flames=this.flames.filter(f=>f.life>0);
+    this.flushHazardDamage(dt);
     for(const e of this.effects)e.age+=dt;
     this.effects=this.effects.filter(e=>e.age<e.life);
     for(const b of this.beams)b.age+=dt;

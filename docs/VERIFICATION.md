@@ -1,5 +1,10 @@
 # The Tower Deal verification
 
+## Damage feedback — 2026-10-25
+
+- All 48 simulation tests pass. Direct and lethal hits report the health actually lost; fire and nuclear waste report grouped integer damage without per-frame clutter.
+- The production build succeeds, and a 360 × 728 phone preview shows the floating number beside a fighter without covering the HUD.
+
 ## Portrait phone width — 2026-10-25
 
 - At a 360 × 728 viewport, the arena spans the full 360-pixel width with no side gutters. The menu, both fire controls, and the health footer remain visible.

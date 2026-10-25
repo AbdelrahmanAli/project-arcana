@@ -596,11 +596,27 @@ test('standing in waste or tower fire applies the intended damage per second',()
   wasteMatch.waste.push({id:999,x:wasteMatch.players[0].x,y:wasteMatch.players[0].y});
   for(let i=0;i<120;i++)wasteMatch.update(1/120);
   assert.ok(Math.abs(wasteMatch.players[0].hp-(100-WASTE_DAMAGE_PER_SECOND))<.01);
+  wasteMatch.waste=[];
+  for(let i=0;i<60;i++)wasteMatch.update(1/120);
+  assert.equal(wasteMatch.events.filter(e=>e.type==='damage'&&e.player===0).reduce((total,e)=>total+e.amount,0),WASTE_DAMAGE_PER_SECOND);
   const fireMatch=new Match(()=>.5);fireMatch.think=()=>{};fireMatch.nextDrop=Infinity;fireMatch.obstacles.forEach(o=>o.destroyed=true);
   const target=fireMatch.players[1];
   fireMatch.flames.push({id:999,x:target.x-20,y:target.y,dx:1,dy:0,age:0,reach:40,maxReach:40,endAge:null,marked:0,life:2});
   for(let i=0;i<120;i++)fireMatch.update(1/120);
   assert.ok(Math.abs(target.hp-(100-FLAME_DAMAGE_PER_SECOND))<.01);
+  fireMatch.flames=[];
+  for(let i=0;i<60;i++)fireMatch.update(1/120);
+  assert.equal(fireMatch.events.filter(e=>e.type==='damage'&&e.player===1).reduce((total,e)=>total+e.amount,0),FLAME_DAMAGE_PER_SECOND);
+});
+
+test('a hit reports the actual damage on either fighter, including a lethal hit',()=>{
+  const m=new Match(()=>.5);
+  m.damage(m.players[0],7);
+  m.damage(m.players[1],150);
+  assert.deepEqual(m.events.filter(e=>e.type==='damage'),[
+    {type:'damage',player:0,amount:7},
+    {type:'damage',player:1,amount:100},
+  ]);
 });
 
 test('nearby nuclear impacts each leave waste beneath their own cloud',()=>{

@@ -1,5 +1,18 @@
 /* The controls float over the expanded arena; the footer only holds health. */
 #arena { aspect-ratio: 24 / 47; }
+.damage-number {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  color: #fff0bd;
+  font: 900 clamp(12px, 3vw, 17px) 'IBM Plex Mono', monospace;
+  text-shadow: 1px 2px 0 #30140f, 0 0 4px #000;
+  animation: damage-float .85s ease-out forwards;
+}
+@keyframes damage-float {
+  from { opacity: 1; transform: translate(-50%, -50%); }
+  to { opacity: 0; transform: translate(-50%, -50%) translateY(-28px); }
+}
 .console { padding: 5px 10px max(7px, env(safe-area-inset-bottom)); }
 .player-health { margin: 0; padding: 3px 2px; }
 .fire-controls {

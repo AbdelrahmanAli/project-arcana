@@ -166,6 +166,7 @@ function clearInput(){
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
 function reset(){
   game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();
+  document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');$('pause').textContent='Ⅱ';
   for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites])clearSpriteMap(map);
@@ -176,9 +177,17 @@ function reset(){
 function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
+function showDamage(playerId,amount){
+  const p=game.players[playerId],label=document.createElement('span');
+  label.className='damage-number';label.textContent=`-${Math.max(1,Math.round(amount))}`;
+  label.setAttribute('aria-hidden','true');
+  label.style.left=`${(p.x+25)/W*100}%`;label.style.top=`${(p.y-20)/H*100}%`;
+  label.addEventListener('animationend',()=>label.remove(),{once:true});
+  $('arena').appendChild(label);
+}
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
 $('pause').addEventListener('click',pause);
-function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');$('menu-home').classList.remove('hidden');$('settings-panel').classList.add('hidden');}
+function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');$('menu-home').classList.remove('hidden');$('settings-panel').classList.add('hidden');}
 $('menu-play').addEventListener('click',reset);
 $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
@@ -709,7 +718,9 @@ async function boot(){
       if(stick){input.x=stick.dx/43;input.y=stick.dy/43;}
       accumulator+=dt;
       while(accumulator>=1/120){game.update(1/120,input);accumulator-=1/120;}
+      const damageByPlayer=[0,0];
       for(const event of game.events){
+        if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
         else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type,event.x);
         if(event.type==='pickup'&&event.player===0)toast(`${WEAPONS[event.weapon].name} COLLECTED`);
@@ -717,6 +728,7 @@ async function boot(){
         if(event.type==='stun'&&event.player===0)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
         if(event.type==='stun'&&event.player===1){const label=$('opponent-toast');label.textContent='STUNNED';label.style.opacity=1;label.dataset.until=String(performance.now()+1800);}
       }
+      damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showDamage(playerId,amount);});
       game.events=[];
       sound.burn(game.flames.length>0);
       sound.tower(game.tower.phase,game.tower.height,game.tower.progress);
