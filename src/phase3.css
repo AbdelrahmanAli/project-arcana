@@ -7,16 +7,18 @@
   color: #ff4848;
   font: 900 clamp(12px, 3vw, 17px) 'IBM Plex Mono', monospace;
   text-shadow: 1px 2px 0 #360b0b, 0 0 4px #000;
-  animation: damage-float .85s ease-out forwards;
+  animation: damage-float 1.5s ease-out forwards;
 }
 .damage-number.opponent { animation-name: damage-float-forward; }
 @keyframes damage-float {
-  from { opacity: 1; transform: translate(-50%, -50%); }
-  to { opacity: 0; transform: translate(-50%, -50%) translateY(-28px); }
+  0% { opacity: 1; transform: translate(-50%, -50%); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translateY(-36px); }
 }
 @keyframes damage-float-forward {
-  from { opacity: 1; transform: translate(-50%, -50%); }
-  to { opacity: 0; transform: translate(-50%, -50%) translateY(28px); }
+  0% { opacity: 1; transform: translate(-50%, -50%); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translateY(36px); }
 }
 .console { padding: 5px 10px max(7px, env(safe-area-inset-bottom)); }
 .player-health { margin: 0; padding: 3px 2px; }
