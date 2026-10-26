@@ -17,6 +17,19 @@ let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],waste
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const PICKUP_FOREGROUND_OFFSET=55;
+function pickupDisplayPosition(item,holder){
+  const separationY=holder.y-item.y;
+  if(Math.abs(holder.x-item.x)>=90||separationY<=-65||separationY>=145)return null;
+  const y=Math.min(Math.max(item.y,holder.y+PICKUP_FOREGROUND_OFFSET),BANK_BOUNDS[item.owner].maxY-10);
+  let x=item.x;
+  if(y-holder.y<48){
+    const sideRoom=Math.sqrt(Math.max(0,PICKUP_FOREGROUND_OFFSET**2-(y-holder.y)**2))+16;
+    let direction=item.x<W/2?1:-1;
+    if(holder.x+direction*sideRoom<55||holder.x+direction*sideRoom>W-55)direction*=-1;
+    x=Math.max(55,Math.min(W-55,holder.x+direction*sideRoom));
+  }
+  return {x,y};
+}
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
@@ -485,13 +498,18 @@ function render(){
     const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear';
     active.add(item.id);let s=dropSprites.get(item.id);
     if(!s){const art=isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupLayer.addChild(s);dropSprites.set(item.id,s);}
-    // Keep inaccessible art clear of the fighter; near the front wall, place
-    // it diagonally toward the bank center. Collectable art stays on its hitbox.
+    // Ground weapons are passable. Keep a blocked weapon clear of the fighter
+    // even when the fighter walks onto the position where it is drawn.
     const holder=game.players[item.owner],blocked=holder.slot&&holder.slot.type!==item.type;
-    const desiredY=item.y+(blocked?PICKUP_FOREGROUND_OFFSET:0);
-    const groundY=Math.min(desiredY,BANK_BOUNDS[item.owner].maxY-10);
-    const edgeShift=blocked?Math.min(60,Math.max(0,desiredY-groundY)*1.4):0;
-    const groundX=item.x+(item.x<W/2?edgeShift:-edgeShift);
+    const clearPosition=blocked&&item.flight<=0?pickupDisplayPosition(item,holder):null;
+    let groundX=item.x,groundY=item.y;
+    if(clearPosition){({x:groundX,y:groundY}=clearPosition);s.pickupAvoided=true;}
+    else if(blocked&&s.pickupAvoided){
+      groundX=s.pickupGroundX+(item.x-s.pickupGroundX)*.16;
+      groundY=s.pickupGroundY+(item.y-s.pickupGroundY)*.16;
+      if(Math.hypot(groundX-item.x,groundY-item.y)<1)s.pickupAvoided=false;
+    }else s.pickupAvoided=false;
+    s.pickupGroundX=groundX;s.pickupGroundY=groundY;
     let x=groundX,y=groundY;
     if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(groundX-item.sx)*k;y=item.sy+(groundY-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
     else{s.rotation=0;groundDraw.ellipse(x,y+(isMissile||isLaser?8:isStun||isNuclear?10:12),isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isLaser?4:isMissile||isStun||isNuclear?7:0);}
