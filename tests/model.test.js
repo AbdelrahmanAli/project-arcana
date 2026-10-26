@@ -80,6 +80,21 @@ test('separate fire actions keep independent cooldowns and an empty special butt
   assert.equal(p.slot.ammo,1,'pistol never spends the Tower weapon');
 });
 
+test('holding the special button launches only one grenade until the next press',()=>{
+  for(const type of ['grenade','nuclear']){
+    const m=new Match(()=>.5),p=m.players[0];m.think=()=>{};m.nextDrop=Infinity;
+    m.obstacles.forEach(o=>o.destroyed=true);
+    p.slot={type,ammo:2};
+    for(let i=0;i<240;i++)m.update(1/120,{special:true});
+    assert.equal(p.shots,1,`${type} must fire once during a hold`);
+    assert.equal(p.slot.ammo,1);
+    m.update(1/120,{special:false});
+    m.update(1/120,{special:true});
+    assert.equal(p.shots,2,`${type} can fire again after release and press`);
+    assert.equal(p.slot,null);
+  }
+});
+
 test('each launch creates a pair with independent rolls and valid bank positions',()=>{
   let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match();m.obstacles.forEach(o=>o.destroyed=true);m.random=()=>values[i++%values.length];m.launch();
   assert.equal(m.pickups.length,2);assert.equal(m.pickups[0].type,'rifle');assert.equal(m.pickups[1].type,'nuclear');

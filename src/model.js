@@ -160,7 +160,7 @@ export class Match {
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
     this.nextDrop=2.5; this.aiClock=0; this.aiWaypoint=null; this.aiTarget=null; this.aiFire=false; this.aiCharge=0;
-    this.finished=false; this.winner=null; this.ending=0; this.launches=0;
+    this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
   makeObstacles(){
@@ -471,10 +471,12 @@ export class Match {
     }
     for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
+    const specialPressed=!!input.special&&!this.specialHeld;
+    this.specialHeld=!!input.special;
     this.updateTower(dt);if(input.dodge)this.dodge(this.players[0],input.x||0,input.y||0);this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
     if(input.pistol)this.fire(p,0,'pistol');
-    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else this.fire(p);}
+    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);}
     this.think(dt);
     for(const i of this.pickups){
       if(i.flight>0){
