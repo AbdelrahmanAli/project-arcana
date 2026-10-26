@@ -1,6 +1,7 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
 import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
+import { isolatedRollFrames } from './roll-sprites.js';
 import './style.css';
 import './hud.css';
 import './arcana.css';
@@ -669,7 +670,7 @@ async function boot(){
   deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
-  rollFrames=[dodgeBlueArt,dodgeRedArt].map(art=>Array.from({length:8},(_,dir)=>Array.from({length:4},(_,frame)=>new Texture({source:art.source,frame:new Rectangle(frame*art.width/4,dir*art.height/8,art.width/4,art.height/8)}))));
+  rollFrames=[dodgeBlueArt,dodgeRedArt].map(isolatedRollFrames);
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
