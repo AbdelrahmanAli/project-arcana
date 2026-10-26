@@ -2,7 +2,7 @@
 
 ## Phase 4: crate loot and modes — 2026-10-26
 
-- The Random Fixed Weapon reveal was checked at 390 × 844: the visible weapon changed five times in sampled frames, Start Match stayed disabled while cycling, and the final art/name matched the match's fixed weapon. Back during the reveal stopped further changes; starting again made a new reveal.
+- The Random Fixed Weapon reveal was checked at 390 × 844: the art cycled, settled on the match's fixed weapon, showed a three-count with no Start or Back button, and launched the match automatically. The header Menu button was unavailable during the reveal and restored when play began.
 - All 61 simulation tests pass. New checks cover all three mode rules, single-roll crate loot at full break, explosion fan-out, syringe health cap and slot independence, and the computer seeking healing.
 - The Vite production build succeeds. A 390 × 844 browser run checked the mode menu, random weapon reveal, six-weapon chooser, all three start paths, and replay behavior. Random Fixed Weapon returns to a new reveal; Choose Fixed Weapon preserves the chosen type.
 - Phone-sized captures checked the new syringe pickup at ground scale and its green +20 number beside the fighter. Collecting it raised the fighter from 75 to 95 HP.

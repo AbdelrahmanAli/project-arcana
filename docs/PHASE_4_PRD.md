@@ -27,9 +27,9 @@ Phase 4 gives destroyed crates a chance to release a weapon or a healing syringe
    | **Random Fixed Weapon** | The Tower randomly chooses and reveals one weapon before the match | The chosen type on both banks for the whole match; landing positions remain independently random | The chosen type |
    | **Choose Fixed Weapon** | Player chooses one of the six weapons, then starts | The chosen type on both banks for the whole match; landing positions remain independently random | The chosen type |
 
-3. Random Fixed Weapon cycles through the weapon images for about two seconds, slows down, then settles on the type already selected for that match. Start Match remains unavailable until it settles; Back cancels the reveal. Every weapon, including the Nuclear Launcher, is eligible in both fixed weapon modes. The computer uses the same type as the player. Both fighters begin with only their unlimited pistols and must still collect Tower or crate weapons.
+3. Random Fixed Weapon cycles through the weapon images for about two seconds, slows down, then settles on the type already selected for that match. The chosen weapon stays visible during a three-count, then the match starts automatically. The reveal has no Back or Start control. Every weapon, including the Nuclear Launcher, is eligible in both fixed weapon modes. The computer uses the same type as the player. Both fighters begin with only their unlimited pistols and must still collect Tower or crate weapons.
 4. **Play Again** keeps the current mode. Random Fixed Weapon draws and reveals a new type each match. Choose Fixed Weapon keeps the player's selection. Random Weapons resumes independent random drops. Returning to the main menu allows a new mode selection.
-5. Mode and weapon selection screens provide Back navigation and touch-sized controls. The weapon reveal occurs before combat starts; it must not obscure an active match. Existing settings, pause, sound toggle, and result flows remain available.
+5. The mode and manually chosen weapon screens provide Back navigation and touch-sized controls. The random reveal occurs before combat starts; it must not obscure an active match. Existing settings, pause, sound toggle, and result flows remain available.
 
 ## Crate drops
 

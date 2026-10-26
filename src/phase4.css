@@ -22,6 +22,8 @@
 .deal-preview strong { font-size: 12px; letter-spacing: 1.5px; color: #f2cc76; }
 .deal-preview.rolling .weapon-picture { animation: deal-shuffle .18s ease-in-out infinite alternate; }
 .deal-preview.settled { animation: deal-settle .4s ease-out; }
+.deal-status { color: #f2cc76; font-size: 10px; font-weight: 700; letter-spacing: 2px; min-height: 1.5em; }
+#menu-open:disabled { visibility: hidden; }
 @keyframes deal-shuffle { from { opacity: .72; transform: translateY(-2px) scale(.96); } to { opacity: 1; transform: translateY(2px) scale(1.04); } }
 @keyframes deal-settle { 0% { border-color: #fff0b1; box-shadow: 0 0 22px #f4cb7777; } 100% { border-color: #ad9356; box-shadow: none; } }
 @media (prefers-reduced-motion: reduce) { .deal-preview.rolling .weapon-picture,.deal-preview.settled { animation: none; } }

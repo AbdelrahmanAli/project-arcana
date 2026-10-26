@@ -179,6 +179,7 @@ function cancelDealAnimation(){
   if(dealTimer!==null)clearTimeout(dealTimer);
   dealTimer=null;
   $('deal-preview').classList.remove('rolling');
+  $('menu-open').disabled=false;
 }
 function showMenuPanel(id){
   if(id!=='deal-panel')cancelDealAnimation();
@@ -198,17 +199,24 @@ function showDealWeapon(type){
 function animateDeal(){
   cancelDealAnimation();
   const run=dealRun,chosen=game.fixedWeapon,start=Math.floor(Math.random()*DROP_TYPES.length);
-  const preview=$('deal-preview'),button=$('deal-start');
+  const preview=$('deal-preview'),status=$('deal-status');
   preview.classList.remove('settled');preview.classList.add('rolling');
   preview.setAttribute('aria-live','off');
-  button.disabled=true;button.textContent='DEALING…';
+  $('menu-open').disabled=true;
+  status.textContent='THE TOWER IS DEALING…';
+  const countDown=remaining=>{
+    if(run!==dealRun)return;
+    if(remaining===0){dealTimer=null;beginMatch();return;}
+    status.textContent=`MATCH STARTS IN ${remaining}`;
+    dealTimer=setTimeout(()=>countDown(remaining-1),900);
+  };
   let step=0;
   const tick=()=>{
     if(run!==dealRun)return;
     if(step===17){
       dealTimer=null;preview.classList.remove('rolling');preview.classList.add('settled');
       preview.setAttribute('aria-live','polite');showDealWeapon(chosen);
-      button.disabled=false;button.textContent='START MATCH';
+      countDown(3);
       return;
     }
     let type=DROP_TYPES[(start+step)%DROP_TYPES.length];
@@ -265,8 +273,6 @@ function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();soun
 $('menu-play').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('mode-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
-$('deal-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
-$('deal-start').addEventListener('click',beginMatch);
 $('weapon-start').addEventListener('click',()=>{if(selectedWeapon)reset();});
 function refreshWeaponChoices(){
   for(const button of $('weapon-choices').children){
