@@ -20,6 +20,11 @@
 .deal-preview { display: grid; justify-items: center; gap: 9px; padding: 10px; margin: 0 auto 14px; background: #122222; border: 1px solid #ad9356; }
 .deal-preview .weapon-picture { width: 145px; height: 85px; background-position: center; background-size: contain; transform: none; }
 .deal-preview strong { font-size: 12px; letter-spacing: 1.5px; color: #f2cc76; }
+.deal-preview.rolling .weapon-picture { animation: deal-shuffle .18s ease-in-out infinite alternate; }
+.deal-preview.settled { animation: deal-settle .4s ease-out; }
+@keyframes deal-shuffle { from { opacity: .72; transform: translateY(-2px) scale(.96); } to { opacity: 1; transform: translateY(2px) scale(1.04); } }
+@keyframes deal-settle { 0% { border-color: #fff0b1; box-shadow: 0 0 22px #f4cb7777; } 100% { border-color: #ad9356; box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .deal-preview.rolling .weapon-picture,.deal-preview.settled { animation: none; } }
 .phase4-panel .secondary { min-height: 39px; }
 .heal-number { color: #9bff82; text-shadow: 1px 2px #102719,0 0 6px #2eff4a; }
 @media(max-width:700px) {

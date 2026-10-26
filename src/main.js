@@ -173,16 +173,54 @@ function clearInput(){
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
 const menuPanels=['menu-home','mode-panel','weapon-panel','deal-panel','settings-panel'];
+let dealTimer=null,dealRun=0;
+function cancelDealAnimation(){
+  dealRun++;
+  if(dealTimer!==null)clearTimeout(dealTimer);
+  dealTimer=null;
+  $('deal-preview').classList.remove('rolling');
+}
 function showMenuPanel(id){
+  if(id!=='deal-panel')cancelDealAnimation();
   for(const panel of menuPanels)$(panel).classList.toggle('hidden',panel!==id);
 }
 function setWeaponPicture(icon,type){
   icon.className='weapon-picture';
   icon.classList.add(({rifle:'atlas-icon',shotgun:'atlas-icon',laser:'laser-icon',grenade:'stun-icon',missile:'missile-icon',nuclear:'nuclear-icon'})[type]);
+  icon.dataset.weapon=type;
   clearWeaponIconFit(icon);
-  if(WEAPON_ART_BOUNDS[type])requestAnimationFrame(()=>fitWeaponIcon(icon,type));
+  if(WEAPON_ART_BOUNDS[type])requestAnimationFrame(()=>{if(icon.dataset.weapon===type)fitWeaponIcon(icon,type);});
+}
+function showDealWeapon(type){
+  $('deal-weapon-name').textContent=WEAPONS[type].name;
+  setWeaponPicture($('deal-preview').querySelector('.weapon-picture'),type);
+}
+function animateDeal(){
+  cancelDealAnimation();
+  const run=dealRun,chosen=game.fixedWeapon,start=Math.floor(Math.random()*DROP_TYPES.length);
+  const preview=$('deal-preview'),button=$('deal-start');
+  preview.classList.remove('settled');preview.classList.add('rolling');
+  preview.setAttribute('aria-live','off');
+  button.disabled=true;button.textContent='DEALING…';
+  let step=0;
+  const tick=()=>{
+    if(run!==dealRun)return;
+    if(step===17){
+      dealTimer=null;preview.classList.remove('rolling');preview.classList.add('settled');
+      preview.setAttribute('aria-live','polite');showDealWeapon(chosen);
+      button.disabled=false;button.textContent='START MATCH';
+      return;
+    }
+    let type=DROP_TYPES[(start+step)%DROP_TYPES.length];
+    if(step>=15&&type===chosen)type=DROP_TYPES[(start+step+1)%DROP_TYPES.length];
+    showDealWeapon(type);
+    dealTimer=setTimeout(tick,55+step*step*.7);
+    step++;
+  };
+  tick();
 }
 function prepareMatch(){
+  cancelDealAnimation();
   sound.stop();
   game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon});marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
@@ -195,6 +233,7 @@ function prepareMatch(){
   updateHud();app.ticker.start();
 }
 function beginMatch(){
+  cancelDealAnimation();
   started=true;sceneDirty=true;sound.init();
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
@@ -203,9 +242,8 @@ function beginMatch(){
 function reset(){
   prepareMatch();
   if(selectedMode===GAME_MODES.RANDOM_FIXED){
-    $('deal-weapon-name').textContent=WEAPONS[game.fixedWeapon].name;
     showMenuPanel('deal-panel');$('menu').classList.remove('hidden');
-    setWeaponPicture($('deal-preview').querySelector('.weapon-picture'),game.fixedWeapon);
+    animateDeal();
   }else beginMatch();
 }
 function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
