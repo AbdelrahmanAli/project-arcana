@@ -1,5 +1,12 @@
 # The Tower Deal verification
 
+## Phase 4: crate loot and modes — 2026-10-26
+
+- All 61 simulation tests pass. New checks cover all three mode rules, single-roll crate loot at full break, explosion fan-out, syringe health cap and slot independence, and the computer seeking healing.
+- The Vite production build succeeds. A 390 × 844 browser run checked the mode menu, random weapon reveal, six-weapon chooser, all three start paths, and replay behavior. Random Fixed Weapon returns to a new reveal; Choose Fixed Weapon preserves the chosen type.
+- Phone-sized captures checked the new syringe pickup at ground scale and its green +20 number beside the fighter. Collecting it raised the fighter from 75 to 95 HP.
+- Physical iOS and Android playtesting, sound mixing, and longer mode balance sessions remain open.
+
 ## Matching weapon ammo — 2026-10-26
 
 - A matching pickup adds its full starting ammo without a cap for either fighter, including laser and nuclear weapons. A different weapon remains unavailable while one is carried.

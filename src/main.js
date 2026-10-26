@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import './style.css';
@@ -7,13 +7,15 @@ import './hud.css';
 import './arcana.css';
 import './compact-landscape.css';
 import './phase3.css';
+import './phase4.css';
 
 const $=id=>document.getElementById(id);
 const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
+let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null;
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
-let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -170,23 +172,49 @@ function clearInput(){
   $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
-function reset(){
-  game=new Match();marksDrawnRevision=-1;sceneDirty=true;started=true;paused=false;finishedShown=false;clearInput();sound.init();
+const menuPanels=['menu-home','mode-panel','weapon-panel','deal-panel','settings-panel'];
+function showMenuPanel(id){
+  for(const panel of menuPanels)$(panel).classList.toggle('hidden',panel!==id);
+}
+function setWeaponPicture(icon,type){
+  icon.className='weapon-picture';
+  icon.classList.add(({rifle:'atlas-icon',shotgun:'atlas-icon',laser:'laser-icon',grenade:'stun-icon',missile:'missile-icon',nuclear:'nuclear-icon'})[type]);
+  clearWeaponIconFit(icon);
+  if(WEAPON_ART_BOUNDS[type])requestAnimationFrame(()=>fitWeaponIcon(icon,type));
+}
+function prepareMatch(){
+  sound.stop();
+  game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon});marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
-  $('menu').classList.add('hidden');$('overlay').classList.add('hidden');$('overlay').classList.remove('result');
-  document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');$('pause').textContent='Ⅱ';
+  $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
+  document.querySelector('.game-unit').classList.remove('ended','paused');
+  document.querySelector('.game-unit').classList.add('menu-open');
   for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites])clearSpriteMap(map);
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;$('opponent-toast').style.opacity=0;$('opponent-toast').dataset.until='0';
   updateHud();app.ticker.start();
 }
+function beginMatch(){
+  started=true;sceneDirty=true;sound.init();
+  $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
+  document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
+  updateHud();app.ticker.start();
+}
+function reset(){
+  prepareMatch();
+  if(selectedMode===GAME_MODES.RANDOM_FIXED){
+    $('deal-weapon-name').textContent=WEAPONS[game.fixedWeapon].name;
+    showMenuPanel('deal-panel');$('menu').classList.remove('hidden');
+    setWeaponPicture($('deal-preview').querySelector('.weapon-picture'),game.fixedWeapon);
+  }else beginMatch();
+}
 function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
-function showDamage(playerId,amount){
+function showNumber(playerId,amount,healing=false){
   const p=game.players[playerId],label=document.createElement('span');
-  label.className=playerId===1?'damage-number opponent':'damage-number';
-  label.textContent=`-${Math.max(1,Math.round(amount))}`;
+  label.className=`damage-number${playerId===1?' opponent':''}${healing?' heal-number':''}`;
+  label.textContent=`${healing?'+':'-'}${Math.max(1,Math.round(amount))}`;
   label.setAttribute('aria-hidden','true');
   label.style.left=`${(p.x+25)/W*100}%`;
   label.style.top=`${(p.y+(playerId===1?36:-20))/H*100}%`;
@@ -195,12 +223,41 @@ function showDamage(playerId,amount){
 }
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
 $('pause').addEventListener('click',pause);
-function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');$('menu-home').classList.remove('hidden');$('settings-panel').classList.add('hidden');}
-$('menu-play').addEventListener('click',reset);
+function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+$('menu-play').addEventListener('click',()=>showMenuPanel('mode-panel'));
+$('mode-back').addEventListener('click',()=>showMenuPanel('menu-home'));
+$('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
+$('deal-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
+$('deal-start').addEventListener('click',beginMatch);
+$('weapon-start').addEventListener('click',()=>{if(selectedWeapon)reset();});
+function refreshWeaponChoices(){
+  for(const button of $('weapon-choices').children){
+    button.classList.toggle('selected',button.dataset.weapon===selectedWeapon);
+    button.setAttribute('aria-pressed',String(button.dataset.weapon===selectedWeapon));
+    if(WEAPON_ART_BOUNDS[button.dataset.weapon])fitWeaponIcon(button.querySelector('.weapon-picture'),button.dataset.weapon);
+  }
+  $('weapon-start').disabled=!selectedWeapon;
+}
+function buildWeaponChoices(){
+  for(const type of DROP_TYPES){
+    const button=document.createElement('button'),picture=document.createElement('span'),name=document.createElement('span');
+    button.type='button';button.className='weapon-choice';button.dataset.weapon=type;
+    picture.setAttribute('aria-hidden','true');name.textContent=WEAPONS[type].name;
+    button.append(picture,name);$('weapon-choices').appendChild(button);
+    setWeaponPicture(picture,type);
+    button.addEventListener('click',()=>{selectedWeapon=type;refreshWeaponChoices();});
+  }
+  refreshWeaponChoices();
+}
+document.querySelectorAll('.mode-choice').forEach(button=>button.addEventListener('click',()=>{
+  selectedMode=button.dataset.mode;
+  if(selectedMode===GAME_MODES.CHOOSE_FIXED){showMenuPanel('weapon-panel');requestAnimationFrame(refreshWeaponChoices);}
+  else reset();
+}));
 $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
-$('menu-settings').addEventListener('click',()=>{$('menu-home').classList.add('hidden');$('settings-panel').classList.remove('hidden');});
-$('settings-back').addEventListener('click',()=>{$('settings-panel').classList.add('hidden');$('menu-home').classList.remove('hidden');});
+$('menu-settings').addEventListener('click',()=>showMenuPanel('settings-panel'));
+$('settings-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 function toggleSound(){const muted=sound.toggle();for(const id of ['sound','settings-sound'])$(id).textContent=muted?'SOUND OFF':'SOUND ON';$('sound').setAttribute('aria-label',muted?'Enable sound':'Mute sound');}
 $('sound').addEventListener('click',toggleSound);$('settings-sound').addEventListener('click',toggleSound);
 $('arena').addEventListener('pointerdown',e=>{
@@ -481,16 +538,16 @@ function render(){
   for(let i=flameCount;i<flameSprites.length;i++)flameSprites[i].visible=false;
   const active=new Set();
   for(const item of game.pickups){
-    const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear';
+    const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear',isHeal=item.type==='syringe';
     active.add(item.id);let s=dropSprites.get(item.id);
-    if(!s){const art=isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
+    if(!s){const art=isHeal?syringeTexture:isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isHeal?68:isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isHeal?47:isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
     // Airborne drops cross above fighters; landed drops share their ground-depth
     // order with soldiers and cover. They stay visible at the landing point.
     const layer=item.flight>0?pickupFlightLayer:obstacleLayer;
     if(s.parent!==layer)layer.addChild(s);
     let x=item.x,y=item.y;
-    if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
-    else{s.rotation=0;s.zIndex=item.y+19;groundDraw.ellipse(x,y+(isMissile||isLaser?8:isStun||isNuclear?10:12),isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isLaser?4:isMissile||isStun||isNuclear?7:0);}
+    if(item.flight>0){const k=1-item.flight/(item.flightDuration||.75);x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*(item.arcHeight||70);s.rotation=Math.sin(k*Math.PI)*(item.source==='crate'?.24:.6);}
+    else{s.rotation=0;s.zIndex=item.y+19;groundDraw.ellipse(x,y+(isHeal?7:isMissile||isLaser?8:isStun||isNuclear?10:12),isHeal?18:isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isHeal?6:isLaser?4:isMissile||isStun||isNuclear?7:0);}
     s.position.set(x,y);s.visible=true;s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
   }
   for(const [id,s] of dropSprites)if(!active.has(id)){s.destroy();dropSprites.delete(id);}
@@ -585,7 +642,11 @@ function render(){
   }
   for(const e of game.effects){
     const k=e.age/e.life;
-    if(e.type==='nuclearBlast'){
+    if(e.type==='healBurst'){
+      const radius=8+k*25,alpha=1-k;
+      draw.ellipse(e.x,e.y-18,radius,radius*.52).stroke({color:0xa2ff8e,width:2,alpha:alpha*.75});
+      for(let n=0;n<8;n++){const a=n*Math.PI/4+e.seed;circle(draw,e.x+Math.cos(a)*radius,e.y-22+Math.sin(a)*radius*.7,2+n%2,0xb9ff92,alpha);}
+    }else if(e.type==='nuclearBlast'){
       const radius=9+k*BLAST_RADIUS.nuclear;
       drawBlastZone(groundDraw,e.x,e.y,BLAST_RADIUS.nuclear,k,'nuclear');
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
@@ -680,11 +741,11 @@ async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.ticker.maxFPS=60;
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
-    ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
+  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
+    ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
+  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
     const scale=DEATH_ART_SCALES[player][frame];
@@ -696,7 +757,7 @@ async function boot(){
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
-  laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;
+  laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;
   world=new Container();app.stage.addChild(world);
   // Rebalance the existing arena art: extend the upper bank and use the
   // original lower edge instead of placing a second wall across playable sand.
@@ -754,7 +815,8 @@ async function boot(){
   const nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
   draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
-  $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER · PLAY';
+  buildWeaponChoices();
+  $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
   let accumulator=0,hudTime=0;
   app.ticker.add(ticker=>{
     const dt=Math.min(ticker.deltaMS/1000,.05);
@@ -769,12 +831,17 @@ async function boot(){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
         else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type,event.x);
+        if(event.type==='heal'){
+          showNumber(event.player,event.amount,true);
+          if(event.player===0)toast(`HEALED +${Math.ceil(event.amount)}`);
+          else{const label=$('opponent-toast');label.textContent=`HEALED +${Math.ceil(event.amount)}`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
+        }
         if(event.type==='pickup'&&event.player===0)toast(event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} COLLECTED`);
         if(event.type==='pickup'&&event.player===1){const label=$('opponent-toast');label.textContent=event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} ACQUIRED`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
         if(event.type==='stun'&&event.player===0)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
         if(event.type==='stun'&&event.player===1){const label=$('opponent-toast');label.textContent='STUNNED';label.style.opacity=1;label.dataset.until=String(performance.now()+1800);}
       }
-      damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showDamage(playerId,amount);});
+      damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showNumber(playerId,amount);});
       game.events=[];
       sound.burn(game.flames.length>0);
       sound.tower(game.tower.phase,game.tower.height,game.tower.progress);
@@ -795,6 +862,6 @@ async function boot(){
     if(!animating){app.renderer.render(app.stage);app.ticker.stop();}
   });
   // Read-only diagnostics for development and reproducible manual QA.
-  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({time:game.time,started,paused,finished:game.finished,players:game.players,tower:game.tower,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length})),renderer:app.renderer.type};
+  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,tower:game.tower,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length})),renderer:app.renderer.type};
 }
 boot().catch(error=>{console.error(error);$('menu').classList.add('hidden');$('overlay').classList.remove('hidden');$('overlay-title').textContent='LOAD FAILED';$('overlay-copy').textContent=import.meta.env.DEV?String(error):'The game could not load its graphics. Please reload in a browser with WebGL enabled.';$('start').textContent='RELOAD';$('start').disabled=false;$('start').onclick=()=>location.reload();});

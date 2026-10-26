@@ -27,6 +27,13 @@ function dodgeDeniedWav(){
     return (first+second)*.35;
   });
 }
+function healWav(){
+  return pcmWav(.42,t=>{
+    const rise=Math.sin(2*Math.PI*(480*t+360*t*t))*Math.exp(-t*7);
+    const chime=Math.sin(2*Math.PI*840*t)*Math.exp(-Math.max(0,t-.13)*11)*(t>.13?.55:0);
+    return (rise*.27+chime*.2)*Math.min(1,t/.015);
+  });
+}
 function fireWhooshWav() {
   let seed=7829,low=0,mid=0;
   return pcmWav(.72,(t)=>{
@@ -104,6 +111,8 @@ export class Sound {
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
     this.clips.empty=new Howl({src:[pcmWav(.16,t=>Math.sin(2*Math.PI*(t<.065?420*t:420*.065+290*(t-.065)))*Math.exp(-t*19)*.38)],format:['wav'],volume:.2,preload:true,pool:4});
     this.clips.dodgeDenied=new Howl({src:[dodgeDeniedWav()],format:['wav'],volume:.22,preload:true,pool:4});
+    this.clips.heal=new Howl({src:[healWav()],format:['wav'],volume:.28,preload:true,pool:4});
+    this.clips.crateLoot=new Howl({src:[wav(.2,370,.3,13)],format:['wav'],volume:.18,preload:true,pool:8});
     this.clips.missile=new Howl({src:[`${import.meta.env.BASE_URL}audio/smart-missile.mp3`],format:['mp3'],volume:.4,preload:true,pool:8});
     this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
     this.clips.stunBlast=new Howl({src:[stunBlastWav()],format:['wav'],volume:.3,preload:true,pool:8});

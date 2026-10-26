@@ -1,0 +1,37 @@
+.phase4-panel { max-height: min(94%, 760px); overflow-y: auto; scrollbar-width: thin; touch-action: pan-y; overscroll-behavior: contain; }
+.phase4-panel h2 { font-size: clamp(43px, 8vw, 57px); margin: 10px 0 18px; }
+.mode-choice {
+  display: block; width: 100%; min-height: 70px; margin: 8px 0; padding: 12px 13px;
+  text-align: left; background: linear-gradient(100deg,#1b3030,#132223);
+  border: 1px solid #8b794f; box-shadow: inset 3px 0 #d2a85440;
+}
+.mode-choice:hover,.mode-choice:focus-visible { background: #30413d; border-color: #ebc573; }
+.mode-choice strong { display: block; font-size: 11px; letter-spacing: 1px; color: #f4d78d; }
+.mode-choice small { display: block; margin-top: 5px; color: #b6c7bb; font-size: 9px; line-height: 1.5; }
+.weapon-choices { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 4px 0 17px; }
+.weapon-choice {
+  position: relative; display: flex; align-items: center; gap: 5px; min-height: 67px;
+  padding: 5px 7px; text-align: left; background: #142626; border: 1px solid #738171;
+}
+.weapon-choice:hover,.weapon-choice.selected { border-color: #f6c76a; background: #34413a; }
+.weapon-choice.selected { box-shadow: inset 0 0 0 2px #e7bb6955,0 0 11px #e6b85f44; }
+.weapon-choice .weapon-picture { flex: 0 0 54px; width: 54px; height: 48px; background-position: center; background-size: contain; transform: none; }
+.weapon-choice span:last-child { color: #e9d5a2; font-size: 8px; font-weight: 700; line-height: 1.35; }
+.deal-preview { display: grid; justify-items: center; gap: 9px; padding: 10px; margin: 0 auto 14px; background: #122222; border: 1px solid #ad9356; }
+.deal-preview .weapon-picture { width: 145px; height: 85px; background-position: center; background-size: contain; transform: none; }
+.deal-preview strong { font-size: 12px; letter-spacing: 1.5px; color: #f2cc76; }
+.phase4-panel .secondary { min-height: 39px; }
+.heal-number { color: #9bff82; text-shadow: 1px 2px #102719,0 0 6px #2eff4a; }
+@media(max-width:700px) {
+  .phase4-panel { width: 91%; padding: 13px; }
+  .phase4-panel h2 { font-size: 48px; }
+  .weapon-choice { min-height: 57px; }
+  .weapon-choice .weapon-picture { flex-basis: 47px; width: 47px; height: 42px; }
+}
+@media(max-width:700px) and (orientation:landscape) {
+  .phase4-panel h2 { font-size: 30px; margin: 4px 0 8px; }
+  .mode-choice { min-height: 46px; margin: 4px 0; padding: 5px 9px; }
+  .weapon-choice { min-height: 42px; }
+  .weapon-choice .weapon-picture { height: 32px; }
+  .deal-preview .weapon-picture { height: 40px; }
+}

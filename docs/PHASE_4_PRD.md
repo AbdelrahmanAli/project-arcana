@@ -1,7 +1,7 @@
 # Phase 4 PRD: Crate loot and game modes
 
 - **Product:** The Tower Deal
-- **Status:** Agreed design; implementation pending
+- **Status:** Implemented in the playable prototype; balance remains open to playtesting
 - **Platform:** Browser, including phone touch controls
 - **Match format:** One round, player versus computer
 

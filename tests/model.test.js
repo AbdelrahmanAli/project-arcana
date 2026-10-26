@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -103,6 +103,89 @@ test('each launch creates a pair with independent rolls and valid bank positions
   assert.equal(m.pickups[0].sx,RIVER.x-51);assert.equal(m.pickups[1].sx,RIVER.x+51);
   assert.equal(m.pickups[0].sy,RIVER.y-78);assert.equal(m.pickups[1].sy,RIVER.y-78);
   assert.equal(m.pickups[0].flight,m.pickups[1].flight);
+});
+
+test('fixed modes deal one weapon to both banks while random mode remains independent',()=>{
+  const randomFixed=new Match(()=>.5,{mode:GAME_MODES.RANDOM_FIXED});
+  assert.equal(randomFixed.fixedWeapon,'missile');
+  randomFixed.launch();randomFixed.launch();
+  assert.ok(randomFixed.pickups.every(item=>item.type==='missile'));
+  const chosen=new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'nuclear'});
+  chosen.launch();assert.deepEqual(chosen.pickups.map(item=>item.type),['nuclear','nuclear']);
+  assert.throws(()=>new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'pistol'}),RangeError);
+  const random=new Match(()=>.5);
+  const draws=[0,.999];random.random=()=>draws.shift()??.5;
+  random.obstacles.forEach(o=>o.destroyed=true);
+  random.launch();
+  assert.equal(random.pickups[0].type,'rifle');
+  assert.notEqual(random.pickups[1].type,random.pickups[0].type);
+});
+
+test('only a fully broken crate rolls once for nothing, a weapon, or a syringe',()=>{
+  for(const [roll,expected] of [[.1,null],[.6,'missile'],[.9,'syringe']]){
+    const m=new Match(()=>.5),crate=m.obstacles.find(o=>o.owner===0&&o.type==='crate');
+    m.obstacles.filter(o=>o!==crate).forEach(o=>o.destroyed=true);
+    m.random=()=>roll;
+    assert.equal(m.hitObstacle(crate,101),true);
+    assert.equal(m.pickups.length,0,'first shot only cracks the crate');
+    assert.equal(m.hitObstacle(crate,102),true);
+    assert.equal(m.pickups.length,expected?1:0);
+    if(expected){
+      const item=m.pickups[0];
+      assert.equal(item.type,expected);assert.equal(item.owner,0);
+      assert.ok(item.flight>0&&item.ttl===12);
+      assert.ok(item.x>=38&&item.x<=442&&item.y>=BANK_BOUNDS[0].minY&&item.y<=BANK_BOUNDS[0].maxY);
+      assert.equal(m.events.filter(e=>e.type==='crateLoot').length,1);
+    }
+    assert.equal(m.destroyObstacle(crate),false);
+    assert.equal(m.pickups.length,expected?1:0,'destroying twice never repeats loot');
+  }
+});
+
+test('fixed-mode crate weapons match the Tower weapon and syringes heal independently',()=>{
+  const m=new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'laser'});
+  const crate=m.obstacles.find(o=>o.owner===0&&o.type==='crate');
+  m.obstacles.filter(o=>o!==crate).forEach(o=>o.destroyed=true);
+  m.random=()=>.6;m.destroyObstacle(crate);
+  assert.equal(m.pickups[0].type,'laser');
+  const p=m.players[0];p.slot={type:'rifle',ammo:2};
+  const syringe={id:900,owner:0,type:'syringe',x:p.x,y:p.y,flight:0,ttl:12};
+  assert.equal(m.collect(p,syringe),false,'full health leaves the syringe');
+  assert.equal(syringe.ttl,12);
+  p.hp=93;
+  assert.equal(m.collect(p,syringe),true);
+  assert.equal(p.hp,100);assert.equal(p.slot.type,'rifle');
+  assert.deepEqual(m.events.at(-1),{type:'heal',player:0,amount:7,x:p.x});
+  const enemy=m.players[1];enemy.hp=60;
+  const enemySyringe={id:901,owner:1,type:'syringe',x:enemy.x,y:enemy.y,flight:0,ttl:12};
+  assert.equal(m.collect(enemy,enemySyringe),true);
+  assert.equal(enemy.hp,80);
+});
+
+test('one explosion releases separate reachable loot from each destroyed crate',()=>{
+  const m=new Match(()=>.5);
+  m.obstacles.filter(o=>o.type==='barrel').forEach(o=>o.destroyed=true);
+  m.random=()=>.9;
+  const near=m.obstacles.filter(o=>o.owner===0&&o.type==='crate'&&o.x<150);
+  m.explode({owner:1,type:'missile',x:80,y:670,damage:0,life:1});
+  const broken=near.filter(o=>o.destroyed);
+  const loot=m.pickups.filter(i=>i.source==='crate');
+  assert.equal(loot.length,broken.length);
+  assert.ok(loot.every(i=>i.type==='syringe'&&i.owner===0));
+  for(const item of loot){
+    assert.ok(m.obstacles.every(o=>o.destroyed||o.type!=='crate'||Math.abs(item.x-o.x)>=35||Math.abs(item.y-o.y)>=30));
+    assert.ok(loot.every(other=>other===item||Math.hypot(item.x-other.x,item.y-other.y)>=32));
+  }
+});
+
+test('injured computer seeks a syringe and ignores it at full health',()=>{
+  const m=new Match(()=>.5),enemy=m.players[1];
+  m.obstacles.forEach(o=>o.destroyed=true);m.nextDrop=Infinity;
+  const syringe={id:900,owner:1,type:'syringe',x:enemy.x+58,y:enemy.y+10,flight:0,ttl:12};
+  m.pickups=[syringe];enemy.hp=60;
+  m.think(1/120);assert.deepEqual(m.aiTarget,{x:syringe.x,y:syringe.y});
+  enemy.hp=100;m.aiClock=0;m.think(1/120);
+  assert.notDeepEqual(m.aiTarget,{x:syringe.x,y:syringe.y});
 });
 
 test('a thrown weapon lands with one visible and audible impact',()=>{

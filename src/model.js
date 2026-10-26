@@ -36,6 +36,8 @@ export const WEAPONS = {
   nuclear: { name: 'NUCLEAR LAUNCHER', ammo: 2, damage: 16, cooldown: 1.4, color: 0x9bf53d },
 };
 export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'nuclear'];
+export const GAME_MODES = { RANDOM:'random', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
+export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 function flameReach(x,y,dx,dy) {
@@ -154,8 +156,12 @@ function routeAroundCrates(start,target,crates,bank){
   return route.at(-1)||target;
 }
 export class Match {
-  constructor(random = Math.random) {
+  constructor(random = Math.random, options = {}) {
     this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,760),soldier(1,290,240)];
+    this.mode=options.mode||GAME_MODES.RANDOM;
+    if(!Object.values(GAME_MODES).includes(this.mode))throw new RangeError('Unknown game mode');
+    if(this.mode===GAME_MODES.CHOOSE_FIXED&&!DROP_TYPES.includes(options.weapon))throw new RangeError('Choose Fixed Weapon requires a valid weapon');
+    this.fixedWeapon=this.mode===GAME_MODES.RANDOM_FIXED?DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)]:this.mode===GAME_MODES.CHOOSE_FIXED?options.weapon:null;
     this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
@@ -223,6 +229,7 @@ export class Match {
     if(obstacle.type==='crate'){
       this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
       this.emit('crateBreak',{x:obstacle.x});
+      this.dropCrateLoot(obstacle);
     }else{
       this.effects.push({id:this.id++,type:'barrelBlast',x:obstacle.x,y:obstacle.y,age:0,life:.9,seed:this.random()});
       this.effects.push({id:this.id++,type:'smoke',x:obstacle.x,y:obstacle.y,age:0,life:2,seed:this.random()});
@@ -235,6 +242,36 @@ export class Match {
       this.damageAreaObjects(obstacle.x,obstacle.y,BARREL_BLAST_RADIUS);
     }
     return true;
+  }
+  dropWeaponType(){return this.fixedWeapon||DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)];}
+  dropCrateLoot(crate){
+    const roll=this.random();
+    if(roll<.55)return;
+    const type=roll<.85?this.dropWeaponType():'syringe';
+    const bounds=BANK_BOUNDS[crate.owner];
+    const offsets=[[0,-38],[0,38],[-45,0],[45,0],[-45,-34],[45,-34],[-45,34],[45,34],[0,-57],[0,57]];
+    const start=Math.floor(this.random()*offsets.length);
+    let point=null;
+    const free=(x,y)=>{
+      if(Math.hypot(x-crate.x,y-crate.y)<26)return false;
+      const blocked=this.obstacles.some(o=>!o.destroyed&&(o.type==='crate'?x>o.x-35&&x<o.x+35&&y>o.y-30&&y<o.y+30:Math.hypot(o.x-x,o.y-y)<32));
+      const crowded=this.pickups.some(item=>item.owner===crate.owner&&item.ttl>0&&Math.hypot(item.x-x,item.y-y)<32);
+      return !blocked&&!crowded;
+    };
+    for(let i=0;i<offsets.length;i++){
+      const [dx,dy]=offsets[(start+i)%offsets.length];
+      const x=clamp(crate.x+dx,38,W-38),y=clamp(crate.y+dy,bounds.minY+12,bounds.maxY-12);
+      if(free(x,y)){point={x,y};break;}
+    }
+    if(!point){
+      const candidates=[];
+      for(let y=bounds.minY+20;y<=bounds.maxY-20;y+=20)for(let x=40;x<=W-40;x+=20)candidates.push({x,y});
+      candidates.sort((a,b)=>distance(a,crate)-distance(b,crate));
+      point=candidates.find(candidate=>free(candidate.x,candidate.y));
+    }
+    if(!point)return;
+    this.pickups.push({id:this.id++,owner:crate.owner,type,x:point.x,y:point.y,sx:crate.x,sy:crate.y-6,flight:.38,flightDuration:.38,arcHeight:26,ttl:PICKUP_LIFETIME,source:'crate'});
+    this.emit('crateLoot',{x:crate.x,itemType:type});
   }
   mark(type,x,y,size=1) {
     if(y>=RIVER.top&&y<=RIVER.bottom)return;
@@ -269,7 +306,15 @@ export class Match {
     return true;
   }
   collect(p,item) {
-    if(item.owner!==p.id || item.flight>0 || item.ttl<=0 || distance(p,item)>29) return false;
+    if(item.owner!==p.id || item.flight>0 || item.ttl<=0 || p.hp<=0 || distance(p,item)>29) return false;
+    if(item.type==='syringe'){
+      if(p.hp>=100)return false;
+      const amount=Math.min(HEAL_AMOUNT,100-p.hp);
+      p.hp+=amount;item.ttl=0;
+      this.effects.push({id:this.id++,type:'healBurst',x:p.x,y:p.y,age:0,life:.55,seed:this.random()});
+      this.emit('heal',{player:p.id,amount,x:p.x});
+      return true;
+    }
     if(p.slot&&p.slot.type!==item.type)return false;
     const ammo=WEAPONS[item.type].ammo,stacked=!!p.slot;
     if(stacked){
@@ -385,7 +430,7 @@ export class Match {
     for(let owner=0;owner<2;owner++) {
       const sx=RIVER.x+(owner===0?-51:51),sy=RIVER.y-78;
       const bounds=BANK_BOUNDS[owner],margin=20;
-      const type=DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)];
+      const type=this.dropWeaponType();
       let x,y,clear=false;
       for(let attempt=0;attempt<16;attempt++){
         x=55+this.random()*(W-110);y=bounds.minY+margin+this.random()*(bounds.maxY-bounds.minY-2*margin);
@@ -396,7 +441,7 @@ export class Match {
         const safe=[{x:240,y:bounds.minY+margin+15},{x:240,y:bounds.maxY-margin-15},{x:W/2,y:(bounds.minY+bounds.maxY)/2}];
         ({x,y}=safe.find(point=>!this.obstacles.some(o=>!o.destroyed&&distance(point,o)<57))||safe[0]);
       }
-      this.pickups.push({id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:12});
+      this.pickups.push({id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME});
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
     this.emit('launch');
@@ -431,7 +476,7 @@ export class Match {
       const bank=BANK_BOUNDS[1];
       // Patrol almost the full bank depth, including the sand beside the river wall.
       let tx=enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
-      const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0&&(!p.slot||i.type===p.slot.type)).sort((a,b)=>distance(a,p)-distance(b,p));
+      const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0&&(i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type)).sort((a,b)=>(distance(a,p)-(a.type==='syringe'&&p.hp<=65?90:0))-(distance(b,p)-(b.type==='syringe'&&p.hp<=65?90:0)));
       if(supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {
         if(b.owner===1)continue;
@@ -484,7 +529,7 @@ export class Match {
         i.flight=Math.max(0,i.flight-dt);
         if(i.flight===0){
           this.effects.push({id:this.id++,type:'landing',x:i.x,y:i.y,age:0,life:.42,seed:this.random()});
-          this.emit('landing',{x:i.x});
+          if(i.source!=='crate')this.emit('landing',{x:i.x});
         }
       }else{i.ttl-=dt;this.collect(this.players[i.owner],i);}
     }

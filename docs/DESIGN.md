@@ -6,7 +6,7 @@ The Tower of Major Arcana XVI deals its card to two fighters on opposite banks. 
 
 Browser-compatible, phone-friendly 2D combat. PixiJS for rendering, Howler.js for audio. Begin with player versus computer. Later multiplayer uses separate devices; transport/server design remains future work.
 
-One round, one health bar per fighter, no healing for now. Each player remains on their own open riverbank. Slightly elevated overhead camera. Detailed pixel art inspired by Metal Slug's expressive soldiers and modern weapons. Human soldiers wear distinctive gear; a futuristic automated tower rises from the river. Blood, impacts, smoke and gore belong in the visual direction. Character selection and alternative maps come later.
+One round, one health bar per fighter. Broken crates may release a 20-health syringe; fighters at full health leave it on the ground. Each player remains on their own open riverbank. Slightly elevated overhead camera. Detailed pixel art inspired by Metal Slug's expressive soldiers and modern weapons. Human soldiers wear distinctive gear; a futuristic automated tower rises from the river. Blood, impacts, smoke and gore belong in the visual direction. Character selection and alternative maps come later.
 
 ## Controls and interface
 
@@ -18,7 +18,7 @@ No generic attack warnings or flame pre-warnings. The smart missile shows its ca
 
 ## Tower
 
-Resting cap is too low to intercept attacks. Tower rises, throws one weapon to each bank simultaneously, then descends. Both weapon contents and landing positions are independently random. Open reachable landing positions only. Pickups live for twelve seconds after landing and blink during the final three.
+Resting cap is too low to intercept attacks. Tower rises, throws one weapon to each bank simultaneously, then descends. In Random Weapons mode, contents and landing positions are independently random. In either fixed weapon mode, the type is shared throughout the match while landing positions remain independently random. Open reachable landing positions only. Pickups live for twelve seconds after landing and blink during the final three.
 
 The first hit while rising or descending causes two flame jets: toward the triggering soldier's position when hit and in the exact opposite direction. Brisk visible travel, not instantaneous or slow. Fire leaves narrow damaging strips for several seconds. One retaliation per entire rise/delivery/descent cycle. A transparent shield activates immediately after that hit and absorbs subsequent projectiles without reflecting them. It lasts through the current cycle. The tower is not destructible. No persistent tower cover between cycles.
 

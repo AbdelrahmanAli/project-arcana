@@ -16,4 +16,6 @@ The pistol is always available, including while carrying a Tower weapon. Both fi
 
 Tower fire deals 20 health per second only while a fighter touches its narrow flame strip. Nuclear waste deals 5 health per second while a fighter stands in a puddle. Overlapping waste puddles do not multiply the damage rate. Barrels remain at 22 center damage and 65-unit radius; they can hurt either fighter.
 
+Fully broken crates independently yield nothing 55% of the time, a weapon 30% of the time, or a syringe 15% of the time. Syringes restore up to 20 health, capped at 100, and do not use the weapon slot. Random Weapons mode selects crate weapon types independently; both fixed weapon modes use their match weapon. The Nuclear Launcher remains eligible in fixed matches, and its waste stays permanently on the banks for the round.
+
 The rifle has more potential direct damage than a missile because it requires repeated hits. The shotgun rewards advancing toward the river. The laser offers one strong, precise opportunity. Stun trades damage for control, while nuclear grenades trade immediate damage for permanent space denial. These numbers remain open to tuning after phone playtests.
