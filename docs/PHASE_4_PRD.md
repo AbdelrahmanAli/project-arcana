@@ -13,7 +13,7 @@ Phase 4 gives destroyed crates a chance to release a weapon or a healing syringe
 
 - Make breaking cover a meaningful tactical choice without filling the banks with pickups.
 - Add healing that is visible, limited by the crates available in a round, and equally usable by both fighters.
-- Let the player choose between independently random weapons, one randomly selected weapon for the match, and one selected weapon for the match.
+- Let the player choose between independently random weapons, matching random weapons per Tower launch, one randomly selected weapon for the match, and one selected weapon for the match.
 - Preserve the current phone controls and keep mode selection clear before the fight begins.
 
 ## Menu and match flow
@@ -24,11 +24,12 @@ Phase 4 gives destroyed crates a chance to release a weapon or a healing syringe
    | Mode | Selection | Tower launches | Weapon drops from crates |
    | --- | --- | --- | --- |
    | **Random Weapons** | Start immediately | One independently random weapon and landing position per bank on each paired launch | Independently random weapon type |
+   | **Random Same Weapon** | Start immediately | One random type per paired launch, shared by both banks; positions remain independently random | Independently random weapon type |
    | **Random Fixed Weapon** | The Tower randomly chooses and reveals one weapon before the match | The chosen type on both banks for the whole match; landing positions remain independently random | The chosen type |
    | **Choose Fixed Weapon** | Player chooses one of the six weapons, then starts | The chosen type on both banks for the whole match; landing positions remain independently random | The chosen type |
 
 3. Random Fixed Weapon cycles through the weapon images for about two seconds, slows down, then settles on the type already selected for that match. The chosen weapon stays visible during a three-count, then the match starts automatically. The reveal has no Back or Start control. Every weapon, including the Nuclear Launcher, is eligible in both fixed weapon modes. The computer uses the same type as the player. Both fighters begin with only their unlimited pistols and must still collect Tower or crate weapons.
-4. **Play Again** keeps the current mode. Random Fixed Weapon draws and reveals a new type each match. Choose Fixed Weapon keeps the player's selection. Random Weapons resumes independent random drops. Returning to the main menu allows a new mode selection.
+4. **Play Again** keeps the current mode. Random Fixed Weapon draws and reveals a new type each match. Choose Fixed Weapon keeps the player's selection. Random Weapons resumes independent random drops, while Random Same Weapon draws a new shared type on each Tower launch. Returning to the main menu allows a new mode selection.
 5. The mode and manually chosen weapon screens provide Back navigation and touch-sized controls. The random reveal occurs before combat starts; it must not obscure an active match. Existing settings, pause, sound toggle, and result flows remain available.
 
 ## Crate drops

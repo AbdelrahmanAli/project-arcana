@@ -121,6 +121,21 @@ test('fixed modes deal one weapon to both banks while random mode remains indepe
   assert.notEqual(random.pickups[1].type,random.pickups[0].type);
 });
 
+test('Random Same Weapon draws once per Tower launch and gives both banks that type',()=>{
+  const m=new Match(()=>.5,{mode:GAME_MODES.RANDOM_SAME});
+  m.obstacles.forEach(o=>o.destroyed=true);
+  assert.equal(m.fixedWeapon,null);
+  const positions=[.2,.3,.8,.7,.4,.6,.9,.2];let positionDraw=0;
+  m.random=()=>positions[positionDraw++%positions.length];
+  const types=['rifle','nuclear'];let draws=0;
+  m.dropWeaponType=()=>types[draws++];
+  m.launch();m.launch();
+  assert.equal(draws,2);
+  assert.deepEqual(m.pickups.map(item=>item.type),['rifle','rifle','nuclear','nuclear']);
+  assert.deepEqual(m.pickups.map(item=>item.owner),[0,1,0,1]);
+  assert.notEqual(m.pickups[0].x,m.pickups[1].x,'landing positions still roll separately');
+});
+
 test('only a fully broken crate rolls once for nothing, a weapon, or a syringe',()=>{
   for(const [roll,expected] of [[.1,null],[.6,'missile'],[.9,'syringe']]){
     const m=new Match(()=>.5),crate=m.obstacles.find(o=>o.owner===0&&o.type==='crate');

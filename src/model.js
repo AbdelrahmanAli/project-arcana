@@ -36,7 +36,7 @@ export const WEAPONS = {
   nuclear: { name: 'NUCLEAR LAUNCHER', ammo: 2, damage: 16, cooldown: 1.4, color: 0x9bf53d },
 };
 export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'nuclear'];
-export const GAME_MODES = { RANDOM:'random', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
+export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -427,10 +427,11 @@ export class Match {
   }
   launch() {
     this.launches++;
+    const pairedType=this.mode===GAME_MODES.RANDOM_SAME?this.dropWeaponType():null;
     for(let owner=0;owner<2;owner++) {
       const sx=RIVER.x+(owner===0?-51:51),sy=RIVER.y-78;
       const bounds=BANK_BOUNDS[owner],margin=20;
-      const type=this.dropWeaponType();
+      const type=pairedType||this.dropWeaponType();
       let x,y,clear=false;
       for(let attempt=0;attempt<16;attempt++){
         x=55+this.random()*(W-110);y=bounds.minY+margin+this.random()*(bounds.maxY-bounds.minY-2*margin);
