@@ -20,7 +20,11 @@ const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
 ];
-const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12,DEATH_ART_SCALE=.12;
+const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12;
+const DEATH_ART_SCALES=[
+  [.12,.12,.10,.095],
+  [.105,.12,.12,.10],
+];
 const WEAPON_ART_BOUNDS={
   rifle:[1254,1254,29,706,271,146],shotgun:[1254,1254,341,710,266,114],pistol:[1254,1254,399,1004,141,139],
   laser:[1536,1024,33,418,1200,486],
@@ -672,7 +676,10 @@ async function boot(){
   ]);
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
-  deathFrameSizes=DEATH_CROPS.map(frames=>frames.map(([, ,w,h])=>[w*DEATH_ART_SCALE,h*DEATH_ART_SCALE]));
+  deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
+    const scale=DEATH_ART_SCALES[player][frame];
+    return [w*scale,h*scale];
+  }));
   const cellW=atlas.width/4,cellH=atlas.height/4;
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   rollFrames=[dodgeBlueArt,dodgeRedArt].map(isolatedRollFrames);
