@@ -14,6 +14,48 @@ test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   assert.deepEqual(m.events[0],{type:'pickup',player:0,weapon:'rifle'});
 });
 
+test('matching pickups add their full ammo without a cap for either fighter',()=>{
+  const m=new Match(()=>.5);
+  for(const p of m.players)for(const [type,def] of Object.entries(WEAPONS)){
+    if(type==='pistol')continue;
+    p.slot={type,ammo:1};
+    const item={owner:p.id,type,x:p.x,y:p.y,flight:0,ttl:12};
+    for(let pickup=1;pickup<=3;pickup++){
+      const copy={...item};
+      assert.equal(m.collect(p,copy),true);
+      assert.equal(copy.ttl,0);
+      assert.equal(p.slot.ammo,1+pickup*def.ammo);
+      assert.equal(p.slot.ammoReceived,1+pickup*def.ammo);
+      assert.deepEqual(m.events.at(-1),{type:'pickup',player:p.id,weapon:type,ammoAdded:def.ammo});
+    }
+  }
+});
+
+test('ammo meter basis grows with pickups and stays fixed while firing',()=>{
+  const m=new Match(()=>.5),p=m.players[0];
+  const item={owner:0,type:'rifle',x:p.x,y:p.y,flight:0,ttl:12};
+  assert.equal(m.collect(p,{...item}),true);
+  assert.equal(m.fire(p,0,'special'),true);
+  assert.equal(p.slot.ammo,9);
+  assert.equal(p.slot.ammoReceived,10);
+  assert.equal(m.collect(p,{...item}),true);
+  assert.equal(p.slot.ammo,19);
+  assert.equal(p.slot.ammoReceived,20);
+});
+
+test('opponent pursues a matching drop while carrying its weapon',()=>{
+  const m=new Match(()=>.5),p=m.players[1];
+  m.obstacles.forEach(o=>o.destroyed=true);
+  p.slot={type:'missile',ammo:2};
+  const target={x:p.x+60,y:p.y+20};
+  m.pickups=[
+    {owner:1,type:'rifle',x:p.x,y:p.y+10,flight:0,ttl:12},
+    {owner:1,type:'missile',...target,flight:0,ttl:12},
+  ];
+  m.think(1/120);
+  assert.deepEqual(m.aiTarget,target);
+});
+
 test('pistol remains available with a special weapon and final ammo frees the slot',()=>{
   const m=new Match(),p=m.players[0];p.slot={type:'shotgun',ammo:1};
   assert.equal(m.fire(p,0,'pistol'),true);assert.equal(p.slot.ammo,1);

@@ -1,6 +1,6 @@
 # Phase 3: One weapon, two fire controls
 
-Each fighter may carry one Tower weapon. A landed pickup is rejected while that weapon has ammunition; the weapon disappears after its final shot. The unlimited pistol remains available throughout. Pistol and Tower weapon shots have separate cooldowns, so either button responds while the other weapon is recovering. The computer opponent follows the same pickup and ammunition rules.
+Each fighter may carry one Tower weapon type. A matching pickup adds its full starting ammunition with no cap, even for the Laser Gun and Nuclear Launcher. A different weapon is rejected until the current one is spent; the weapon disappears after its final shot. The unlimited pistol remains available throughout. Pistol and Tower weapon shots have separate cooldowns, so either button responds while the other weapon is recovering. The computer opponent follows the same pickup and ammunition rules and pursues matching drops.
 
 The three inventory slots and the old fire button are gone. Three translucent controls float on the right side of the arena: the lower one always fires the pistol, the middle one shows the held weapon and remaining ammunition, and the upper one starts a dive roll. Holding the middle control charges the Laser Gun, which fires on release. Keyboard controls are Space for pistol, E for the Tower weapon, and Shift for dodge. The floating movement joystick still accepts a separate touch.
 

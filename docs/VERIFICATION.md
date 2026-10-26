@@ -1,5 +1,11 @@
 # The Tower Deal verification
 
+## Matching weapon ammo — 2026-10-26
+
+- A matching pickup adds its full starting ammo without a cap for either fighter, including laser and nuclear weapons. A different weapon remains unavailable while one is carried.
+- The opponent pursues matching drops. The HUD number shows total ammo, while its ring tracks the fraction of all collected ammo still available; pickup toasts show the amount added.
+- All 55 simulation tests pass, including repeated stacking for every weapon, the ammo-meter state after firing and restacking, and opponent pickup targeting. The production build succeeds.
+
 ## Phase 3 closeout — 2026-10-26
 
 - Reviewed the combat model, render lifecycle, pointer and keyboard controls, HUD, audio, and Phase 3 documentation. The complete 52-test simulation suite, source syntax checks, production build, and `git diff --check` pass.

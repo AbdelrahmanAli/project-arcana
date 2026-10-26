@@ -274,7 +274,7 @@ function updateHud(){
   special.setAttribute('aria-disabled',slot?'false':'true');
   special.setAttribute('aria-label',slot?`Fire ${WEAPONS[slot.type].name}, ${slot.ammo} shots remaining`:'No Tower weapon');
   special.style.setProperty('--meter-color',slot?`#${WEAPONS[slot.type].color.toString(16).padStart(6,'0')}`:'#e9bb70');
-  $('special-meter').style.strokeDasharray=`${slot?Math.max(0,Math.min(100,slot.ammo/WEAPONS[slot.type].ammo*100)):0} 100`;
+  $('special-meter').style.strokeDasharray=`${slot?Math.max(0,Math.min(100,slot.ammo/(slot.ammoReceived??WEAPONS[slot.type].ammo)*100)):0} 100`;
   $('special-ammo').textContent=slot?slot.ammo:'';
   $('special-label').textContent=slot?.type==='laser'?(p.charge>=1?'RELEASE':p.charge>0?`${Math.round(p.charge*100)}%`:'HOLD'):slot?'SPECIAL':'EMPTY';
   $('charge').style.height=slot?.type==='laser'?`${p.charge*100}%`:'0';
@@ -766,8 +766,8 @@ async function boot(){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
         else if(event.type!=='rise'&&event.type!=='lower')sound.play(event.type,event.x);
-        if(event.type==='pickup'&&event.player===0)toast(`${WEAPONS[event.weapon].name} COLLECTED`);
-        if(event.type==='pickup'&&event.player===1){const label=$('opponent-toast');label.textContent=`${WEAPONS[event.weapon].name} ACQUIRED`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
+        if(event.type==='pickup'&&event.player===0)toast(event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} COLLECTED`);
+        if(event.type==='pickup'&&event.player===1){const label=$('opponent-toast');label.textContent=event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} ACQUIRED`;label.style.opacity=1;label.dataset.until=String(performance.now()+1600);}
         if(event.type==='stun'&&event.player===0)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
         if(event.type==='stun'&&event.player===1){const label=$('opponent-toast');label.textContent='STUNNED';label.style.opacity=1;label.dataset.until=String(performance.now()+1800);}
       }

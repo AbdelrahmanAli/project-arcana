@@ -269,9 +269,15 @@ export class Match {
   }
   collect(p,item) {
     if(item.owner!==p.id || item.flight>0 || item.ttl<=0 || distance(p,item)>29) return false;
-    if(p.slot) return false;
-    p.slot={type:item.type,ammo:WEAPONS[item.type].ammo}; item.ttl=0;
-    this.emit('pickup',{player:p.id,weapon:item.type}); return true;
+    if(p.slot&&p.slot.type!==item.type)return false;
+    const ammo=WEAPONS[item.type].ammo,stacked=!!p.slot;
+    if(stacked){
+      p.slot.ammoReceived=(p.slot.ammoReceived??p.slot.ammo)+ammo;
+      p.slot.ammo+=ammo;
+    }else p.slot={type:item.type,ammo,ammoReceived:ammo};
+    item.ttl=0;
+    this.emit('pickup',{player:p.id,weapon:item.type,...(stacked?{ammoAdded:ammo}:{})});
+    return true;
   }
   fire(p,power=0,mode='auto') {
     if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.dodgeTime>0) return false;
@@ -424,8 +430,8 @@ export class Match {
       const bank=BANK_BOUNDS[1];
       // Patrol almost the full bank depth, including the sand beside the river wall.
       let tx=enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
-      const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0).sort((a,b)=>distance(a,p)-distance(b,p));
-      if(!p.slot&&supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
+      const supplies=this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0&&(!p.slot||i.type===p.slot.type)).sort((a,b)=>distance(a,p)-distance(b,p));
+      if(supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {
         if(b.owner===1)continue;
         if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
