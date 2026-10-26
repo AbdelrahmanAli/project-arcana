@@ -169,10 +169,11 @@ export class Match {
       L:[[0,0],[33,0],[0,17]],
       square:[[0,0],[33,0],[0,17],[33,17]],
     };
-    const shape=Object.keys(formations)[Math.floor(this.random()*3)];
-    const side=this.random()<.5?-1:1;
-    const originX=side<0?80:400;
-    const south=formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:670+dy,formation:shape}));
+    const shapes=Object.keys(formations);
+    const south=[80,400].flatMap(originX=>{
+      const shape=shapes[Math.floor(this.random()*shapes.length)];
+      return formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:670+dy,formation:shape}));
+    });
     const barrelCount=1+Math.floor(this.random()*2);
     const clear=point=>Math.hypot(point.x-190,point.y-760)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
     for(let i=0;i<barrelCount;i++){

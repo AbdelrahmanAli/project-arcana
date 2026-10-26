@@ -566,18 +566,20 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
   for(let round=0;round<40;round++){
     const m=new Match(random);
     const southObjects=m.obstacles.filter(o=>o.owner===0),northObjects=m.obstacles.filter(o=>o.owner===1);
-    assert.ok(southObjects.length>=4&&southObjects.length<=6);
+    assert.ok(southObjects.length>=7&&southObjects.length<=10);
     assert.equal(southObjects.length,northObjects.length);
     const southCrates=southObjects.filter(o=>o.type==='crate'),southBarrels=southObjects.filter(o=>o.type==='barrel');
-    assert.ok(southCrates.length>=3&&southCrates.length<=4&&southBarrels.length>=1&&southBarrels.length<=2);
-    const shape=southCrates[0].formation;layouts.add(shape);
-    assert.ok(['T','L','square'].includes(shape));
-    assert.ok(southCrates.every(o=>o.formation===shape&&o.y>=670&&o.y<=687));
-    const actual=southCrates.map(o=>`${o.x},${o.y}`).sort();
-    const origin=southCrates.find(o=>o.y===670&&[80,400].includes(o.x));
-    assert.ok(origin);
+    assert.ok(southCrates.length>=6&&southCrates.length<=8&&southBarrels.length>=1&&southBarrels.length<=2);
     const offsets={T:[[-33,0],[0,0],[33,0],[0,17]],L:[[0,0],[33,0],[0,17]],square:[[0,0],[33,0],[0,17],[33,17]]};
-    assert.deepEqual(actual,offsets[shape].map(([x,y])=>`${origin.x+x},${670+y}`).sort());
+    for(const originX of [80,400]){
+      const group=southCrates.filter(o=>originX===80?o.x<240:o.x>240);
+      const origin=group.find(o=>o.x===originX&&o.y===670);
+      assert.ok(origin,`crate formation starts at ${originX}`);
+      const shape=origin.formation;layouts.add(shape);
+      assert.ok(['T','L','square'].includes(shape));
+      assert.ok(group.every(o=>o.formation===shape&&o.y>=670&&o.y<=687));
+      assert.deepEqual(group.map(o=>`${o.x},${o.y}`).sort(),offsets[shape].map(([x,y])=>`${originX+x},${670+y}`).sort());
+    }
     for(const [index,south] of southObjects.entries()){
       const north=northObjects[index];assert.equal(south.type,north.type);
       assert.equal(south.x+north.x,480);assert.equal(south.y+north.y,2*RIVER.y);
