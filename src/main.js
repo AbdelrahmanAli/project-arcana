@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import './style.css';
@@ -13,10 +13,9 @@ const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
-let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
-const BLOCKED_PICKUP_FOREGROUND=45;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
@@ -485,20 +484,14 @@ function render(){
     const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear';
     active.add(item.id);let s=dropSprites.get(item.id);
     if(!s){const art=isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
-    // Airborne drops cross above fighters. A blocked ground weapon is drawn
-    // ahead of its landing point, but its position never follows a fighter.
-    const layer=item.flight>0?pickupFlightLayer:pickupLayer;
+    // Airborne drops cross above fighters; landed drops share their ground-depth
+    // order with soldiers and cover. They stay visible at the landing point.
+    const layer=item.flight>0?pickupFlightLayer:obstacleLayer;
     if(s.parent!==layer)layer.addChild(s);
-    const holder=game.players[item.owner],blocked=holder.slot&&holder.slot.type!==item.type;
-    const desiredY=item.y+(blocked?BLOCKED_PICKUP_FOREGROUND:0);
-    const groundY=Math.min(desiredY,BANK_BOUNDS[item.owner].maxY-10);
-    const edgeShift=blocked?Math.min(60,Math.max(0,desiredY-groundY)*1.4):0;
-    const groundX=item.x+(item.x<W/2?edgeShift:-edgeShift);
-    const covered=blocked&&item.flight<=0&&Math.abs(holder.x-groundX)<45&&Math.abs(holder.y-groundY)<37;
-    let x=groundX,y=groundY;
+    let x=item.x,y=item.y;
     if(item.flight>0){const k=1-item.flight/.75;x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*70;s.rotation=Math.sin(k*Math.PI)*.6;}
-    else{s.rotation=0;if(!covered)groundDraw.ellipse(x,y+(isMissile||isLaser?8:isStun||isNuclear?10:12),isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isLaser?4:isMissile||isStun||isNuclear?7:0);}
-    s.position.set(x,y);s.visible=!covered;s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
+    else{s.rotation=0;s.zIndex=item.y+19;groundDraw.ellipse(x,y+(isMissile||isLaser?8:isStun||isNuclear?10:12),isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isLaser?4:isMissile||isStun||isNuclear?7:0);}
+    s.position.set(x,y);s.visible=true;s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
   }
   for(const [id,s] of dropSprites)if(!active.has(id)){s.destroy();dropSprites.delete(id);}
   for(const p of game.players){
@@ -722,7 +715,7 @@ async function boot(){
   farBarrier.position.set(0,-32);world.addChild(farBarrier);
   const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
   waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupLayer=new Container();pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,pickupLayer,obstacleLayer,pickupFlightLayer);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer,pickupFlightLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
