@@ -19,7 +19,7 @@ export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
-export const DODGE_DURATION = .46, DODGE_DISTANCE = 112, DODGE_COOLDOWN = 2.6;
+export const DODGE_DURATION = .46, DODGE_DISTANCE = 112, DODGE_COOLDOWN = 2.2;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;

@@ -471,7 +471,7 @@ test('fast projectiles use swept collision rather than skipping targets',()=>{
 });
 
 test('opposing conventional rounds cancel when their swept paths cross',()=>{
-  const m=new Match();m.think=()=>{};m.nextDrop=Infinity;
+  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
   m.bullets=[
     {id:1,x:180,y:320,vx:0,vy:900,owner:1,type:'pistol',damage:5,color:0,life:1,travel:0,targetDistance:Infinity},
     {id:2,x:180,y:332,vx:0,vy:-900,owner:0,type:'rifle',damage:7,color:0,life:1,travel:0,targetDistance:Infinity}

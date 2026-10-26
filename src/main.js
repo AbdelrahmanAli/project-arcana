@@ -217,18 +217,23 @@ for(const mode of ['pistol','special']){
   button.addEventListener('pointerup',e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode);}});
   for(const name of ['pointercancel','lostpointercapture'])button.addEventListener(name,e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode,true);}});
 }
+function queueDodge(){
+  const p=game.players[0];
+  if(input.dodge||p.dodgeTime>0||p.dodgeCooldown>0||p.stun>0){sound.play('dodgeDenied');return;}
+  input.dodge=true;
+}
 const dodgeButton=$('dodge-fire');
 dodgeButton.addEventListener('pointerdown',e=>{
   if(e.button!==0||!started||paused||game.finished||game.ending>0)return;
   e.preventDefault();e.stopPropagation();
-  input.dodge=true;
+  queueDodge();
 });
 document.addEventListener('contextmenu',e=>{if(e.target.closest('.game-unit'))e.preventDefault();});
 window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(e.code))e.preventDefault();
   if(e.code==='Escape'&&!e.repeat){pause();return;}
   if(!started||paused||game.finished||game.ending>0)return;
-  if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)input.dodge=true;
+  if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)queueDodge();
   const mode=e.code==='Space'?'pistol':e.code==='KeyE'?'special':null;
   if(mode==='special'&&!game.players[0].slot){if(!e.repeat)sound.play('empty');return;}
   const wasFiring=mode&&input[mode];keys.add(e.code);
