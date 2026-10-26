@@ -20,7 +20,7 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 - Phone / mouse: drag anywhere in the arena to create a floating joystick. Three transparent buttons on the right dodge, fire the held Tower weapon, and fire the unlimited pistol. Another finger can dodge or fire while moving. Hold and release the middle button for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
 - Desktop: WASD or arrows to move; Shift dive rolls in the movement direction; Space fires the pistol; E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
-- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 2.6-second cooldown. Solid cover and bank edges stop its movement.
+- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 2.6-second cooldown. Its button ring fills as it recharges; the Tower weapon ring drains with its ammo. Tapping an empty Tower weapon button plays a short feedback sound. Solid cover and bank edges stop roll movement.
 - Walk over a landed pickup to collect it. Each fighter can carry one Tower weapon, and cannot collect another until its ammunition is spent. There is no discard or swap action.
 
 ## Implemented

@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import './style.css';
 import './hud.css';
@@ -15,6 +15,18 @@ const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toas
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
+// Opaque-pixel centers of the 68px roll frames, relative to each cell center.
+// The artwork shifts within its cells by direction and pose; shadows follow it.
+const ROLL_SHADOW_OFFSETS=[
+  [[9,8],[9,14],[5,14],[-1,13]],
+  [[7,10],[7,10],[4,8],[-1,12]],
+  [[6,5],[8,5],[5,7],[-1,8]],
+  [[9,2],[8,2],[5,3],[-1,5]],
+  [[7,0],[6,1],[3,0],[1,2]],
+  [[6,-3],[4,-3],[3,-1],[0,0]],
+  [[7,-11],[4,-9],[2,-7],[0,-6]],
+  [[7,-11],[5,-12],[5,-11],[-2,-9]],
+];
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
@@ -206,8 +218,9 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])$('arena').
 for(const mode of ['pistol','special']){
   const button=$(`${mode}-fire`);
   button.addEventListener('pointerdown',e=>{
-    if(e.button!==0||!started||paused||game.finished||game.ending>0||firePointers[mode]!==null||mode==='special'&&!game.players[0].slot)return;
+    if(e.button!==0||!started||paused||game.finished||game.ending>0||firePointers[mode]!==null)return;
     e.preventDefault();e.stopPropagation();
+    if(mode==='special'&&!game.players[0].slot){sound.play('empty');return;}
     const wasFiring=input[mode];firePointers[mode]=e.pointerId;button.setPointerCapture(e.pointerId);input[mode]=true;
     if(!wasFiring&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
     button.classList.add('pressed');
@@ -228,6 +241,7 @@ window.addEventListener('keydown',e=>{
   if(!started||paused||game.finished||game.ending>0)return;
   if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)input.dodge=true;
   const mode=e.code==='Space'?'pistol':e.code==='KeyE'?'special':null;
+  if(mode==='special'&&!game.players[0].slot){if(!e.repeat)sound.play('empty');return;}
   const wasFiring=mode&&input[mode];keys.add(e.code);
   if(mode&&(mode==='pistol'||game.players[0].slot)){
     input[mode]=true;
@@ -245,6 +259,7 @@ function updateHud(){
   dodge.classList.toggle('rolling',p.dodgeTime>0);
   dodge.classList.toggle('cooldown',p.dodgeCooldown>0&&p.dodgeTime<=0);
   $('dodge-cooldown').textContent=p.dodgeCooldown>0&&p.dodgeTime<=0?p.dodgeCooldown.toFixed(1):'';
+  $('dodge-meter').style.strokeDasharray=`${Math.max(0,Math.min(100,(1-p.dodgeCooldown/DODGE_COOLDOWN)*100))} 100`;
   dodge.setAttribute('aria-label',p.dodgeCooldown>0?`Dive roll ready in ${p.dodgeCooldown.toFixed(1)} seconds`:'Dive roll');
   const special=$('special-fire'),specialArt=special.querySelector('.fire-control-art'),slot=p.slot;
   special.classList.toggle('empty',!slot);special.classList.toggle('laser-equipped',slot?.type==='laser');
@@ -253,6 +268,8 @@ function updateHud(){
   special.dataset.weapon=slot?.type||'';
   special.setAttribute('aria-disabled',slot?'false':'true');
   special.setAttribute('aria-label',slot?`Fire ${WEAPONS[slot.type].name}, ${slot.ammo} shots remaining`:'No Tower weapon');
+  special.style.setProperty('--meter-color',slot?`#${WEAPONS[slot.type].color.toString(16).padStart(6,'0')}`:'#e9bb70');
+  $('special-meter').style.strokeDasharray=`${slot?Math.max(0,Math.min(100,slot.ammo/WEAPONS[slot.type].ammo*100)):0} 100`;
   $('special-ammo').textContent=slot?slot.ammo:'';
   $('special-label').textContent=slot?.type==='laser'?(p.charge>=1?'RELEASE':p.charge>0?`${Math.round(p.charge*100)}%`:'HOLD'):slot?'SPECIAL':'EMPTY';
   $('charge').style.height=slot?.type==='laser'?`${p.charge*100}%`:'0';
@@ -480,8 +497,10 @@ function render(){
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
       s.visible=true;s.texture=rolling?rollFrames[p.id][p.dodgeDir][rollFrame]:textures[frame];s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
       corpse.visible=false;
-      groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
-      if(rolling)groundDraw.ellipse(p.x,p.y+24,24,8).stroke({color:0xb9eff3,width:2,alpha:.5});
+      const [shadowX,shadowY]=rolling?ROLL_SHADOW_OFFSETS[p.dodgeDir][rollFrame]:[0,17];
+      const shadowAtX=p.x+shadowX,shadowAtY=p.y+shadowY+8;
+      groundDraw.ellipse(shadowAtX,shadowAtY,rolling?19:17,5).fill({color:0x17221b,alpha:.4});
+      if(rolling)groundDraw.ellipse(shadowAtX,shadowAtY,23,7).stroke({color:0xb9eff3,width:2,alpha:.5});
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
         const power=p.charge,ready=power>=1,white=laserWhitePhase(game.time,ready);
