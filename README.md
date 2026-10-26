@@ -29,7 +29,7 @@ Main menu with settings, one health-based round, computer opponent, unlimited we
 
 Both fighters have eight-direction dive-roll animations. The computer opponent can use a roll to evade an incoming explosive.
 
-Each round places mirrored T, L, or square crate formations near the river and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
+Each round places two mirrored T, L, or square crate formations near the river on each bank and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 
 The player's health is below the expanded arena. The opponent's health and held Tower weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar. Both banks now have equal playable depth.
 
@@ -48,6 +48,7 @@ Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.
 - `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
 - `docs/PHASE_2.md`: implemented nuclear launcher and destructible-arena rules, plus sprite details.
 - `docs/PHASE_3.md`: one-weapon rules, dual-fire controls, and larger symmetric arena.
+- `docs/PHASE_4_PRD.md`: planned crate loot, healing, and three computer-opponent modes.
 
 ## Current limits
 
