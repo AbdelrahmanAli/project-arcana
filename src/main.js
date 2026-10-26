@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import './style.css';
@@ -8,14 +8,16 @@ import './arcana.css';
 import './compact-landscape.css';
 import './phase3.css';
 import './phase4.css';
+import './phase5.css';
 
 const $=id=>document.getElementById(id);
 const sound=new Sound();
 let game=new Match(),started=false,paused=false,finishedShown=false;
-let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null;
+let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVent,volcanicRockTexture,tornadoTexture,mudTexture,mudLayer,environmentGround,environmentSky,ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -172,7 +174,7 @@ function clearInput(){
   $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
-const menuPanels=['menu-home','mode-panel','weapon-panel','deal-panel','settings-panel'];
+const menuPanels=['menu-home','mode-panel','weapon-panel','map-panel','deal-panel','settings-panel'];
 let dealTimer=null,dealRun=0;
 function cancelDealAnimation(){
   dealRun++;
@@ -227,15 +229,22 @@ function animateDeal(){
   };
   tick();
 }
+function configureArena(){
+  for(const [map,group] of Object.entries(arenaGroups))group.visible=map===game.map;
+  waterTile=waterTiles[game.map];
+  if(farBarrier)farBarrier.tint=nearBarrier.tint=game.map===MAPS.STORM?0x8bacc2:game.map===MAPS.MAGMA?0xc78e78:0xffffff;
+  if(volcanoVent)volcanoVent.visible=game.map===MAPS.MAGMA;
+}
 function prepareMatch(){
   cancelDealAnimation();
   sound.stop();
-  game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon});marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
+  const map=selectedMap==='random'?MAP_TYPES[Math.floor(Math.random()*MAP_TYPES.length)]:selectedMap;
+  game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,volcanicFireSprites,mudSprites])clearSpriteMap(map);
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;$('opponent-toast').style.opacity=0;$('opponent-toast').dataset.until='0';
   updateHud();app.ticker.start();
@@ -273,7 +282,9 @@ function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();soun
 $('menu-play').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('mode-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
-$('weapon-start').addEventListener('click',()=>{if(selectedWeapon)reset();});
+$('weapon-start').addEventListener('click',()=>{if(selectedWeapon)showMenuPanel('map-panel');});
+$('map-back').addEventListener('click',()=>showMenuPanel(selectedMode===GAME_MODES.CHOOSE_FIXED?'weapon-panel':'mode-panel'));
+document.querySelectorAll('.map-choice').forEach(button=>button.addEventListener('click',()=>{selectedMap=button.dataset.map;reset();}));
 function refreshWeaponChoices(){
   for(const button of $('weapon-choices').children){
     button.classList.toggle('selected',button.dataset.weapon===selectedWeapon);
@@ -296,7 +307,7 @@ function buildWeaponChoices(){
 document.querySelectorAll('.mode-choice').forEach(button=>button.addEventListener('click',()=>{
   selectedMode=button.dataset.mode;
   if(selectedMode===GAME_MODES.CHOOSE_FIXED){showMenuPanel('weapon-panel');requestAnimationFrame(refreshWeaponChoices);}
-  else reset();
+  else showMenuPanel('map-panel');
 }));
 $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
@@ -386,7 +397,8 @@ function updateHud(){
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
   hud.style.setProperty('--hud-scale',scale);
   hud.style.left=`${Math.max(44,Math.min(W-44,enemy.x))/W*100}%`;hud.style.top=`${(enemy.y-30)/H*100}%`;
-  hud.style.display=enemy.hp>0?'flex':'none';
+  const ashConcealsEnemy=game.map===MAPS.MAGMA&&game.ash&&game.ash.age>1&&game.ash.age<game.ash.life-1&&Math.hypot(p.x-enemy.x,p.y-enemy.y)>95;
+  hud.style.display=enemy.hp>0&&!ashConcealsEnemy?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}${enemyWeapon==='laser'&&enemy.charge>0?`, charging ${Math.round(enemy.charge*100)} percent`:''}`);
   badge.firstElementChild.classList.toggle('atlas-icon',enemyWeapon==='pistol'||enemyWeapon==='rifle'||enemyWeapon==='shotgun');
@@ -401,17 +413,124 @@ function updateHud(){
   else clearWeaponIconFit(badge.firstElementChild);
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
 }
+function renderEnvironment(){
+  environmentGround.clear();environmentSky.clear();ashSoldier.visible=false;
+  if(game.map===MAPS.RIVERSIDE)return;
+  if(game.map===MAPS.STORM){
+    const liveMud=new Set();
+    for(const patch of game.mud){
+      liveMud.add(patch.id);
+      let sprite=mudSprites.get(patch.id);
+      if(!sprite){sprite=new Sprite(mudTexture);sprite.anchor.set(.5);sprite.width=patch.radius*2.6;sprite.height=patch.radius*1.7;mudLayer.addChild(sprite);mudSprites.set(patch.id,sprite);}
+      sprite.position.set(patch.x,patch.y);sprite.alpha=.94+.05*Math.sin(game.time*2+patch.id);
+      environmentGround.ellipse(patch.x,patch.y,patch.radius*1.2,patch.radius*.82).stroke({color:0x8caeb7,width:1,alpha:.24+.07*Math.sin(game.time*3+patch.id)});
+    }
+    for(const [id,sprite] of mudSprites)if(!liveMud.has(id)){sprite.destroy();mudSprites.delete(id);}
+    for(const strike of game.lightning){
+      if(strike.hit){
+        const fade=Math.max(0,(strike.life-strike.age)/.45);
+        environmentSky.moveTo(strike.x-25,strike.y-126).lineTo(strike.x+8,strike.y-70).lineTo(strike.x-3,strike.y-70).lineTo(strike.x+20,strike.y).stroke({color:0xb5edff,width:8,alpha:fade*.65});
+        environmentSky.moveTo(strike.x-25,strike.y-126).lineTo(strike.x+8,strike.y-70).lineTo(strike.x-3,strike.y-70).lineTo(strike.x+20,strike.y).stroke({color:0xffffff,width:3,alpha:fade});
+        circle(environmentSky,strike.x,strike.y,22,0xa5deff,fade*.23);
+      }else{
+        const pulse=.55+.35*Math.sin(game.time*17+strike.id);
+        environmentGround.ellipse(strike.x,strike.y,40,29).fill({color:0x16477a,alpha:.25*pulse}).stroke({color:0x9fdbff,width:3,alpha:.75*pulse});
+        environmentGround.ellipse(strike.x,strike.y,26,18).stroke({color:0xe2f8ff,width:1.5,alpha:pulse});
+        for(let n=0;n<5;n++){const a=n*1.26+game.time*2;circle(environmentGround,strike.x+Math.cos(a)*37,strike.y+Math.sin(a)*27,2,0xd3f5ff,pulse);}
+      }
+    }
+    const live=new Set();
+    for(const vortex of game.tornadoes){
+      live.add(vortex.id);
+      const warning=vortex.age<vortex.warning;
+      environmentGround.ellipse(vortex.x,vortex.y,warning?50:62,warning?27:35).stroke({color:0x9cb9c5,width:warning?2:3,alpha:warning?.4:.6});
+      if(warning)continue;
+      let sprite=tornadoSprites.get(vortex.id);
+      if(!sprite){sprite=new Sprite(tornadoTexture);sprite.anchor.set(.5,.82);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);}
+      sprite.width=85;sprite.height=91;sprite.position.set(vortex.x,vortex.y+8);sprite.rotation=Math.sin(game.time*6+vortex.id)*.06;sprite.alpha=Math.min(1,(vortex.age-vortex.warning)*3,(vortex.life-vortex.age)*2);sprite.zIndex=vortex.y+32;
+    }
+    for(const [id,sprite] of tornadoSprites)if(!live.has(id)){sprite.destroy();tornadoSprites.delete(id);}
+    for(let i=0;i<47;i++){
+      const x=(i*79+game.time*95)%(W+100)-50,y=(i*157+game.time*280)%(H+70)-35;
+      environmentSky.moveTo(x,y).lineTo(x-5,y+18).stroke({color:0xa6c8d5,width:i%4===0?1.2:.7,alpha:i%3===0?.24:.13});
+    }
+    return;
+  }
+  const liveRocks=new Set(),liveFire=new Set();
+  for(const rock of game.rocksInFlight){
+    if(rock.hit)continue;
+    liveRocks.add(rock.id);
+    const k=Math.min(1,rock.age/rock.warning),pulse=.55+.28*Math.sin(game.time*15+rock.id);
+    environmentGround.ellipse(rock.x,rock.y,31,22).fill({color:0x6f351b,alpha:.2}).stroke({color:0xffbc6b,width:2.5,alpha:pulse});
+    let sprite=rockFlightSprites.get(rock.id);
+    if(!sprite){sprite=new Sprite(volcanicRockTexture);sprite.anchor.set(.5);aerialSpriteLayer.addChild(sprite);rockFlightSprites.set(rock.id,sprite);}
+    sprite.width=30+k*27;sprite.height=30+k*27;
+    sprite.position.set(48+(rock.x-48)*k,RIVER.y+(rock.y-RIVER.y)*k-Math.sin(k*Math.PI)*130);
+    sprite.rotation=k*1.5;sprite.alpha=Math.min(1,.5+k);
+  }
+  for(const [id,sprite] of rockFlightSprites)if(!liveRocks.has(id)){sprite.destroy();rockFlightSprites.delete(id);}
+  for(const fire of game.volcanicFire){
+    liveFire.add(fire.id);
+    let sprite=volcanicFireSprites.get(fire.id);
+    if(!sprite){sprite=new Sprite(flameFrames[0]);sprite.anchor.set(.5,.8);volcanicFireSprites.set(fire.id,sprite);}
+    const k=Math.min(1,fire.age/fire.warning);
+    if(!fire.hit){
+      environmentGround.ellipse(fire.x,fire.y,35,24).fill({color:0x9d200b,alpha:.16}).stroke({color:0xff6132,width:3,alpha:.7+.2*Math.sin(game.time*16)});
+      if(sprite.parent!==aerialSpriteLayer)aerialSpriteLayer.addChild(sprite);
+      const fx=48+(fire.x-48)*k,fy=RIVER.y+(fire.y-RIVER.y)*k-Math.sin(k*Math.PI)*110;
+      sprite.position.set(fx,fy);
+      sprite.width=38;sprite.height=52;
+      circle(aerialProjectileDraw,fx,fy-12,6,0xff6a20,.34);
+      circle(aerialProjectileDraw,fx,fy-12,2.7,0xffed9a,.95);
+    }else{
+      if(sprite.parent!==flameLayer)flameLayer.addChild(sprite);
+      sprite.position.set(fire.x,fire.y+4);sprite.width=78;sprite.height=75;
+      const fade=Math.min(1,(fire.life-fire.age)*1.4);
+      environmentGround.ellipse(fire.x,fire.y,35,25).fill({color:0x9e2609,alpha:.37*fade}).stroke({color:0xff7433,width:2,alpha:.8*fade});
+      for(let n=0;n<7;n++){
+        const a=n*2.4+fire.id,drift=17+5*Math.sin(game.time*4+n);
+        circle(environmentGround,fire.x+Math.cos(a)*drift,fire.y+Math.sin(a)*drift*.65,2+n%2,n%2?0xffb041:0xff5924,fade*.7);
+      }
+      sprite.alpha=fade;
+    }
+    sprite.texture=flameFrames[(Math.floor(game.time*13+fire.id))%flameFrames.length];
+  }
+  for(const [id,sprite] of volcanicFireSprites)if(!liveFire.has(id)){sprite.destroy();volcanicFireSprites.delete(id);}
+  if(game.ash){
+    const {age,life}=game.ash,strength=Math.min(1,age/1.2,(life-age)/1.2);
+    environmentSky.rect(0,0,W,H).fill({color:0x171b21,alpha:.68*strength});
+    for(let i=0;i<13;i++){
+      const x=(i*83+game.time*27)%(W+140)-70,y=(i*157+game.time*17)%(H+100)-50;
+      environmentSky.ellipse(x,y,55+(i%4)*12,20+(i%3)*8).fill({color:i%2?0x77716d:0x4b4b50,alpha:.18*strength});
+    }
+    const p=game.players[0],source=soldiers[0];
+    if(p.hp>0){ashSoldier.visible=true;ashSoldier.texture=source.texture;ashSoldier.position.copyFrom(source.position);ashSoldier.width=source.width;ashSoldier.height=source.height;ashSoldier.tint=source.tint;ashSoldier.alpha=.92;}
+    for(const item of [...game.rocksInFlight,...game.volcanicFire])if(!item.hit){
+      environmentSky.ellipse(item.x,item.y,38,26).stroke({color:game.rocksInFlight.includes(item)?0xffc473:0xff6840,width:2.5,alpha:strength*.95});
+    }
+  }
+}
 function render(){
   draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();shieldDraw.clear();fireSmoke.clear();joystickDraw.clear();
-  waterTile.tilePosition.x=game.time*19;
+  waterTile.tilePosition.x=game.time*(game.map===MAPS.MAGMA?6:19);
   waterTile.tilePosition.y=Math.sin(game.time*.72)*1.5;
   // A few foam crests drift with the textured current.
   for(let i=0;i<15;i++){
     const y=RIVER.top+18+(i*47)%(RIVER.bottom-RIVER.top-44);
     const x=(i*97+game.time*13)%(W+45)-25;
     const length=8+(i%4)*4;
-    waterDraw.moveTo(x,y).bezierCurveTo(x+length*.3,y-1,x+length*.7,y+1,x+length,y).stroke({color:0xb1e2cf,width:1,alpha:.11+.06*Math.sin(game.time+i)});
+    waterDraw.moveTo(x,y).bezierCurveTo(x+length*.3,y-1,x+length*.7,y+1,x+length,y).stroke({color:game.map===MAPS.MAGMA?0xffaa42:0xb1e2cf,width:1,alpha:.11+.06*Math.sin(game.time+i)});
   }
+  if(game.map===MAPS.MAGMA){
+    const pulse=.22+.08*Math.sin(game.time*3);
+    waterDraw.ellipse(RIVER.x,BASE_Y+20,82,27).stroke({color:0xff7327,width:4,alpha:pulse});
+    waterDraw.ellipse(RIVER.x,BASE_Y+22,91,31).stroke({color:0xffbd56,width:1.5,alpha:pulse*.8});
+    if(game.tower.height>.05)for(let i=0;i<7;i++){
+      const side=i%2?1:-1,x=RIVER.x+side*(32+i*3),y=BASE_Y-10-(game.time*25+i*37)%Math.max(25,game.tower.height*115);
+      circle(waterDraw,x,y,1+i%2,0xff8e37,.3+game.tower.height*.2);
+    }
+  }
+  towerWater.alpha=baseWaterDraw.alpha=game.map===MAPS.MAGMA?0:1;
   if(marksDrawnRevision!==game.marksRevision){
     marksDrawnRevision=game.marksRevision;scarsDraw.clear();
     for(const mark of game.marks){
@@ -433,13 +552,13 @@ function render(){
     liveObstacles.add(obstacle.id);
     let sprite=obstacleSprites.get(obstacle.id);
     const layer=obstacle.destroyed?debrisLayer:obstacleLayer;
-    if(!sprite){sprite=new Sprite((obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
+    if(!sprite){sprite=new Sprite(obstacle.type==='rock'?volcanicRockTexture:(obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
     else if(sprite.parent!==layer)layer.addChild(sprite);
-    const crate=obstacle.type==='crate',frames=crate?crateFrames:barrelFrames;
-    sprite.texture=frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
-    sprite.width=crate?40:44;sprite.height=crate?40:54;
-    sprite.position.set(obstacle.x,obstacle.y+(crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
-    sprite.alpha=!obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
+    const crate=obstacle.type==='crate',rock=obstacle.type==='rock',frames=crate?crateFrames:barrelFrames;
+    sprite.texture=rock?volcanicRockTexture:frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
+    sprite.width=rock?(obstacle.destroyed?34:57):crate?40:44;sprite.height=rock?(obstacle.destroyed?24:49):crate?40:54;
+    sprite.position.set(obstacle.x,obstacle.y+(rock?-3:crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
+    sprite.alpha=rock&&obstacle.destroyed ? .55 : !obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
   const t=game.tower;
@@ -776,6 +895,7 @@ function render(){
   }
   const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast'||e.type==='nuclearBlast').map(e=>e.id));
   for(const [id,s]of blastSprites)if(!activeBlast.has(id)){s.destroy();blastSprites.delete(id);}
+  renderEnvironment();
   if(stick){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
     joystickDraw.circle(stick.x+stick.dx,stick.y+stick.dy,17).fill({color:0xf0d58f,alpha:.25}).stroke({color:0xffe6ae,alpha:.6,width:1});
@@ -789,7 +909,12 @@ async function boot(){
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
+  const [stormBg,magmaBg,volcanicRockArt,tornadoArt,ventArt,mudArt]=await Promise.all(
+    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado.png','phase5-volcano-vent.png','phase5-mud.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+  );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
+  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoArt,ventArt,mudArt])art.source.scaleMode='nearest';
+  volcanicRockTexture=volcanicRockArt;tornadoTexture=tornadoArt;mudTexture=mudArt;
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
     const scale=DEATH_ART_SCALES[player][frame];
@@ -803,24 +928,28 @@ async function boot(){
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;
   world=new Container();app.stage.addChild(world);
-  // Rebalance the existing arena art: extend the upper bank and use the
-  // original lower edge instead of placing a second wall across playable sand.
-  const artTop=bg.height*248/720,artBottom=bg.height*410/720;
-  for(const [sourceY,sourceHeight,destY,destHeight] of [
-    [0,artTop,0,RIVER.top],
-    [artTop,artBottom-artTop,RIVER.top,RIVER.bottom-RIVER.top],
-    [artBottom,bg.height-artBottom,RIVER.bottom,H-RIVER.bottom],
-  ]){
-    const section=new Sprite(new Texture({source:bg.source,frame:new Rectangle(0,sourceY,bg.width,sourceHeight)}));
-    section.position.set(0,destY);section.width=W;section.height=destHeight;world.addChild(section);
+  // Every map uses the same physical slices, so the banks and tower stay aligned.
+  for(const [map,art] of [[MAPS.RIVERSIDE,bg],[MAPS.STORM,stormBg],[MAPS.MAGMA,magmaBg]]){
+    const group=new Container(),artTop=art.height*248/720,artBottom=art.height*410/720;
+    for(const [sourceY,sourceHeight,destY,destHeight] of [
+      [0,artTop,0,RIVER.top],
+      [artTop,artBottom-artTop,RIVER.top,RIVER.bottom-RIVER.top],
+      [artBottom,art.height-artBottom,RIVER.bottom,H-RIVER.bottom],
+    ]){
+      const section=new Sprite(new Texture({source:art.source,frame:new Rectangle(0,sourceY,art.width,sourceHeight)}));
+      section.position.set(0,destY);section.width=W;section.height=destHeight;group.addChild(section);
+    }
+    const texture=new Texture({source:art.source,frame:new Rectangle(60,548,904,300)});
+    const flow=new TilingSprite({texture,width:W,height:142});flow.position.set(0,RIVER.top+9);flow.tileScale.set(W/904);flow.alpha=map===MAPS.MAGMA?.28:.72;group.addChild(flow);
+    waterTiles[map]=flow;arenaGroups[map]=group;group.visible=map===MAPS.RIVERSIDE;world.addChild(group);
   }
   // Position the opaque part of the wall inside the arena. The source art has
   // transparent padding above and below the stones.
-  const farBarrier=new Sprite(rockArt);farBarrier.width=W;farBarrier.height=100;
+  farBarrier=new Sprite(rockArt);farBarrier.width=W;farBarrier.height=100;
   farBarrier.position.set(0,-32);world.addChild(farBarrier);
-  const waterTexture=new Texture({source:bg.source,frame:new Rectangle(60,548,904,300)});
-  waterTile=new TilingSprite({texture:waterTexture,width:W,height:142});waterTile.position.set(0,RIVER.top+9);waterTile.tileScale.set(W/904);waterTile.alpha=.72;world.addChild(waterTile);
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer,pickupFlightLayer);
+  waterTile=waterTiles[MAPS.RIVERSIDE];
+  volcanoVent=new Sprite(ventArt);volcanoVent.anchor.set(.5);volcanoVent.width=105;volcanoVent.height=84;volcanoVent.position.set(48,RIVER.y);volcanoVent.visible=false;world.addChild(volcanoVent);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer,pickupFlightLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
@@ -856,8 +985,10 @@ async function boot(){
   // The front surface of the bubble must veil a fighter or corpse behind it.
   world.addChild(muzzleDraw,shieldGlass,shieldDraw);
   // The lower wall covers only a fighter's feet at the back edge.
-  const nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
+  nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
+  environmentSky=new Graphics();world.addChild(environmentSky);
+  ashSoldier=new Sprite(textures[0]);ashSoldier.anchor.set(.5);ashSoldier.visible=false;world.addChild(ashSoldier);
   draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
   buildWeaponChoices();
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
@@ -887,8 +1018,9 @@ async function boot(){
       }
       damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showNumber(playerId,amount);});
       game.events=[];
-      sound.burn(game.flames.length>0);
-      sound.tower(game.tower.phase,game.tower.height,game.tower.progress);
+      sound.burn(game.flames.length>0||game.volcanicFire.some(f=>f.hit));
+      sound.environment(game.map);
+      sound.tower(game.tower.phase,game.tower.height,game.tower.progress,game.map);
     } else accumulator=0;
     if(performance.now()>Number($('opponent-toast').dataset.until||0))$('opponent-toast').style.opacity=0;
     if(game.finished&&!finishedShown){
@@ -906,6 +1038,6 @@ async function boot(){
     if(!animating){app.renderer.render(app.stage);app.ticker.stop();}
   });
   // Read-only diagnostics for development and reproducible manual QA.
-  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,tower:game.tower,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length})),renderer:app.renderer.type};
+  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,tower:game.tower,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash})),renderer:app.renderer.type};
 }
 boot().catch(error=>{console.error(error);$('menu').classList.add('hidden');$('overlay').classList.remove('hidden');$('overlay-title').textContent='LOAD FAILED';$('overlay-copy').textContent=import.meta.env.DEV?String(error):'The game could not load its graphics. Please reload in a browser with WebGL enabled.';$('start').textContent='RELOAD';$('start').disabled=false;$('start').onclick=()=>location.reload();});

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -134,6 +134,59 @@ test('Random Same Weapon draws once per Tower launch and gives both banks that t
   assert.deepEqual(m.pickups.map(item=>item.type),['rifle','rifle','nuclear','nuclear']);
   assert.deepEqual(m.pickups.map(item=>item.owner),[0,1,0,1]);
   assert.notEqual(m.pickups[0].x,m.pickups[1].x,'landing positions still roll separately');
+});
+
+test('maps preserve equal banks and mud slows walking without shortening a roll',()=>{
+  assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
+  assert.throws(()=>new Match(()=>.5,{map:'unknown'}),RangeError);
+  const m=new Match(()=>.5,{map:MAPS.STORM});m.obstacles.forEach(o=>o.destroyed=true);
+  const patch=m.mud.find(o=>o.owner===0),p=m.players[0];p.x=patch.x;p.y=patch.y;
+  m.move(p,1,0,.1);assert.ok(Math.abs(p.x-patch.x-17*.1*HAZARD_RULES.mudSlow*10)<.01);
+  p.x=patch.x;p.y=patch.y;assert.equal(m.dodge(p,1,0),true);
+  m.move(p,1,0,.1);assert.ok(Math.abs(p.x-patch.x-DODGE_DISTANCE/DODGE_DURATION*.1)<.01);
+});
+
+test('storm hazards arrive in equal pairs and dodge protects from lightning',()=>{
+  const m=new Match(()=>.5,{map:MAPS.STORM});m.obstacles.forEach(o=>o.destroyed=true);
+  m.startEnvironmentEvent();assert.deepEqual(m.lightning.map(o=>o.owner),[0,1]);
+  for(const strike of m.lightning){const p=m.players[strike.owner];p.x=strike.x;p.y=strike.y;}
+  m.players[1].dodgeTime=.3;m.updateEnvironment(1.21);
+  assert.equal(m.players[0].hp,100-HAZARD_RULES.lightningDamage);assert.equal(m.players[1].hp,100);
+  m.environmentCycle=2;m.startEnvironmentEvent();assert.deepEqual(m.tornadoes.map(o=>o.owner),[0,1]);
+});
+
+test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>{
+  const m=new Match(()=>.5,{map:MAPS.MAGMA});m.obstacles.forEach(o=>o.destroyed=true);
+  m.startEnvironmentEvent();assert.deepEqual(m.rocksInFlight.map(o=>o.owner),[0,1]);
+  m.updateEnvironment(1.31);
+  const rocks=m.obstacles.filter(o=>o.type==='rock'&&!o.destroyed);assert.equal(rocks.length,2);
+  const rock=rocks[0],p=m.players[0];p.x=rock.x-40;p.y=rock.y;
+  m.move(p,1,0,.2);assert.ok(p.x<rock.x-10,'rock stops walking');
+  assert.equal(m.nearestObstacleHit({x:rock.x,y:rock.y-30},{x:rock.x,y:rock.y+30})?.obstacle,rock,'rock blocks straight shots');
+  m.environmentCycle=1;m.startEnvironmentEvent();assert.deepEqual(m.volcanicFire.map(o=>o.owner),[0,1]);
+  m.updateEnvironment(1.31);const fire=m.volcanicFire[0];p.x=fire.x;p.y=fire.y;
+  const before=p.hp;for(let i=0;i<120;i++)m.update(1/120);
+  assert.ok(p.hp<before-10&&p.hp>before-14,'volcanic fire applies its expected one-second damage');
+  m.environmentCycle=2;m.startEnvironmentEvent();assert.ok(m.ash);m.updateEnvironment(6.6);assert.equal(m.ash,null);
+});
+
+test('overlapping volcanic fire, Tower fire, and waste use the highest ground damage rate',()=>{
+  const m=new Match(()=>.5,{map:MAPS.MAGMA});m.obstacles.forEach(o=>o.destroyed=true);
+  const p=m.players[0];
+  m.waste.push({id:999,x:p.x,y:p.y});
+  m.volcanicFire.push({id:1000,owner:0,x:p.x,y:p.y,age:1.5,warning:1.3,life:5.3,hit:true});
+  const before=p.hp;for(let i=0;i<120;i++)m.update(1/120);
+  assert.ok(Math.abs(p.hp-(before-HAZARD_RULES.volcanicFireDps))<.05,'waste and volcanic fire do not add their rates');
+});
+
+test('all map simulations keep fighters inside their banks with bounded hazards',()=>{
+  for(const map of [MAPS.STORM,MAPS.MAGMA]){
+    let seed=21473;const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+    const m=new Match(random,{map});
+    for(let i=0;i<5400&&!m.finished;i++)m.update(1/120,{x:Math.sin(i/90),y:Math.cos(i/110),pistol:i%20===0,dodge:i%360===0});
+    for(const p of m.players){const bank=BANK_BOUNDS[p.id];assert.ok(p.y>=bank.minY&&p.y<=bank.maxY,`${map} fighter remains on bank`);}
+    assert.ok(m.obstacles.length<70&&m.lightning.length<5&&m.rocksInFlight.length<5&&m.volcanicFire.length<5);
+  }
 });
 
 test('only a fully broken crate rolls once for nothing, a weapon, or a syringe',()=>{

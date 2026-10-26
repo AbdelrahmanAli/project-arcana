@@ -1,5 +1,13 @@
 # The Tower Deal verification
 
+## Phase 5: Storm and Magma arenas — 2026-10-26
+
+- All 67 model tests pass. New cases cover equal bank geometry, mud movement and dodge distance, paired lightning, rock cover and projectile blocking, volcanic fire, ash timing, overlapping ground damage, and seeded matches on both new maps.
+- The Vite production build succeeds. Storm and Magma background art is served as WebP at roughly 0.74 MB and 0.84 MB; original full-resolution PNGs remain in `docs/art-source/phase5/`.
+- A 390 × 844 Chrome run showed Riverside, Storm, Magma, and Random Map in the new selection panel. Both new arenas loaded with no runtime exceptions. Separate captures checked rain and mud, lightning warning, tornado, rock warning, volcanic fire, and ash at phone size.
+- The Choose Fixed Weapon path selected a nuclear weapon before Storm. Random Fixed Weapon revealed a random weapon after Magma selection and started automatically. Random Same Weapon started on Riverside. A paused match's simulation time stayed unchanged across 450 ms.
+- Physical iOS and Android tests, longer balance sessions, and listening on device speakers remain open.
+
 ## Phase 4: crate loot and modes — 2026-10-26
 
 - Random Same Weapon was checked at 390 × 844: all four mode choices fit on screen, and selecting it starts immediately. A model test confirms each Tower launch draws one type shared by both banks, redraws for the next launch, and keeps landing positions independent.

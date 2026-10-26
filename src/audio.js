@@ -102,8 +102,17 @@ function waterWav() {
     return (low*.7+mid*.18+white*.015)*gentleSwell*loopEdge*.65;
   });
 }
+function weatherWav(kind){
+  const duration=3;let seed=kind==='rain'?17329:59381,low=0,mid=0;
+  return pcmWav(duration,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;low=low*.92+white*.08;mid=mid*.62+white*.38;
+    const edge=Math.min(1,t/.06,(duration-t)/.06);
+    return kind==='rain'?(mid*.26+white*.09+low*.12)*edge*.55:(low*.65+mid*.12)*edge*.42;
+  });
+}
 export class Sound {
-  constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;}
+  constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;}
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
@@ -126,20 +135,38 @@ export class Sound {
     this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});
     this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:.23,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
+    this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});
+    this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});
+    this.clips.lightningCharge=new Howl({src:[wav(.43,620,.3,4)],format:['wav'],volume:.12,preload:true});
+    this.clips.lightningStrike=new Howl({src:[wav(.68,63,.95,5)],format:['wav'],volume:.34,preload:true});
+    this.clips.tornado=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.2,preload:true});
+    this.clips.ash=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.12,preload:true});
+    this.clips.volcanoRockLaunch=new Howl({src:[wav(.45,93,.75,5)],format:['wav'],volume:.21,preload:true});
+    this.clips.volcanoFireLaunch=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.2,preload:true});
+    this.clips.volcanoRockImpact=new Howl({src:[wav(.55,66,.9,6)],format:['wav'],volume:.3,preload:true});
+    this.clips.volcanoFireImpact=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.27,preload:true});
+    this.clips.rockBreak=new Howl({src:[wav(.3,120,.83,10)],format:['wav'],volume:.2,preload:true});
     Howler.ctx?.resume();
   }
   play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
-  tower(phase,height,progress){
+  environment(map){
+    if(!this.ready||this.ambientMap===map)return;
+    for(const name of ['rain','lava'])this.clips[name].stop();
+    this.ambientMap=map;
+    if(map==='storm')this.clips.rain.play();
+    else if(map==='magma')this.clips.lava.play();
+  }
+  tower(phase,height,progress,map){
     if(!this.ready)return;
     if(phase!==this.towerPhase){
       this.towerPhase=phase;
       if(phase==='rise'&&progress<.15&&!this.muted)this.clips.riseAlarm.play('alert');
     }
-    const wet=phase!=='rest'&&height>.015;
+    const wet=map!=='magma'&&phase!=='rest'&&height>.015;
     if(wet!==this.watering){this.watering=wet;if(wet)this.clips.water.play();else this.clips.water.stop();}
     if(wet)this.clips.water.volume(.025+.06*Math.min(1,height*2));
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.towerPhase=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;Howler.stop();}
 }

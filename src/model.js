@@ -37,6 +37,9 @@ export const WEAPONS = {
 };
 export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'nuclear'];
 export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
+export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
+export const MAP_TYPES = Object.values(MAPS);
+export const HAZARD_RULES = { mudSlow:.75, lightningDamage:18, tornadoDamage:10, rockDamage:16, volcanicFireDps:12 };
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -106,10 +109,11 @@ export function segmentEllipseHit(a,b,ellipse) {
 function soldier(id, x, y) {
   return { id,x,y,hp:100,stun:0,radiated:0,burning:0,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
-const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20}};
+const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
 function blocksFighter(o,x,y){
   if(o.destroyed||o.type==='barrel')return false;
+  if(o.type==='rock')return Math.hypot(x-clamp(x,o.x-18,o.x+18),y-clamp(y,o.y-10,o.y+14))<11;
   // Crates are solid cover; barrels can be walked past while still blocking shots.
   const nearX=clamp(x,o.x-14,o.x+14),nearY=clamp(y,o.y+6,o.y+16);
   return Math.hypot(x-nearX,y-nearY)<11;
@@ -160,15 +164,111 @@ export class Match {
     this.random=random; this.time=0; this.id=0; this.players=[soldier(0,190,760),soldier(1,290,240)];
     this.mode=options.mode||GAME_MODES.RANDOM;
     if(!Object.values(GAME_MODES).includes(this.mode))throw new RangeError('Unknown game mode');
+    this.map=options.map||MAPS.RIVERSIDE;
+    if(!MAP_TYPES.includes(this.map))throw new RangeError('Unknown map');
     if(this.mode===GAME_MODES.CHOOSE_FIXED&&!DROP_TYPES.includes(options.weapon))throw new RangeError('Choose Fixed Weapon requires a valid weapon');
     this.fixedWeapon=this.mode===GAME_MODES.RANDOM_FIXED?DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)]:this.mode===GAME_MODES.CHOOSE_FIXED?options.weapon:null;
     this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
+    this.mud=[];this.lightning=[];this.tornadoes=[];this.rocksInFlight=[];this.volcanicFire=[];this.ash=null;
+    this.nextEnvironmentEvent=11;this.environmentCycle=0;this.nextMud=20;
+    if(this.map===MAPS.STORM){this.addMudPair(0);this.addMudPair(1);}
     this.obstacles=this.makeObstacles();
     this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
     this.nextDrop=2.5; this.aiClock=0; this.aiWaypoint=null; this.aiTarget=null; this.aiFire=false; this.aiCharge=0;
     this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
+  addMudPair(index){
+    const sites=[[118,737],[360,790],[305,670],[155,835]];
+    const [x,y]=sites[index%sites.length];
+    for(const owner of [0,1])this.mud.push({id:this.id++,owner,x:owner===0?x:W-x,y:owner===0?y:2*RIVER.y-y,radius:40});
+  }
+  environmentalPoint(owner,occupied=[]){
+    const bank=BANK_BOUNDS[owner];
+    for(let attempt=0;attempt<30;attempt++){
+      const point={x:85+this.random()*(W-170),y:bank.minY+48+this.random()*(bank.maxY-bank.minY-96)};
+      if(this.obstacles.every(o=>o.destroyed||Math.hypot(o.x-point.x,o.y-point.y)>64)&&occupied.every(o=>Math.hypot(o.x-point.x,o.y-point.y)>70))return point;
+    }
+    return {x:W/2,y:(bank.minY+bank.maxY)/2};
+  }
+  startEnvironmentEvent(){
+    const kind=this.environmentCycle++%3;
+    if(this.map===MAPS.STORM){
+      if(kind===2){
+        for(const owner of [0,1]){
+          const bank=BANK_BOUNDS[owner],y=bank.minY+75+this.random()*(bank.maxY-bank.minY-150);
+          const direction=this.random()<.5?1:-1;
+          this.tornadoes.push({id:this.id++,owner,x:direction>0?68:W-68,y,dx:direction,age:0,warning:1,life:6,hit:[false,false]});
+        }
+        this.emit('tornado');
+      }else{
+        for(const owner of [0,1])this.lightning.push({id:this.id++,owner,...this.environmentalPoint(owner),age:0,warning:1.2,life:1.65,hit:false});
+        this.emit('lightningCharge');
+      }
+    }else if(this.map===MAPS.MAGMA){
+      if(kind===2){this.ash={age:0,life:6.5};this.emit('ash');}
+      else for(const owner of [0,1]){
+        const point=this.environmentalPoint(owner,kind===0?this.rocksInFlight:[]);
+        const event={id:this.id++,owner,...point,age:0,warning:1.3,hit:false};
+        if(kind===0)this.rocksInFlight.push({...event,life:1.75});
+        else this.volcanicFire.push({...event,life:5.3});
+      }
+      if(kind!==2)this.emit(kind===0?'volcanoRockLaunch':'volcanoFireLaunch');
+    }
+  }
+  updateEnvironment(dt){
+    if(this.map===MAPS.RIVERSIDE)return;
+    if(this.map===MAPS.STORM&&this.nextMud<=this.time&&this.mud.length<8){this.addMudPair(this.mud.length/2);this.nextMud+=20;}
+    if(this.time>=this.nextEnvironmentEvent){this.startEnvironmentEvent();this.nextEnvironmentEvent=this.time+(this.map===MAPS.STORM?14:13);}
+    for(const strike of this.lightning){
+      strike.age+=dt;
+      if(!strike.hit&&strike.age>=strike.warning){
+        strike.hit=true;
+        for(const p of this.players)if(p.id===strike.owner&&distance(p,strike)<39)this.damage(p,HAZARD_RULES.lightningDamage);
+        this.damageAreaObjects(strike.x,strike.y,30);
+        this.mark('scorch',strike.x,strike.y,.65);
+        this.emit('lightningStrike',{x:strike.x});
+      }
+    }
+    this.lightning=this.lightning.filter(strike=>strike.age<strike.life);
+    for(const vortex of this.tornadoes){
+      vortex.age+=dt;
+      if(vortex.age<vortex.warning)continue;
+      vortex.x=clamp(vortex.x+vortex.dx*56*dt,50,W-50);
+      const p=this.players[vortex.owner],d=distance(p,vortex);
+      if(d<82&&p.hp>0){
+        if(d>15&&p.dodgeTime<=0)this.move(p,(vortex.x-p.x)/d,(vortex.y-p.y)/d,dt*.22);
+        if(d<23&&!vortex.hit[p.id]){
+          vortex.hit[p.id]=true;
+          if(this.damage(p,HAZARD_RULES.tornadoDamage)>0)this.move(p,vortex.dx,0,.08);
+        }
+      }
+    }
+    this.tornadoes=this.tornadoes.filter(vortex=>vortex.age<vortex.life);
+    for(const rock of this.rocksInFlight){
+      rock.age+=dt;
+      if(!rock.hit&&rock.age>=rock.warning){
+        rock.hit=true;
+        const p=this.players[rock.owner],caught=p.hp>0&&distance(p,rock)<31;
+        if(caught)this.damage(p,HAZARD_RULES.rockDamage);
+        const clear=!caught&&this.obstacles.every(o=>o.destroyed||distance(o,rock)>48)&&this.players.every(f=>f.hp<=0||distance(f,rock)>35);
+        if(clear)this.obstacles.push({id:this.id++,type:'rock',owner:rock.owner,x:rock.x,y:rock.y,destroyed:false,hits:0,flash:0,ttl:15});
+        this.effects.push({id:this.id++,type:'volcanicImpact',x:rock.x,y:rock.y,age:0,life:.6,seed:this.random()});
+        this.emit('volcanoRockImpact',{x:rock.x});
+      }
+    }
+    this.rocksInFlight=this.rocksInFlight.filter(rock=>rock.age<rock.life);
+    for(const fire of this.volcanicFire){
+      fire.age+=dt;
+      if(!fire.hit&&fire.age>=fire.warning){
+        fire.hit=true;this.damageAreaObjects(fire.x,fire.y,26);
+        this.mark('scorch',fire.x,fire.y,.75);this.emit('volcanoFireImpact',{x:fire.x});
+      }
+    }
+    this.volcanicFire=this.volcanicFire.filter(fire=>fire.age<fire.life);
+    for(const rock of this.obstacles)if(rock.type==='rock'&&!rock.destroyed){rock.ttl-=dt;if(rock.ttl<=0)this.destroyObstacle(rock);}
+    if(this.ash){this.ash.age+=dt;if(this.ash.age>=this.ash.life)this.ash=null;}
+  }
   makeObstacles(){
     const formations={
       T:[[-33,0],[0,0],[33,0],[0,17]],
@@ -230,6 +330,9 @@ export class Match {
       this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
       this.emit('crateBreak',{x:obstacle.x});
       this.dropCrateLoot(obstacle);
+    }else if(obstacle.type==='rock'){
+      this.effects.push({id:this.id++,type:'volcanicImpact',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
+      this.emit('rockBreak',{x:obstacle.x});
     }else{
       this.effects.push({id:this.id++,type:'barrelBlast',x:obstacle.x,y:obstacle.y,age:0,life:.9,seed:this.random()});
       this.effects.push({id:this.id++,type:'smoke',x:obstacle.x,y:obstacle.y,age:0,life:2,seed:this.random()});
@@ -286,7 +389,8 @@ export class Match {
     if(rolling){x=p.dodgeX;y=p.dodgeY;}
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
     const oldX=p.x,oldY=p.y;
-    const speed=rolling?DODGE_DISTANCE/DODGE_DURATION:170;
+    const inMud=this.map===MAPS.STORM&&this.mud.some(patch=>patch.owner===p.id&&((p.x-patch.x)/(patch.radius*1.22))**2+((p.y-patch.y)/(patch.radius*.84))**2<1);
+    const speed=rolling?DODGE_DISTANCE/DODGE_DURATION:170*(inMud?HAZARD_RULES.mudSlow:1);
     const travelDt=rolling?Math.min(dt,p.dodgeTime):dt;
     const nextX=clamp(p.x+x*scale*speed*travelDt,38,W-38);
     if(!this.obstacles.some(o=>blocksFighter(o,nextX,p.y)))p.x=nextX;
@@ -486,8 +590,14 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
+      const mapThreat=[...this.lightning.filter(h=>!h.hit),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5)]
+        .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?95:65));
+      if(mapThreat){
+        tx=p.x+(p.x>=mapThreat.x?105:-105);ty=p.y+(p.y>=mapThreat.y?48:-48);
+        if(distance(p,mapThreat)<33&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
+      }
       this.aiTarget={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
-      const crates=this.obstacles.filter(o=>o.owner===1&&o.type==='crate'&&!o.destroyed);
+      const crates=this.obstacles.filter(o=>o.owner===1&&o.type!=='barrel'&&!o.destroyed);
       this.aiWaypoint=routeAroundCrates(p,this.aiTarget,crates,bank);
       const type=this.weapon(p);
       this.aiFire=['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29);
@@ -525,6 +635,7 @@ export class Match {
     if(input.pistol)this.fire(p,0,'pistol');
     if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);}
     this.think(dt);
+    this.updateEnvironment(dt);
     for(const i of this.pickups){
       if(i.flight>0){
         i.flight=Math.max(0,i.flight-dt);
@@ -578,15 +689,11 @@ export class Match {
       }
     }
     this.bullets=this.bullets.filter(b=>b.life>0);
-    for(const player of this.players)if(player.hp>0&&this.waste.some(waste=>distance(player,waste)<WASTE_RADIUS)){
-      if(this.damageOverTime(player,WASTE_DAMAGE_PER_SECOND*dt)>0)player.radiated=.14;
-    }
     for(const f of this.flames){
       f.age+=dt;f.reach=Math.min(f.maxReach,f.reach+FLAME_SPEED*dt);f.life-=dt;
       if(f.endAge===null&&f.reach>=f.maxReach)f.endAge=f.age;
       const end={x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach};
       for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,f,end)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle);
-      for(const p of this.players){if(segmentDistance(p,f,end)<21&&this.damageOverTime(p,FLAME_DAMAGE_PER_SECOND*dt)>0)p.burning=.14;}
       while(f.marked+70<f.reach){
         f.marked+=70;
         const x=f.x+f.dx*f.marked,y=f.y+f.dy*f.marked;
@@ -601,6 +708,14 @@ export class Match {
       }
     }
     this.flames=this.flames.filter(f=>f.life>0);
+    for(const p of this.players){
+      const radiated=this.waste.some(waste=>distance(p,waste)<WASTE_RADIUS);
+      const towerFire=this.flames.some(f=>segmentDistance(p,f,{x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach})<21);
+      const lavaFire=this.volcanicFire.some(f=>f.hit&&distance(p,f)<34);
+      const burning=towerFire||lavaFire;
+      const groundDps=Math.max(radiated?WASTE_DAMAGE_PER_SECOND:0,towerFire?FLAME_DAMAGE_PER_SECOND:0,lavaFire?HAZARD_RULES.volcanicFireDps:0);
+      if(groundDps>0&&this.damageOverTime(p,groundDps*dt)>0){if(radiated)p.radiated=.14;if(burning)p.burning=.14;}
+    }
     this.flushHazardDamage(dt);
     for(const p of this.players)p.dodgeTime=Math.max(0,p.dodgeTime-dt);
     for(const e of this.effects)e.age+=dt;

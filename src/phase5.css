@@ -1,0 +1,10 @@
+.map-choice{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;margin:8px 0;padding:6px;text-align:left;background:#162727;border:1px solid #8b794f}
+.map-choice:hover,.map-choice:focus-visible{background:#30413d;border-color:#ebc573}
+.map-choice strong{display:block;color:#f4d78d;font-size:11px;letter-spacing:1px}
+.map-choice small{display:block;margin-top:5px;color:#b6c7bb;font-size:9px;line-height:1.4}
+.map-thumb{display:grid;place-items:center;flex:0 0 70px;width:70px;height:54px;border:1px solid #6d7165;background-size:100% auto;background-position:center top;font-size:29px;color:#f1cb78}
+.map-thumb.riverside{background-image:url('/art/arena.png')}
+.map-thumb.storm{background-image:url('/art/arena-storm.webp')}
+.map-thumb.magma{background-image:url('/art/arena-magma.webp')}
+.map-thumb.random{background:linear-gradient(125deg,#275d57 0 33%,#354b62 33% 66%,#8c442d 66%)}
+@media(max-width:700px) and (orientation:landscape){.map-choice{min-height:50px;margin:4px 0}.map-thumb{height:38px;flex-basis:54px;width:54px}}
