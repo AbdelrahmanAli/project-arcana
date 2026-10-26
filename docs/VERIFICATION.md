@@ -1,5 +1,12 @@
 # The Tower Deal verification
 
+## Phase 3 closeout — 2026-10-26
+
+- Reviewed the combat model, render lifecycle, pointer and keyboard controls, HUD, audio, and Phase 3 documentation. The complete 52-test simulation suite, source syntax checks, production build, and `git diff --check` pass.
+- Removed redundant weapon-icon style resets and made a paused, menu, or result screen redraw its HUD after viewport resize. The latter keeps weapon badge fitting and HUD scale current after phone rotation.
+- A 360 × 728 to 390 × 844 browser resize while paused updated the opponent HUD scale from 0.75 to 0.8125. A two-contact input check then moved the fighter while firing two pistol shots. Both arena widths filled the viewport.
+- Both soldiers' death poses were inspected in phone-sized captures and scaled to stay close to their standing size.
+
 ## Damage feedback — 2026-10-25
 
 - All 48 simulation tests pass. Direct and lethal hits report the health actually lost; fire and nuclear waste report grouped integer damage without per-frame clutter.

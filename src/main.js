@@ -40,6 +40,7 @@ function fitWeaponIcon(icon,type){
   icon.dataset.fitKey=fitKey;
 }
 function clearWeaponIconFit(icon){
+  if(!icon.dataset.fitKey)return;
   delete icon.dataset.fitKey;
   icon.style.removeProperty('background-size');
   icon.style.removeProperty('background-position');
@@ -250,6 +251,12 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space')releaseFire('pistol');if(e.code==='KeyE')releaseFire('special');});
 window.addEventListener('blur',()=>{clearInput();if(started&&!paused&&!game.finished)pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(started&&!paused&&!game.finished)pause();}});
+window.addEventListener('resize',()=>{
+  sceneDirty=true;
+  // The ticker sleeps on menu, pause, and result screens; redraw their HUD once
+  // so a phone rotation also refits weapon icons and the opponent badge.
+  if(app?.ticker&&!app.ticker.started)app.ticker.start();
+});
 
 function updateHud(){
   const p=game.players[0],enemy=game.players[1];
