@@ -17,7 +17,7 @@ let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSID
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
-let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoHeadTexture,tornadoFunnelTexture,mudTexture,lightningTexture,ashCloudTexture,lavaProjectileTexture,lavaPoolTexture,mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],mudTexture,lightningTexture,ashCloudTexture,lavaProjectileTexture,lavaPoolTexture,mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -466,18 +466,12 @@ function renderEnvironment(){
       environmentGround.ellipse(vortex.x,vortex.y,warning?50:62,warning?27:35).stroke({color:0x9cb9c5,width:warning?2:3,alpha:warning?.4:.6});
       if(warning)continue;
       let sprite=tornadoSprites.get(vortex.id);
-      if(!sprite){
-        sprite=new Container();
-        const funnel=new Sprite(tornadoFunnelTexture),head=new Sprite(tornadoHeadTexture);
-        funnel.anchor.set(.5,1);funnel.width=49;funnel.height=68;funnel.position.set(0,21);
-        head.anchor.set(.5);head.width=88;head.height=57;head.position.set(0,-43);
-        sprite.addChild(funnel,head);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);
-      }
-      sprite.position.set(vortex.x,vortex.y+8);sprite.alpha=Math.min(1,(vortex.age-vortex.warning)*3,(vortex.life-vortex.age)*2);sprite.zIndex=vortex.y+32;
-      sprite.children[0].x=Math.sin(game.time*7+vortex.id)*2;
-      sprite.children[1].rotation=game.time*4.8+vortex.id*.7;
+      if(!sprite){sprite=new Sprite(tornadoFrames[0]);sprite.anchor.set(.5,.82);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);}
+      sprite.texture=tornadoFrames[Math.floor((vortex.age-vortex.warning)*12+vortex.id)%tornadoFrames.length];
+      sprite.width=85;sprite.height=91;sprite.position.set(vortex.x,vortex.y+8);
+      sprite.alpha=Math.min(1,(vortex.age-vortex.warning)*3,(vortex.life-vortex.age)*2);sprite.zIndex=vortex.y+32;
     }
-    for(const [id,sprite] of tornadoSprites)if(!live.has(id)){sprite.destroy({children:true});tornadoSprites.delete(id);}
+    for(const [id,sprite] of tornadoSprites)if(!live.has(id)){sprite.destroy();tornadoSprites.delete(id);}
     for(let i=0;i<47;i++){
       const x=(i*79+game.time*95)%(W+100)-50,y=(i*157+game.time*280)%(H+70)-35;
       environmentSky.moveTo(x,y).lineTo(x-5,y+18).stroke({color:0xa6c8d5,width:i%4===0?1.2:.7,alpha:i%3===0?.24:.13});
@@ -947,12 +941,12 @@ async function boot(){
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  const [stormBg,magmaBg,volcanicRockArt,tornadoHeadArt,tornadoFunnelArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt]=await Promise.all(
-    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-head.png','phase5-tornado-funnel.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning.png','phase5-ash-cloud.png','phase5-lava-projectile.png','phase5-lava-pool.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+  const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt]=await Promise.all(
+    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning.png','phase5-ash-cloud.png','phase5-lava-projectile.png','phase5-lava-pool.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
-  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoHeadArt,tornadoFunnelArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt])art.source.scaleMode='nearest';
-  volcanicRockTexture=volcanicRockArt;tornadoHeadTexture=tornadoHeadArt;tornadoFunnelTexture=tornadoFunnelArt;mudTexture=mudArt;
+  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt])art.source.scaleMode='nearest';
+  volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   lightningTexture=lightningArt;ashCloudTexture=ashCloudArt;lavaProjectileTexture=lavaProjectileArt;lavaPoolTexture=lavaPoolArt;
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
@@ -963,6 +957,7 @@ async function boot(){
   textures=Array.from({length:16},(_,i)=>new Texture({source:atlas.source,frame:new Rectangle(i%4*cellW,Math.floor(i/4)*cellH,cellW,cellH)}));
   rollFrames=[dodgeBlueArt,dodgeRedArt].map(isolatedRollFrames);
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
+  tornadoFrames=cut(tornadoAnimationArt,8,1);
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;

@@ -3,7 +3,8 @@
 ## Storm and Magma visual refinement — 2026-10-27
 
 - Mud now reduces walking speed by 45%; a model check compares wet and dry movement directly and confirms that dodge distance stays intact.
-- The Storm lightning uses a transparent pixel-art strike sprite with a longer visible flash. The tornado uses a separate spinning spiral and grounded funnel sprite; its warning and pull timing are unchanged.
+- The Storm lightning uses a transparent pixel-art strike sprite with a longer visible flash. The tornado now plays eight distinct pixel-art frames at 12 frames per second: cloud bands circulate while its funnel stays planted. Its warning and pull timing are unchanged.
+- The tornado sheet is 8 × 160 × 169 pixels per frame. A frame check confirms all adjacent frames differ and the bottom ten rows remain identical; two phone-sized Chrome captures show its appearance changing in play without runtime errors.
 - Magma now has two visible volcanic vents. Rocks and lava projectiles arc from the corresponding vent for each bank. A lava projectile becomes a burning ground-pool sprite at its marked landing point.
 - Ash smoke sprites begin at both vents, rise and drift over portions of the banks, and keep a smaller visible plume at their source. Enemy HUD concealment follows the actual dense cloud area.
 - Phone-sized Chrome captures checked the strike, tornado, both vents, airborne lava, burning pool, and traveling ash. No runtime exceptions occurred.
