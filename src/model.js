@@ -39,7 +39,7 @@ export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'n
 export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
 export const MAP_TYPES = Object.values(MAPS);
-export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5 };
+export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -269,7 +269,7 @@ export class Match {
         const p=this.players[rock.owner],caught=p.hp>0&&distance(p,rock)<31;
         if(caught)this.damage(p,HAZARD_RULES.rockDamage);
         const clear=!caught&&this.obstacles.every(o=>o.destroyed||distance(o,rock)>48)&&this.players.every(f=>f.hp<=0||distance(f,rock)>35);
-        if(clear)this.obstacles.push({id:this.id++,type:'rock',owner:rock.owner,x:rock.x,y:rock.y,destroyed:false,hits:0,flash:0,burning:HAZARD_RULES.burningRockDuration,ttl:18.5});
+        if(clear)this.obstacles.push({id:this.id++,type:'rock',owner:rock.owner,x:rock.x,y:rock.y,destroyed:false,hits:0,flash:0,burning:HAZARD_RULES.burningRockDuration,cooling:HAZARD_RULES.rockCoolingDuration,ttl:19.4});
         this.effects.push({id:this.id++,type:'volcanicImpact',x:rock.x,y:rock.y,age:0,life:.6,seed:this.random()});
         this.emit('volcanoRockImpact',{x:rock.x});
       }
@@ -283,7 +283,13 @@ export class Match {
       }
     }
     this.volcanicFire=this.volcanicFire.filter(fire=>fire.age<fire.life);
-    for(const rock of this.obstacles)if(rock.type==='rock'&&!rock.destroyed){rock.ttl-=dt;rock.burning=Math.max(0,(rock.burning||0)-dt);if(rock.ttl<=0)this.destroyObstacle(rock);}
+    for(const rock of this.obstacles)if(rock.type==='rock'&&!rock.destroyed){
+      rock.ttl-=dt;
+      const burning=rock.burning||0;
+      rock.burning=Math.max(0,burning-dt);
+      rock.cooling=Math.max(0,(rock.cooling||0)-Math.max(0,dt-burning));
+      if(rock.ttl<=0)this.destroyObstacle(rock);
+    }
     if(this.ash){this.ash.age+=dt;if(this.ash.age>=this.ash.life)this.ash=null;}
   }
   makeObstacles(){
@@ -328,7 +334,7 @@ export class Match {
   }
   hitObstacle(obstacle,shotId){
     if(obstacle.destroyed)return false;
-    if(obstacle.type==='rock'&&obstacle.burning>0)return true;
+    if(obstacle.type==='rock'&&(obstacle.burning>0||obstacle.cooling>0))return true;
     if(obstacle.type==='crate'&&shotId!==undefined){
       if(obstacle.lastHitShot===shotId)return true;
       obstacle.lastHitShot=shotId;
@@ -343,7 +349,7 @@ export class Match {
   }
   destroyObstacle(obstacle){
     if(obstacle.destroyed)return false;
-    if(obstacle.type==='rock'&&obstacle.burning>0)return false;
+    if(obstacle.type==='rock'&&(obstacle.burning>0||obstacle.cooling>0))return false;
     obstacle.destroyed=true;obstacle.hits=obstacle.type==='crate'?2:obstacle.hits;obstacle.flash=.15;
     if(obstacle.type==='crate'){
       this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});

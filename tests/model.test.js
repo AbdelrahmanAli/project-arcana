@@ -197,8 +197,11 @@ test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>
   const burningHp=p.hp;for(let i=0;i<60;i++)m.update(1/60);
   assert.ok(p.hp<burningHp-8&&p.hp>burningHp-12,'burning rock damages fighters in its nearby area');
   p.x=rock.x-100;
-  m.updateEnvironment(3);assert.equal(rock.burning,0,'rock cools after its burning interval');
-  assert.equal(m.hitObstacle(rock,101),true);assert.equal(rock.destroyed,true,'cooled rock can be shot apart');
+  m.updateEnvironment(1.3);assert.equal(rock.burning,0,'rock stops burning after its hazardous interval');
+  assert.ok(rock.cooling>0,'a visual cooling stage remains');
+  assert.equal(m.hitObstacle(rock,101),true);assert.equal(rock.destroyed,false,'cooling rock absorbs shots');
+  m.updateEnvironment(1);assert.equal(rock.cooling,0,'cooling animation completes');
+  assert.equal(m.hitObstacle(rock,102),true);assert.equal(rock.destroyed,true,'cooled rock can be shot apart');
   for(const other of m.obstacles)if(other.type==='rock')other.destroyed=true;
   const lava=new Match(()=>.5,{map:MAPS.MAGMA});lava.obstacles.forEach(o=>o.destroyed=true);
   lava.environmentCycle=1;lava.startEnvironmentEvent();assert.deepEqual(lava.volcanicFire.map(o=>o.owner),[0,1]);

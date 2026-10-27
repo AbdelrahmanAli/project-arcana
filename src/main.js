@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
@@ -18,7 +18,7 @@ let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSID
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
-let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -416,7 +416,7 @@ function updateHud(){
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
 }
 function renderEnvironment(){
-  environmentGround.clear();environmentSky.clear();ashWarningDraw.clear();ashSoldier.visible=false;
+  environmentGround.clear();environmentSky.clear();ashWarningDraw.clear();
   for(const puff of [...ashPuffs,...ashVentPuffs])puff.visible=false;
   if(game.map===MAPS.RIVERSIDE)return;
   if(game.map===MAPS.STORM){
@@ -533,13 +533,13 @@ function renderEnvironment(){
       sprite.alpha=strength*(.38+.08*Math.sin(game.time*3+owner));
     }
     for(let i=0;i<clouds.length;i++){
-      const cloud=clouds[i],sprite=ashPuffs[i];sprite.visible=true;
-      sprite.position.set(cloud.x+Math.sin(game.time*1.7+i)*4,cloud.y);
-      sprite.width=cloud.width;sprite.height=cloud.height;sprite.alpha=cloud.alpha;
-      sprite.rotation=Math.sin(game.time*.6+i)*.025;
+      const cloud=clouds[i],back=ashPuffs[i*2],front=ashPuffs[i*2+1],sway=Math.sin(game.time*1.7+i)*4;
+      back.visible=true;back.position.set(cloud.x+sway-10,cloud.y+5);
+      back.width=cloud.width*1.08;back.height=cloud.height*1.05;back.alpha=cloud.alpha*.82;
+      front.visible=true;front.position.set(cloud.x+sway,cloud.y);
+      front.width=cloud.width;front.height=cloud.height;front.alpha=cloud.alpha;
+      back.rotation=front.rotation=Math.sin(game.time*.6+i)*.025;
     }
-    const p=game.players[0],source=soldiers[0];
-    if(p.hp>0){ashSoldier.visible=true;ashSoldier.texture=source.texture;ashSoldier.position.copyFrom(source.position);ashSoldier.width=source.width;ashSoldier.height=source.height;ashSoldier.tint=source.tint;ashSoldier.alpha=.92;}
     for(const item of [...game.rocksInFlight,...game.volcanicFire])if(!item.hit){
       ashWarningDraw.ellipse(item.x,item.y,38,26).stroke({color:game.rocksInFlight.includes(item)?0xffc473:0xff6840,width:2.5,alpha:.9});
     }
@@ -590,8 +590,9 @@ function render(){
     if(!sprite){sprite=new Sprite(obstacle.type==='rock'?volcanicRockTexture:(obstacle.type==='crate'?crateFrames:barrelFrames)[0]);sprite.anchor.set(.5);layer.addChild(sprite);obstacleSprites.set(obstacle.id,sprite);}
     else if(sprite.parent!==layer)layer.addChild(sprite);
     const crate=obstacle.type==='crate',rock=obstacle.type==='rock',frames=crate?crateFrames:barrelFrames;
-    sprite.texture=rock?(obstacle.burning>0&&!obstacle.destroyed?burningRockGroundFrames[Math.floor(game.time*9+obstacle.id)%burningRockGroundFrames.length]:volcanicRockTexture):frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
-    sprite.width=rock?(obstacle.destroyed?34:obstacle.burning>0?87:57):crate?40:44;sprite.height=rock?(obstacle.destroyed?24:obstacle.burning>0?73:49):crate?40:54;
+    const coolingFrame=Math.min(rockCoolingFrames.length-1,Math.floor((1-(obstacle.cooling||0)/HAZARD_RULES.rockCoolingDuration)*rockCoolingFrames.length));
+    sprite.texture=rock?(obstacle.burning>0&&!obstacle.destroyed?burningRockGroundFrames[Math.floor(game.time*9+obstacle.id)%burningRockGroundFrames.length]:obstacle.cooling>0&&!obstacle.destroyed?rockCoolingFrames[coolingFrame]:volcanicRockTexture):frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
+    sprite.width=rock?(obstacle.destroyed?34:obstacle.burning>0||obstacle.cooling>0?87:57):crate?40:44;sprite.height=rock?(obstacle.destroyed?24:obstacle.burning>0||obstacle.cooling>0?73:49):crate?40:54;
     sprite.position.set(obstacle.x,obstacle.y+(rock?-3:crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
     sprite.alpha=rock&&obstacle.destroyed ? .55 : !obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
   }
@@ -944,11 +945,11 @@ async function boot(){
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt]=await Promise.all(
-    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+  const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt]=await Promise.all(
+    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
-  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt])art.source.scaleMode='nearest';
+  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
@@ -964,6 +965,7 @@ async function boot(){
   lightningFrames=cut(lightningAnimationArt,6,1);
   lavaProjectileFrames=cut(lavaProjectileArt,6,1);lavaPoolFrames=cut(lavaPoolArt,6,1);
   burningRockFlightFrames=cut(burningRockFlightArt,6,1);burningRockGroundFrames=cut(burningRockGroundArt,6,1);
+  rockCoolingFrames=cut(rockCoolingArt,6,1);
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;
@@ -1031,15 +1033,15 @@ async function boot(){
   nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
   environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();ashWarningDraw=new Graphics();
-  world.addChild(environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw);
+  world.addChild(environmentSky,lightningLayer,ashWarningDraw);
   for(let i=0;i<6;i++){
-    const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashPuffs.push(puff);ashCloudLayer.addChild(puff);
+    const back=new Sprite(ashCloudTexture);back.anchor.set(.5);back.tint=0x202528;back.visible=false;ashPuffs.push(back);ashCloudLayer.addChild(back);
+    const front=new Sprite(ashCloudTexture);front.anchor.set(.5);front.visible=false;ashPuffs.push(front);ashCloudLayer.addChild(front);
   }
   for(let i=0;i<2;i++){
     const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashVentPuffs.push(puff);ashCloudLayer.addChildAt(puff,0);
   }
-  ashSoldier=new Sprite(textures[0]);ashSoldier.anchor.set(.5);ashSoldier.visible=false;world.addChild(ashSoldier);
-  draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
+  draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,ashCloudLayer,joystickDraw);
   buildWeaponChoices();
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
   let accumulator=0,hudTime=0;

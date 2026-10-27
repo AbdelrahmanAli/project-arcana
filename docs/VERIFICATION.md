@@ -1,11 +1,17 @@
 # The Tower Deal verification
 
+## Magma smoke coverage and rock cooling — 2026-10-27
+
+- Each vent now sends three larger smoke groups across its bank: horizontal, vertical, and diagonal. Paired dark and textured cloud sprites draw over fighters and effects, with the compensating fighter overlay removed. The enemy HUD hides when its fighter is obscured.
+- The rock stays hazardous for 3.5 seconds, then plays six cooling frames over 0.9 seconds before it becomes shootable cover. The molten ring retreats around a fixed rock silhouette; the final cooling frame matches the normal rock's visual size.
+- All 70 tests pass, including distinct smoke-route and cooling-stage checks. The production build succeeds. Phone-sized Chrome captures checked smoke rise and crossing, the cooling frame, and the cooled rock with no runtime exceptions.
+
 ## Magma smoke and burning rock — 2026-10-27
 
 - Smoke rises from each volcanic vent, crosses its respective bank, and exits the screen before its 8.5-second cycle ends. Enemy concealment follows the moving cloud.
 - Lava projectiles, lava pools, airborne burning rocks, and grounded burning rocks use six-frame pixel-art sheets. A landed rock burns for 3.5 seconds with a 40-unit damage area, absorbs shots during that interval, then cools into shootable solid cover for roughly 15 seconds.
 - The computer treats burning rocks as hazards. The existing burn sound includes their active flames.
-- All 69 model and smoke-path tests pass, and the Vite production build succeeds. A 390 × 844 Chrome visual pass checked the rock and lava animations plus the smoke rising, crossing, and exiting with no runtime exceptions.
+- All 69 model and smoke-path tests passed at this stage, and the Vite production build succeeded. A 390 × 844 Chrome visual pass checked the rock and lava animations plus the smoke rising, crossing, and exiting with no runtime exceptions.
 
 ## Paired Storm lightning waves — 2026-10-27
 

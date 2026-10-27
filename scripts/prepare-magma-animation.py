@@ -58,6 +58,31 @@ def main() -> None:
             sheet.paste(frame(source, index, count, mode), (index * width // scale, 0))
         sheet.save(ART / output_name, optimize=True)
         print(f"{output_name}: {count} frames of {width // scale}x{height // scale}")
+    cooling_sheet()
+
+
+def cooling_sheet() -> None:
+    """Let the lava ring die away around an increasingly exposed cooled rock."""
+    hot = np.asarray(Image.open(ART / "phase5-burning-rock-ground.png").convert("RGBA").resize((128, 112), Image.Resampling.NEAREST))
+    cold = Image.open(ART / "phase5-volcanic-rock.png").convert("RGBA").resize((84, 75), Image.Resampling.NEAREST)
+    yy, xx = np.indices((112, 128))
+    radius = np.hypot((xx - 64) / 64, (yy - 56) / 56)
+    sheet = Image.new("RGBA", (128 * 6, 112), (0, 0, 0, 0))
+    for index in range(6):
+        progress = index / 5
+        frame = Image.new("RGBA", (128, 112), (0, 0, 0, 0))
+        stone = cold.copy()
+        stone.putalpha(stone.getchannel("A").point(lambda alpha: round(alpha * min(1, progress * 1.4))))
+        frame.alpha_composite(stone, (22, 19))
+        embers = hot.copy()
+        embers[:, :, 3] = np.rint(embers[:, :, 3] * np.power(1 - progress, 1 + radius * 2)).astype(np.uint8)
+        warm = (embers[:, :, 0] > embers[:, :, 1] * 1.16) & (embers[:, :, 1] > embers[:, :, 2] * 1.1)
+        embers[warm, :3] = np.clip(embers[warm, :3].astype(np.float32) * (1 - progress * .55), 0, 255).astype(np.uint8)
+        frame.alpha_composite(Image.fromarray(embers, "RGBA"))
+        sheet.paste(frame, (index * 128, 0))
+    output = ART / "phase5-rock-cooling-frames.png"
+    sheet.save(output, optimize=True)
+    print(f"{output.name}: 6 frames of 128x112")
 
 
 if __name__ == "__main__":
