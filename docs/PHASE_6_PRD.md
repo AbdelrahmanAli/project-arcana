@@ -85,7 +85,7 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 - An avalanche enters from beyond the left or right edge of each bank and sweeps across it. A distant rumble, falling powder, and a growing edge marker show the approach before the damaging front arrives.
 - Equivalent avalanches occur on both banks. Directions and exact paths may be independently random, but exposed travel distance, speed, warning, and force must be comparable. A fighter can leave the sweep lane or dodge through the front.
 - Contact pushes a fighter and deals a moderate one-time hit. Push resolution respects cover and bank bounds and never places a fighter in the frozen channel or traps them against a wall. The initial version does not leave permanent snow cover.
-- **Initial tuning proposal:** at least 1 second of approach warning and roughly 12–16 HP per hit. Tune width and push strength against the 2.2-second dodge cooldown.
+- **Initial tuning proposal:** at least 1 second of approach warning and roughly 12–16 HP per hit. Tune width and push strength against the 1-second dodge cooldown.
 
 ### Sliding ice patches
 

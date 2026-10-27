@@ -638,9 +638,10 @@ test('dive roll selects all eight directions and travels a fixed distance before
     assert.ok(Math.hypot(p.x-start.x,p.y-start.y)<=DODGE_DISTANCE+.01);
     assert.ok(Math.hypot(p.x-start.x,p.y-start.y)>DODGE_DISTANCE-3);
     assert.equal(m.dodge(p,x,y),false,'cooldown prevents an immediate second roll');
-    for(let i=0;i<300;i++)m.update(1/120);
+    for(let i=0;i<65;i++)m.update(1/120);
     assert.equal(p.dodgeCooldown,0);assert.equal(m.dodge(p,x,y),true);
   });
+  assert.equal(DODGE_COOLDOWN,1);
   assert.ok(DODGE_COOLDOWN>DODGE_DURATION);
 });
 

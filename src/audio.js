@@ -123,8 +123,29 @@ function tornadoWindWav(pull=false){
   });
 }
 function phase6WindWav(){
-  const duration=7.4;let seed=83217,low=0;
+  const duration=8.5;let seed=83217,low=0;
   return pcmWav(duration,t=>{seed=(seed*1664525+1013904223)>>>0;const white=seed/2147483648-1;low=low*.91+white*.09;return low*.34*Math.min(1,t/.4,(duration-t)/.55);});
+}
+function eagleAttackWav(){
+  let seed=31891,wind=0;
+  return pcmWav(.52,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    wind=wind*.72+(seed/2147483648-1)*.28;
+    const sweep=Math.sin(2*Math.PI*(690*t-450*t*t));
+    const dive=Math.sin(2*Math.PI*(235*t-125*t*t));
+    const envelope=Math.sin(Math.PI*Math.min(1,t/.52))**.8;
+    return (wind*.33+sweep*.22+dive*.16)*envelope;
+  });
+}
+function scorpionBiteWav(){
+  let seed=9127,crunch=0;
+  return pcmWav(.3,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    crunch=crunch*.46+(seed/2147483648-1)*.54;
+    const snap=Math.sin(2*Math.PI*(1050*t-650*t*t))*Math.exp(-t*33);
+    const sting=Math.sin(2*Math.PI*(330*t+240*t*t))*Math.exp(-t*12);
+    return snap*.42+crunch*Math.exp(-t*19)*.32+sting*.18;
+  });
 }
 export class Sound {
   constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;}
@@ -164,9 +185,11 @@ export class Sound {
     this.clips.rockBreak=new Howl({src:[wav(.3,120,.83,10)],format:['wav'],volume:.2,preload:true});
     for(const [name,duration,freq,noise,volume] of [
       ['eagle',.6,680,.32,.21],['eagleHit',.25,200,.75,.25],['quicksand',.55,78,.8,.17],
-      ['mirageSun',.55,860,.15,.11],['scorpionReveal',.28,490,.6,.19],['scorpionBite',.25,170,.8,.24],
+      ['mirageSun',.55,860,.15,.11],['scorpionReveal',.28,490,.6,.19],
       ['avalanche',1.1,65,.92,.22],['avalancheHit',.52,72,.94,.26],['hail',.65,330,.78,.13],['hailImpact',.22,430,.76,.16],['iceSlide',.26,620,.5,.09],
     ])this.clips[name]=new Howl({src:[wav(duration,freq,noise,5)],format:['wav'],volume,preload:true,pool:8});
+    this.clips.eagleAttack=new Howl({src:[eagleAttackWav()],format:['wav'],volume:.27,preload:true,pool:8});
+    this.clips.scorpionBite=new Howl({src:[scorpionBiteWav()],format:['wav'],volume:.31,preload:true,pool:8});
     this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.24,preload:true});
     Howler.ctx?.resume();
   }

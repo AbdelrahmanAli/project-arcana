@@ -77,6 +77,16 @@ test('second eagle pass retargets the fighter after the first pass',()=>{
   assert.ok(Math.abs(eagle.target2.x-300)<21);
 });
 
+test('each eagle dive emits an attack cue even when its first strike misses',()=>{
+  const m=new Match(()=>.5,{map:MAPS.DESERT});m.environmentCycle=1;m.startEnvironmentEvent();
+  const eagle=m.eagles[0];
+  eagle.age=EAGLE_FLIGHT.approach-.01;m.updateEnvironment(.02);
+  assert.equal(m.events.filter(event=>event.type==='eagleAttack'&&event.player===0).length,1);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.01;m.updateEnvironment(.02);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover-.01;m.updateEnvironment(.02);
+  assert.equal(m.events.filter(event=>event.type==='eagleAttack'&&event.player===0).length,2);
+});
+
 test('both eagle passes can strike the same fighter after separate warnings',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT});m.environmentCycle=1;m.startEnvironmentEvent();
   const p=m.players[0],eagle=m.eagles[0];
@@ -128,6 +138,7 @@ test('a mirage bites and briefly staggers an armed fighter',()=>{
   assert.equal(p.hp,100-PHASE6_RULES.scorpionDamage);
   assert.equal(p.stun,PHASE6_RULES.scorpionStagger);
   assert.equal(m.mirages[0].state,'retreat');
+  assert.equal(m.events.filter(event=>event.type==='scorpionBite').length,1);
 });
 
 test('the armed computer can still pursue a mirage',()=>{

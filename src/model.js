@@ -19,7 +19,7 @@ export const TOWER_ACTIVE_HEIGHT = .12;
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
-export const DODGE_DURATION = .46, DODGE_DISTANCE = 112, DODGE_COOLDOWN = 2.2;
+export const DODGE_DURATION = .46, DODGE_DISTANCE = 112, DODGE_COOLDOWN = 1;
 export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
@@ -368,10 +368,11 @@ export class Match {
         if(site&&p.hp>0&&distance(p,site)<PHASE6_RULES.eagleRadius&&this.damage(p,PHASE6_RULES.eagleDamage)>0)
           this.emit('eagleHit',{x:p.x,player:p.id});
       };
-      if(!eagle.target1&&eagle.age>=firstStart){eagle.target1=target();eagle.target=eagle.target1;eagle.x=eagle.target.x;eagle.y=eagle.target.y;}
+      if(!eagle.target1&&eagle.age>=firstStart){eagle.target1=target();eagle.target=eagle.target1;eagle.x=eagle.target.x;eagle.y=eagle.target.y;this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});}
       if(!eagle.firstDone&&eagle.age>=firstImpact){eagle.firstDone=true;strike(eagle.target1);eagle.target=null;}
       if(!eagle.target2&&eagle.age>=secondStart){
         eagle.target2=target();eagle.target=eagle.target2;eagle.x=eagle.target.x;eagle.y=eagle.target.y;
+        this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});
         if(eagle.owner===0)this.emit('eagle');
       }
       if(!eagle.secondDone&&eagle.age>=secondImpact){eagle.secondDone=true;strike(eagle.target2);eagle.target=null;}

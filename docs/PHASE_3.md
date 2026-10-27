@@ -6,6 +6,6 @@ The three inventory slots and the old fire button are gone. Three translucent co
 
 The arena is 480 × 940 world units. The river is centered at y=500. Both playable banks are 280 units deep: the lower fighter can reach the foot of the river wall, while the upper fighter stops before the taller stone wall in that bank's art. Both fighters stop at visible outer barriers. The upper bank and arena were extended by 60 units rather than reducing lower-bank movement. Cover, barrels, pickups, and player spawns follow the new geometry. Existing artwork is stretched in separate bank and river sections; no new sprite is needed for this phase.
 
-The dive roll travels in eight directions, grants invincibility during its 0.46-second animation, and recharges in 2.2 seconds. The HUD shows its cooldown on a circular meter and gives audio feedback when the move or Tower weapon is unavailable. Both soldiers have their own roll and death frames, scaled to their standing size.
+The dive roll travels in eight directions, grants invincibility during its 0.46-second animation, and recharges in 1 second. The HUD shows its cooldown on a circular meter and gives audio feedback when the move or Tower weapon is unavailable. Both soldiers have their own roll and death frames, scaled to their standing size.
 
 Simulation tests cover the one-weapon capacity, independent fire actions and cooldowns, depletion, equal bank bounds, dodge rules, combat interactions, and an autonomous match. Production and phone-sized browser rendering checks are recorded in [VERIFICATION.md](VERIFICATION.md).
