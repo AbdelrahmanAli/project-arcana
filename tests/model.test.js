@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_VOLLEY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -317,22 +317,13 @@ test('weapons expire twelve seconds after landing, not during flight',()=>{
   assert.equal(m.pickups.length,0);
 });
 
-test('tower retaliates once, shield absorbs more hits, submerged cap cannot block',()=>{
+test('exposed tower absorbs repeated shots without a shield or retaliation',()=>{
   const m=new Match();assert.equal(m.hitTower(0),false);
   m.tower.phase='rise';m.tower.height=.6;
-  assert.equal(m.hitTower(0),true);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
-  assert.ok(Math.abs(m.flames[0].dx+m.flames[1].dx)<1e-8);assert.ok(Math.abs(m.flames[0].dy+m.flames[1].dy)<1e-8);
-  m.hitTower(1);m.tower.phase='lower';m.hitTower(1);assert.equal(m.flames.length,2);
-  m.tower.progress=TOWER_TIMING.lower-.01;m.updateTower(.02);assert.equal(m.tower.phase,'rest');assert.equal(m.tower.shield,false);assert.equal(m.hitTower(0),false);
-});
-
-test('shield geometry encloses the base while active',()=>{
-  for(const height of [0,.04,.5,1]){
-    const bounds=towerShieldBounds({height});
-    assert.equal(bounds.y+bounds.ry,TOWER_BASE_Y+56);
-    assert.ok(bounds.rx>=86);
-    assert.ok(bounds.y-bounds.ry<TOWER_BASE_Y-50);
-  }
+  assert.equal(m.hitTower(0),true);assert.equal(m.hitTower(1),true);
+  assert.equal(m.tower.shield,undefined);assert.equal(m.flames.length,0);
+  assert.equal(m.events.filter(e=>e.type==='towerImpact').length,2);
+  m.tower.phase='rest';m.tower.height=0;assert.equal(m.hitTower(0),false);
 });
 
 test('tower impact belongs to the exposed shaft, not its submerged base',()=>{
@@ -390,42 +381,31 @@ test('blood and blast marks remain after their smoke and sparks fade',()=>{
   assert.ok(m.marks.some(mark=>mark.type==='scorch'));
 });
 
-test('a shot striking the tower during weapon delivery fires one paired retaliation',()=>{
+test('a shot striking the tower during delivery creates only an impact spark',()=>{
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
   m.obstacles.forEach(o=>o.destroyed=true);
   m.tower.phase='deliver';m.tower.height=1;m.launch();
   const p=m.players[0];p.x=RIVER.x;
   assert.equal(m.fire(p),true);
   for(let i=0;i<60;i++)m.update(1/120);
-  assert.equal(m.tower.phase,'deliver');assert.equal(m.tower.shield,true);
-  assert.equal(m.flames.length,2);assert.equal(m.events.filter(e=>e.type==='retaliation').length,1);
-  assert.equal(m.fire(p),true);
-  for(let i=0;i<60;i++)m.update(1/120);
-  assert.equal(m.flames.length,2);assert.equal(m.events.filter(e=>e.type==='retaliation').length,1);
+  assert.equal(m.tower.phase,'deliver');assert.equal(m.flames.length,0);
+  assert.ok(m.events.some(e=>e.type==='towerImpact'));
 });
 
-test('delivery hit triggers one fire retaliation, then the shield absorbs later shots',()=>{
+test('tower shaft blocks direct shots, while its submerged cap does not',()=>{
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
   m.obstacles.forEach(o=>o.destroyed=true);
   m.tower.phase='deliver';m.tower.height=1;
-  assert.equal(m.hitTower(0),true);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
-  assert.equal(m.events.filter(e=>e.type==='retaliation').length,1);
   const p=m.players[0],enemy=m.players[1];p.x=enemy.x=320;p.y=570;
   assert.equal(m.fire(p),true);
   for(let i=0;i<30;i++)m.update(1/120);
-  assert.equal(m.bullets.length,0);assert.equal(enemy.hp,100);
-  assert.equal(m.flames.length,2);
-  assert.equal(m.events.filter(e=>e.type==='retaliation').length,1);
-  assert.ok(m.effects.some(e=>e.type==='shieldHit'&&e.x>300&&e.y>350));
-  p.slot={type:'laser',ammo:1};p.specialCooldown=0;
+  assert.equal(enemy.hp,100,'the offset shot misses the opponent');
+  p.x=enemy.x=RIVER.x;p.pistolCooldown=0;p.slot={type:'laser',ammo:1};
   m.fire(p,1);
-  assert.ok(m.beams.at(-1).endY>RIVER.y&&m.beams.at(-1).endY<TOWER_BASE_Y+56);
-  assert.equal(enemy.hp,100);
-  m.flames=[]; // Isolate the submerged-cap check from the firing hold.
+  assert.ok(m.beams.at(-1).endY>RIVER.top&&m.beams.at(-1).endY<TOWER_BASE_Y);
   m.tower.phase='lower';m.tower.progress=TOWER_TIMING.lower-.4;m.tower.height=TOWER_ACTIVE_HEIGHT+.01;
-  m.tower.shield=true;m.updateTower(1/120);
+  m.updateTower(1/120);
   assert.ok(m.tower.height<TOWER_ACTIVE_HEIGHT);
-  assert.equal(m.tower.shield,false,'shield disappears once the tower head is submerged');
   assert.equal(m.hitTower(0),false);
   p.x=enemy.x=RIVER.x+65;p.pistolCooldown=0;
   assert.equal(m.fire(p,0,'pistol'),true);
@@ -434,49 +414,78 @@ test('delivery hit triggers one fire retaliation, then the shield absorbs later 
 });
 
 test('tower moves continuously through a slower cycle and launches exactly once at full height',()=>{
-  const m=new Match(()=>.5);m.time=2.5;
+  const m=new Match(()=>0);m.time=2.5;
   let previous=0,maxStep=0;
   for(let i=0;i<120;i++){m.updateTower(1/120);assert.ok(m.tower.height>=previous);maxStep=Math.max(maxStep,m.tower.height-previous);previous=m.tower.height;}
   assert.equal(m.launches,0);assert.ok(m.tower.height<.4,'tower is still emerging after one second');
   while(m.tower.phase==='rise'){m.updateTower(1/120);maxStep=Math.max(maxStep,m.tower.height-previous);previous=m.tower.height;}
   assert.ok(maxStep<.01,'no discontinuous jumps');assert.equal(m.tower.height,1);assert.equal(m.launches,1);
-  m.hitTower(0); // The first delivery hit raises the shield and fires once.
-  assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
+  assert.equal(m.towerAttacks.filter(a=>a.phase==='rise').length,2);
   while(m.tower.phase==='deliver')m.updateTower(1/120);
-  m.hitTower(0);assert.equal(m.tower.shield,true);assert.equal(m.flames.length,2);
   previous=1;
   while(m.tower.phase==='lower'){m.updateTower(1/120);assert.ok(m.tower.height<=previous+1e-10);assert.ok(previous-m.tower.height<.01);previous=m.tower.height;}
-  assert.equal(m.tower.height,0);assert.equal(m.tower.shield,false);assert.equal(m.launches,1);
+  assert.equal(m.tower.height,0);assert.equal(m.launches,1);
+  assert.equal(m.towerAttacks.filter(a=>a.phase==='lower').length,2);
 });
 
 test('base vents keep firing while the shaft descends',()=>{
-  const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
-  m.tower.phase='lower';m.tower.height=.8;m.tower.progress=1;
-  m.hitTower(0);
+  const m=new Match(()=>0);m.think=()=>{};m.nextDrop=Infinity;
+  m.tower.phase='lower';m.tower.height=.8;m.tower.progress=1;m.tower.lowerAttack=true;
+  m.startTowerVolley('lower');m.updateTowerAttacks(TOWER_VOLLEY.warning);
   const sources=m.flames.map(({x,y})=>({x,y}));
+  assert.equal(sources.length,2);
   m.update(1/120);
   assert.ok(m.tower.progress>1);
   assert.ok(m.flames.some(f=>f.endAge===null));
   for(let i=0;i<300&&m.flames.some(f=>f.endAge===null);i++)m.update(1/120);
   assert.deepEqual(m.flames.map(({x,y})=>({x,y})),sources,'fire remains attached to the stationary base');
   assert.ok(m.flames.every(f=>f.endAge!==null),'both fronts reach the arena edge');
-  assert.ok(m.tower.height<.8,'shaft descent continues during retaliation');
+  assert.ok(m.tower.height<.8,'shaft descent continues during the volley');
 });
 
-test('retaliation uses the same base ports at every tower height',()=>{
+test('timed fire volleys use the same base ports at every tower height',()=>{
   for(const height of [.35,.7,1]){
-    const m=new Match(()=>.5);m.tower.phase='rise';m.tower.height=height;
-    assert.equal(m.hitTower(0),true);
+    const m=new Match(()=>0);m.tower.phase='rise';m.tower.height=height;
+    m.startTowerVolley('rise');m.updateTowerAttacks(TOWER_VOLLEY.warning);
     assert.deepEqual(m.flames.map(({x,y})=>({x,y})),[
-      {x:RIVER.x+TOWER_GEOMETRY.fireVentOffsetX,y:TOWER_GEOMETRY.fireVentY},
       {x:RIVER.x-TOWER_GEOMETRY.fireVentOffsetX,y:TOWER_GEOMETRY.fireVentY},
+      {x:RIVER.x+TOWER_GEOMETRY.fireVentOffsetX,y:TOWER_GEOMETRY.fireVentY},
     ]);
   }
 });
 
+test('Riverside locks both bank positions before lightning and icicles land',()=>{
+  for(const [roll,type,damage] of [[.5,'lightning',TOWER_VOLLEY.lightningDamage],[.99,'icicle',TOWER_VOLLEY.icicleDamage]]){
+    const m=new Match(()=>roll,{map:MAPS.RIVERSIDE});m.obstacles.forEach(o=>o.destroyed=true);
+    const [player,opponent]=m.players;
+    m.startTowerVolley('rise');
+    assert.deepEqual(m.towerAttacks.map(a=>a.owner),[0,1]);
+    assert.ok(m.towerAttacks.every(a=>a.type===type));
+    const oldX=player.x;player.x+=90;
+    m.updateTowerAttacks(TOWER_VOLLEY.warning-.01);
+    assert.equal(player.hp,100);assert.equal(opponent.hp,100);
+    assert.equal(m.towerAttacks[0].x,oldX,'the target does not track the fighter');
+    m.updateTowerAttacks(.02);
+    assert.equal(player.hp,100,'moving out of the target avoids the strike');
+    assert.equal(opponent.hp,100-damage);
+    m.updateTowerAttacks(.1);assert.equal(opponent.hp,100-damage,'each volley hits once');
+  }
+});
+
+test('dodge protects against a locked Tower strike and other maps have no Tower attacks',()=>{
+  const m=new Match(()=>.5,{map:MAPS.RIVERSIDE}),p=m.players[0];
+  m.startTowerVolley('lower');p.dodgeTime=.4;m.updateTowerAttacks(TOWER_VOLLEY.warning);
+  assert.equal(p.hp,100);
+  for(const map of [MAPS.STORM,MAPS.MAGMA,MAPS.DESERT,MAPS.SNOW]){
+    const other=new Match(()=>0,{map});other.startTowerVolley('rise');
+    assert.equal(other.towerAttacks.length,0,map);
+  }
+});
+
 test('tower flames advance through space instead of hitting entire banks instantly',()=>{
-  const m=new Match();m.think=()=>{};m.nextDrop=Infinity;m.tower.phase='rise';m.tower.height=.5;
-  m.hitTower(0);assert.equal(m.flames[0].reach,0);m.update(1/120);
+  const m=new Match(()=>0);m.think=()=>{};m.nextDrop=Infinity;m.tower.phase='rise';m.tower.height=.5;m.tower.riseAttack=true;
+  m.startTowerVolley('rise');m.updateTowerAttacks(TOWER_VOLLEY.warning);
+  assert.equal(m.flames[0].reach,0);m.update(1/120);
   assert.ok(m.flames[0].reach>0&&m.flames[0].reach<10);assert.equal(m.players[0].hp,100);
   assert.equal(m.flames[0].reach,FLAME_SPEED/120);
   assert.ok(m.flames.every(f=>f.x!==RIVER.x&&f.y===TOWER_GEOMETRY.fireVentY),'both shots start at fixed base vents');
@@ -547,27 +556,25 @@ test('grenade dodge or a hit outside its radius avoids the stun',()=>{
   assert.equal(enemy.stun,0);
 });
 
-test('smart missiles clear the raised tower and shield before striking their marked target',()=>{
+test('smart missiles clear the raised tower before striking their marked target',()=>{
   const m=new Match(),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
   m.obstacles.forEach(o=>o.destroyed=true);
-  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
+  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;
   p.slot={type:'missile',ammo:1};m.fire(p);
   for(let i=0;i<150;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);
   assert.equal(enemy.hp,100-WEAPONS.missile.damage);
-  assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
 });
 
-test('grenades arc over the raised tower and shield before landing',()=>{
+test('grenades arc over the raised tower before landing',()=>{
   const m=new Match(),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
   m.obstacles.forEach(o=>o.destroyed=true);
-  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
+  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;
   p.slot={type:'grenade',ammo:1};m.fire(p);
   for(let i=0;i<120;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);
   assert.equal(enemy.hp,100-WEAPONS.grenade.damage);
   assert.ok(enemy.stun>GRENADE_STUN_DURATION-.15&&enemy.stun<GRENADE_STUN_DURATION,'stun begins at impact and counts down after landing');
-  assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
 });
 
 test('charged laser creates a straight sustained beam and spends its only round',()=>{
@@ -868,13 +875,12 @@ test('blast areas and laser destroy cover at the first intersection',()=>{
 test('nuclear grenade arcs over the tower, then permanent waste harms either fighter',()=>{
   const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
   m.obstacles.forEach(o=>o.destroyed=true);
-  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;m.tower.shield=true;
+  p.x=enemy.x=RIVER.x;m.tower.phase='deliver';m.tower.height=1;
   p.slot={type:'nuclear',ammo:2};m.fire(p);
   assert.equal(p.slot.ammo,1);assert.equal(m.bullets[0].type,'nuclear');
   for(let i=0;i<130;i++)m.update(1/120);
   assert.equal(m.bullets.length,0);assert.ok(enemy.hp<90&&enemy.hp>80);
   assert.ok(m.effects.some(e=>e.type==='nuclearBlast'&&e.life>=.9&&e.life<=1),'mushroom animation resolves promptly after impact');
-  assert.equal(m.effects.some(e=>e.type==='shieldHit'),false);
   assert.equal(m.waste.length,1);assert.ok(m.events.some(e=>e.type==='nuclearBlast'));
   const hp=enemy.hp;for(let i=0;i<120;i++)m.update(1/120);
   assert.ok(enemy.hp<=hp-WASTE_DAMAGE_PER_SECOND*.9);

@@ -24,6 +24,7 @@ export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
+export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.9, lightningRadius:38, lightningDamage:14, icicleRadius:32, icicleDamage:10 };
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
@@ -61,10 +62,6 @@ export function segmentDistance(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy || 1),0,1);
   return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);
-}
-export function towerShieldBounds(tower) {
-  const bottom=TOWER_BASE_Y+56,top=TOWER_BASE_Y-54-tower.height*128;
-  return {x:RIVER.x,y:(top+bottom)/2,rx:86+tower.height*24,ry:(bottom-top)/2};
 }
 export function towerBodyBounds(tower) {
   const top=TOWER_GEOMETRY.shaftBaseY-TOWER_GEOMETRY.shaftHeight*tower.height;
@@ -104,16 +101,6 @@ export function segmentTowerHit(a,b,tower) {
     .map(bounds=>segmentRectHit(a,b,bounds)).filter(Boolean);
   if(!hits.length)return null;
   return hits.reduce((nearest,hit)=>distance(a,hit)<distance(a,nearest)?hit:nearest);
-}
-export function segmentEllipseHit(a,b,ellipse) {
-  const sx=(a.x-ellipse.x)/ellipse.rx,sy=(a.y-ellipse.y)/ellipse.ry;
-  const dx=(b.x-a.x)/ellipse.rx,dy=(b.y-a.y)/ellipse.ry;
-  const c=sx*sx+sy*sy-1;
-  if(c<=0)return {x:a.x,y:a.y};
-  const aa=dx*dx+dy*dy,bb=2*(sx*dx+sy*dy),discriminant=bb*bb-4*aa*c;
-  if(!aa||discriminant<0)return null;
-  const fraction=(-bb-Math.sqrt(discriminant))/(2*aa);
-  return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
   return { id,x,y,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
@@ -177,14 +164,14 @@ export class Match {
     if(!MAP_TYPES.includes(this.map))throw new RangeError('Unknown map');
     if(this.mode===GAME_MODES.CHOOSE_FIXED&&!DROP_TYPES.includes(options.weapon))throw new RangeError('Choose Fixed Weapon requires a valid weapon');
     this.fixedWeapon=this.mode===GAME_MODES.RANDOM_FIXED?DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)]:this.mode===GAME_MODES.CHOOSE_FIXED?options.weapon:null;
-    this.bullets=[]; this.pickups=[]; this.flames=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
+    this.bullets=[]; this.pickups=[]; this.flames=[]; this.towerAttacks=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
     this.mud=[];this.lightning=[];this.tornadoes=[];this.rocksInFlight=[];this.volcanicFire=[];this.ash=null;
     this.sandstorm=null;this.eagles=[];this.quicksand=[];this.mirages=[];this.icePatches=[];this.avalanches=[];this.hail=[];
     this.nextEnvironmentEvent=11;this.environmentCycle=0;this.nextMud=20;
     if(this.map===MAPS.STORM){this.addMudPair(0);this.addMudPair(1);}
     this.obstacles=this.makeObstacles();
     if(this.map===MAPS.SNOW)this.addIcePatches();
-    this.tower={ phase:'rest', progress:0, height:0, shield:false, shieldPulse:0, cycle:-1 };
+    this.tower={ phase:'rest', progress:0, height:0, riseAttack:false, lowerAttack:false, cycle:-1 };
     this.nextDrop=2.5; this.aiClock=0; this.aiWaypoint=null; this.aiTarget=null; this.aiFire=false; this.aiCharge=0;
     this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
   }
@@ -669,11 +656,10 @@ export class Match {
     const origin={x:p.x,y:p.y+dir*24};
     if(type==='laser') {
       const end={x:origin.x,y:p.id===0?0:H};
-      const shieldHit=this.tower.shield?segmentEllipseHit(origin,end,towerShieldBounds(this.tower)):null;
-      const bodyHit=!shieldHit?segmentTowerHit(origin,end,this.tower):null;
+      const bodyHit=segmentTowerHit(origin,end,this.tower);
       const obstacleHit=this.nearestObstacleHit(origin,end);
       const victimHit=enemy.hp>0&&enemy.dodgeTime<=0?segmentRectHit(origin,end,{left:enemy.x-16,right:enemy.x+16,top:enemy.y-16,bottom:enemy.y+16}):null;
-      const hits=[shieldHit&&{kind:'tower',hit:shieldHit},bodyHit&&{kind:'tower',hit:bodyHit},obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit}].filter(Boolean);
+      const hits=[bodyHit&&{kind:'tower',hit:bodyHit},obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit}].filter(Boolean);
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='tower')this.hitTower(p.id,first.hit);
       else if(first?.kind==='obstacle')this.hitObstacle(first.obstacle,shotId);
@@ -739,22 +725,43 @@ export class Match {
   hitTower(owner,impact=RIVER) {
     const t=this.tower;
     if(t.phase==='rest'||t.height<=TOWER_ACTIVE_HEIGHT) return false;
-    const firstHit=!t.shield;
-    t.shield=true;t.shieldPulse=.3;
-    if(firstHit) {
-      this.effects.push({id:this.id++,type:'towerImpact',x:impact.x,y:impact.y,age:0,life:.48,seed:this.random()});
-      const p=this.players[owner],muzzleY=TOWER_GEOMETRY.fireVentY;
-      const len=Math.max(1,Math.hypot(p.x-RIVER.x,p.y-muzzleY));
-      const dx=(p.x-RIVER.x)/len,dy=(p.y-muzzleY)/len;
-      for(const sign of [1,-1]) {
-        const x=RIVER.x+sign*TOWER_GEOMETRY.fireVentOffsetX,y=muzzleY,fx=dx*sign,fy=dy*sign;
-        this.flames.push({id:this.id++,x,y,dx:fx,dy:fy,age:0,reach:0,maxReach:flameReach(x,y,fx,fy),endAge:null,marked:0,life:4.2});
-      }
-      this.emit('towerImpact',{x:impact.x});
-      this.emit('retaliation');
-    }
-    this.effects.push({id:this.id++,type:'shieldHit',x:impact.x,y:impact.y,age:0,life:.3,seed:this.random()});
+    this.effects.push({id:this.id++,type:'towerImpact',x:impact.x,y:impact.y,age:0,life:.32,seed:this.random()});
+    this.emit('towerImpact',{x:impact.x});
     return true;
+  }
+  startTowerVolley(phase){
+    if(this.map!==MAPS.RIVERSIDE)return;
+    const type=['fire','lightning','icicle'][Math.floor(this.random()*3)];
+    for(const p of this.players){
+      const bank=BANK_BOUNDS[p.id];
+      this.towerAttacks.push({id:this.id++,phase,type,owner:p.id,x:clamp(p.x,35,W-35),y:clamp(p.y,bank.minY+24,bank.maxY-24),age:0,warning:TOWER_VOLLEY.warning,life:TOWER_VOLLEY.warning+.55,hit:false});
+    }
+    this.emit(type==='lightning'?'lightningCharge':'towerAim');
+  }
+  updateTowerAttacks(dt){
+    for(const attack of this.towerAttacks){
+      attack.age+=dt;
+      if(attack.type==='icicle'&&attack.owner===0&&!attack.fallSoundPlayed&&attack.age>=attack.warning-HAIL_CLUSTER.fall){
+        attack.fallSoundPlayed=true;this.emit('hailFall',{x:attack.x});
+      }
+      if(attack.hit||attack.age<attack.warning)continue;
+      attack.hit=true;
+      const p=this.players[attack.owner];
+      if(attack.type==='fire'){
+        const x=RIVER.x+(attack.owner===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
+        const length=Math.max(1,Math.hypot(attack.x-x,attack.y-y)),dx=(attack.x-x)/length,dy=(attack.y-y)/length;
+        this.flames.push({id:this.id++,x,y,dx,dy,age:0,reach:0,maxReach:flameReach(x,y,dx,dy),endAge:null,marked:0,life:4.2});
+      }else{
+        const radius=attack.type==='lightning'?TOWER_VOLLEY.lightningRadius:TOWER_VOLLEY.icicleRadius;
+        const damage=attack.type==='lightning'?TOWER_VOLLEY.lightningDamage:TOWER_VOLLEY.icicleDamage;
+        if(distance(p,attack)<radius)this.damage(p,damage);
+        this.damageAreaObjects(attack.x,attack.y,radius*.7);
+        if(attack.type==='icicle')this.effects.push({id:this.id++,type:'iceBurst',x:attack.x,y:attack.y,age:0,life:.4,seed:this.random()});
+        else this.mark('scorch',attack.x,attack.y,.45);
+      }
+      if(attack.owner===0)this.emit(attack.type==='fire'?'towerFire':attack.type==='lightning'?'lightningStrike':'hailImpact',{x:attack.x});
+    }
+    this.towerAttacks=this.towerAttacks.filter(attack=>attack.age<attack.life);
   }
   launch() {
     this.launches++;
@@ -780,16 +787,15 @@ export class Match {
   }
   updateTower(dt) {
     const t=this.tower;
-    t.shieldPulse=Math.max(0,t.shieldPulse-dt);
-    if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.shield=false;t.cycle++;this.emit('rise');}
+    if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.riseAttack=false;t.lowerAttack=false;t.cycle++;this.emit('rise');}
     if(t.phase==='rest') return;
     t.progress+=dt;
-    if(t.phase==='rise') {t.height=easeLift(t.progress/TOWER_TIMING.rise);if(t.progress>=TOWER_TIMING.rise){t.phase='deliver';t.progress=0;this.launch();}}
+    if(t.phase==='rise') {t.height=easeLift(t.progress/TOWER_TIMING.rise);if(!t.riseAttack&&t.progress>=TOWER_VOLLEY.riseAt){t.riseAttack=true;this.startTowerVolley('rise');}if(t.progress>=TOWER_TIMING.rise){t.phase='deliver';t.progress=0;this.launch();}}
     else if(t.phase==='deliver') {if(t.progress>=TOWER_TIMING.deliver){t.phase='lower';t.progress=0;this.emit('lower');}}
     else {
       t.height=1-easeLift(t.progress/TOWER_TIMING.lower);
-      if(t.height<=TOWER_ACTIVE_HEIGHT){t.shield=false;t.shieldPulse=0;}
-      if(t.progress>=TOWER_TIMING.lower){t.phase='rest';t.height=0;t.shield=false;t.shieldPulse=0;this.nextDrop=this.time+TOWER_TIMING.rest;}
+      if(!t.lowerAttack&&t.progress>=TOWER_VOLLEY.lowerAt){t.lowerAttack=true;this.startTowerVolley('lower');}
+      if(t.progress>=TOWER_TIMING.lower){t.phase='rest';t.height=0;this.nextDrop=this.time+TOWER_TIMING.rest;}
     }
   }
   think(dt) {
@@ -823,6 +829,11 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
+      const towerTarget=this.towerAttacks.find(a=>a.owner===1&&!a.hit&&distance(p,a)<(a.type==='fire'?53:a.type==='lightning'?TOWER_VOLLEY.lightningRadius+16:TOWER_VOLLEY.icicleRadius+16));
+      if(towerTarget){
+        tx=p.x+(p.x>=towerTarget.x?95:-95);ty=p.y+(p.y>=towerTarget.y?70:-70);
+        if(towerTarget.age>towerTarget.warning-.3&&distance(p,towerTarget)<34)this.dodge(p,p.x-towerTarget.x,p.y-towerTarget.y);
+      }
       const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5),...this.obstacles.filter(h=>h.type==='rock'&&!h.destroyed&&h.burning>0)]
         .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
       if(mapThreat){
@@ -863,6 +874,8 @@ export class Match {
     dt=Math.min(dt,1/30); this.time+=dt;
     if(this.ending>0){
       this.ending-=dt;
+      for(const attack of this.towerAttacks)attack.age+=dt;
+      this.towerAttacks=this.towerAttacks.filter(attack=>attack.hit&&attack.age<attack.life);
       for(const p of this.players)if(p.hp<=0)p.deathAge+=dt;
       for(const f of this.flames){f.age+=dt;f.life-=dt;}
       this.flames=this.flames.filter(f=>f.life>0);
@@ -882,6 +895,7 @@ export class Match {
     if(input.pistol)this.fire(p,0,'pistol');
     if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);}
     this.think(dt);
+    this.updateTowerAttacks(dt);
     this.updateEnvironment(dt);
     for(const i of this.pickups){
       if(i.flight>0){
@@ -899,23 +913,20 @@ export class Match {
       const prev={x:b.x,y:b.y};
       if(b.type==='grenade'||b.type==='nuclear') {
         b.t+=dt;const t=clamp(b.t/b.duration,0,1);b.x=b.sx+(b.tx-b.sx)*t;b.y=b.sy+(b.ty-b.sy)*t;
-        // Grenades follow a high ballistic arc above the tower and shield.
+        // Grenades follow a high ballistic arc above the tower.
         // Its only impact is at the marked landing point.
         if(t>=1)this.explode(b);continue;
       }
       b.prevX=b.x;b.prevY=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;b.travel+=Math.hypot(b.vx,b.vy)*dt;
       if(b.type==='missile') {
-        // Guided payloads fly above the tower and shield, then strike the
+        // Guided payloads fly above the tower, then strike the
         // marked ground position instead of colliding during flight.
         if(b.travel>=b.targetDistance){b.x=b.tx;b.y=b.ty;this.explode(b);}
         continue;
       }
-      const shieldHit=this.tower.shield?segmentEllipseHit(prev,b,towerShieldBounds(this.tower)):null;
       const bodyHit=segmentTowerHit(prev,b,this.tower);
       const obstacleHit=this.nearestObstacleHit(prev,b);
-      const towerHit=shieldHit||bodyHit;
-      if(obstacleHit&&(!towerHit||distance(prev,obstacleHit.hit)<=distance(prev,towerHit))){this.hitObstacle(obstacleHit.obstacle,b.shotId);b.life=0;continue;}
-      if(shieldHit){this.hitTower(b.owner,shieldHit);b.life=0;continue;}
+      if(obstacleHit&&(!bodyHit||distance(prev,obstacleHit.hit)<=distance(prev,bodyHit))){this.hitObstacle(obstacleHit.obstacle,b.shotId);b.life=0;continue;}
       if(bodyHit&&this.hitTower(b.owner,bodyHit)){b.life=0;continue;}
       if(b.x<0||b.x>W||b.y<0||b.y>H)b.life=0;
     }
@@ -974,6 +985,7 @@ export class Match {
       this.ending=DEATH_DURATION;
       this.winner=this.players[0].hp<=0?(this.players[1].hp<=0?'draw':1):0;
       this.bullets=[];
+      this.towerAttacks=this.towerAttacks.filter(attack=>attack.hit);
       for(const f of this.flames){f.endAge=f.age;f.life=Math.min(f.life,.7);}
       for(const p of this.players)if(p.hp<=0)this.effects.push({id:this.id++,type:'death',x:p.x,y:p.y,age:0,life:DEATH_DURATION+1,seed:this.random()});
       for(const p of this.players)if(p.hp<=0)this.mark('blood',p.x,p.y+20,1.5);

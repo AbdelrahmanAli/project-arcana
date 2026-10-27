@@ -223,7 +223,8 @@ export class Sound {
     this.clips.barrelBlast=new Howl({src:[wav(.64,62,.9,5)],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.14,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
-    this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
+    this.clips.towerFire=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
+    this.clips.towerAim=new Howl({src:[wav(.24,470,.28,8)],format:['wav'],volume:.13,preload:true});
     this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:this.alarmMuted?0:.23*this.alarmVolume/100,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});

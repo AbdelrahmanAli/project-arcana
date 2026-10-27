@@ -14,13 +14,13 @@ Touch anywhere in the gameplay area and drag to establish a floating joystick. N
 
 Each fighter carries at most one Tower weapon. The weak pistol is always available, even while a Tower weapon is loaded. A carried weapon blocks new pickups until all of its ammunition is spent. No swapping or discarding. Player health sits BELOW the expanded arena. Opponent health and held weapon follow ABOVE their head. No large upper health HUD. The river remains centered and both banks have equal playable depth.
 
-No generic attack warnings or flame pre-warnings. The smart missile shows its captured impact point on the ground. Actual projectiles, effects and character animations convey the other attacks. Pickup blinking during expiry remains required.
+No generic weapon warnings. The smart missile shows its captured impact point on the ground, and Riverside Tower volleys mark their locked targets briefly before firing. Actual projectiles, effects and character animations convey the attacks. Pickup blinking during expiry remains required.
 
 ## Tower
 
 Resting cap is too low to intercept attacks. Tower rises, throws one weapon to each bank simultaneously, then descends. In Random Weapons mode, contents and landing positions are independently random. In either fixed weapon mode, the type is shared throughout the match while landing positions remain independently random. Open reachable landing positions only. Pickups live for twelve seconds after landing and blink during the final three.
 
-The first hit while rising or descending causes two flame jets: toward the triggering soldier's position when hit and in the exact opposite direction. Brisk visible travel, not instantaneous or slow. Fire leaves narrow damaging strips for several seconds. One retaliation per entire rise/delivery/descent cycle. A transparent shield activates immediately after that hit and absorbs subsequent projectiles without reflecting them. It lasts through the current cycle. The tower is not destructible. No persistent tower cover between cycles.
+On Riverside, the Tower fires one paired, aimed volley while rising and one while descending. Each volley chooses fire, lightning, or icicles, then locks the current position of both fighters for a short, readable interval. Both banks receive the same attack type. Fighters can move or dive away before impact. Fire jets launch from the fixed base vents and leave narrow damaging strips. On Storm, Magma, Desert, and Snow, the Tower deals weapons while the map provides hazards. The Tower is not destructible: its exposed body absorbs direct shots with an impact spark, while its submerged cap does not block them. There is no bubble shield or hit-triggered retaliation.
 
 ## Current balance — playtest values
 
