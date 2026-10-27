@@ -15,7 +15,7 @@ Both maps need their own original arcade pixel art and readable sprite animation
 
 - The Desert fighters stand on **level sandy ground**, not elevated plateaus. A deep crack occupies the current river channel. Mountains and rock formations may form the outer map boundaries. Cacti and sparse palms establish the setting; an eagle may perch in a visible palm at the edge.
 - The Desert sun is visibly hot. Before a mirage event, sunlight intensifies and heat shimmer becomes noticeable. The sunlight itself does not drain health.
-- A Desert sandstorm enters from **outside the top or bottom edge** and travels across the arena. It is a dense top-layer visibility hazard.
+- A Desert sandstorm enters from **outside the top or bottom edge** and travels across the arena as two closely following dense waves. Both waves limit visibility and leave the screen before the event ends.
 - The eagle attacks fighters. The eagle and scorpion are **non-shootable**: bullets and beams do not hit, stop, or damage them. Their attacks can be escaped by movement or dodge.
 - The mirage is a **fake weapon or healing syringe**, not a duplicate fighter. A nearby fighter sees it break into a scorpion ambush. A scorpion bite deals **8 HP** and briefly slows movement; its emergence and tail windup allow a dodge. The scorpion burrows away after the attempt.
 - The Snow channel is a **frozen river**. Snow falls over both banks. Scattered ice patches make walking slide briefly. The other Snow hazards are an avalanche and a hail squall. Ice spikes erupting from bare ground are excluded.
@@ -61,14 +61,14 @@ Warm yellow sand covers both level banks. Dry stone and mountain faces close the
 ### Quicksand
 
 - A paired event adds one persistent patch to each bank, up to four per side. A patch stays closed on the ground until a fighter steps inside; it opens around them, then closes again when they leave. It does not repeatedly cycle while unoccupied.
-- A fighter inside walks more slowly and is gently drawn toward the center. Quicksand causes **no direct damage** and cannot hold a fighter indefinitely. Reversing movement and a dodge roll both allow escape; dodge distance and invincibility remain intact.
+- A fighter inside walks more slowly and is drawn toward the center. The wider patch has a stronger pull, but quicksand causes **no direct damage** and cannot hold a fighter indefinitely. Reversing movement and a dodge roll both allow escape; dodge distance and invincibility remain intact.
 - Placement avoids solid cover, pickup piles, spawn points at match start, and bank edges where the pull could make an escape route impossible. The computer routes around active quicksand when practical.
 - **Initial tuning:** slowdown begins on entry, the opening takes about half a second, and the pull remains weaker than Storm's tornado. Tune the exact radius and slow by playtesting.
 
 ### Mirage and scorpion
 
 - A global sun pulse begins about **2 seconds** before fake items appear: the sand brightens to a warmer gold and local heat shimmer grows. It signals the event without flashing white or hiding real pickups.
-- One mirage item appears at a valid, reachable position on each bank. It resembles either a weapon pickup or a healing syringe, with slight heat wavering as a close-range clue. The two banks receive the same event timing; item type and position may vary independently. A fake item has no ownership transfer, ammo, or healing effect.
+- One mirage item appears at a valid, reachable position on each bank. Sunlight intensifies beforehand without a ground marker. The fake resembles either a weapon pickup or a healing syringe, with slow, slight heat wavering as a close-range clue. The two banks receive the same event timing; item type and position may vary independently. A fake item has no ownership transfer, ammo, or healing effect.
 - In Random Fixed Weapon and Choose Fixed Weapon, a fake weapon displays that match's fixed type. In Random Same Weapon, it must use an eligible type without implying that the Tower has made a new paired launch. Fake items do not alter Tower drops or crate loot odds.
 - On close approach, even while carrying a different weapon, the image breaks, a scorpion rises from the sand, and its tail visibly winds up before one bite attempt. The scorpion is **non-shootable** and does not block shots. Moving away or dodging during the windup prevents the bite; a successful hit deals **8 HP**, a brief stagger, and a short movement slow. It then burrows away. Untouched mirages fade after a limited time.
 - The computer may be lured by a mirage and uses the same proximity trigger, bite damage, slow, and dodge opportunity. It must not identify fake items from hidden state before the visual clue appears.

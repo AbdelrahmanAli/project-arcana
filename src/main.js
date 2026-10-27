@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
@@ -402,7 +402,7 @@ function updateHud(){
   hud.style.left=`${Math.max(44,Math.min(W-44,enemy.x))/W*100}%`;hud.style.top=`${(enemy.y-30)/H*100}%`;
   const ashConcealsEnemy=game.map===MAPS.MAGMA&&Math.hypot(p.x-enemy.x,p.y-enemy.y)>95&&ashCloudVisuals(game.ash).some(cloud=>
     cloud.owner===enemy.id&&cloud.alpha>.42&&((enemy.x-cloud.x)/(cloud.width*.45))**2+((enemy.y-cloud.y)/(cloud.height*.45))**2<1);
-  const sandConcealsEnemy=game.map===MAPS.DESERT&&game.sandstorm&&Math.abs(enemy.y-game.sandstorm.y)<115&&Math.abs(p.y-game.sandstorm.y)>115;
+  const sandConcealsEnemy=game.map===MAPS.DESERT&&sandstormCovers(game.sandstorm,enemy.y)&&!sandstormCovers(game.sandstorm,p.y);
   hud.style.display=enemy.hp>0&&!ashConcealsEnemy&&!sandConcealsEnemy?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}${enemyWeapon==='laser'&&enemy.charge>0?`, charging ${Math.round(enemy.charge*100)} percent`:''}`);
@@ -436,19 +436,20 @@ function renderPhase6Environment(){
     for(let i=0;i<sandstormSprites.length;i++){
       const cloud=sandstormSprites[i];cloud.visible=!!storm;
       if(storm){
-        const lane=i%3;
-        // The second set is the same moving frame at the same position, so it
-        // deepens the dust without creating a separate edge or another front.
-        cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+lane*.23,8,6)];
-        cloud.position.set(W*(lane+.5)/3,storm.y+(lane%2?26:-18));
+        const lane=i%3,wave=Math.floor(i/6);
+        // Each wave has an aligned duplicate for density; the trailing wave
+        // extends the storm without a hard rectangular front.
+        cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+lane*.23-wave*.18,8,6)];
+        cloud.position.set(W*(lane+.5)/3,storm.y-wave*storm.direction*SANDSTORM_WAVE_GAP+(lane%2?26:-18));
         cloud.width=W*.53;cloud.height=210;
         cloud.alpha=.68+Math.sin(storm.age*5+lane)*.05;
       }
     }
-    if(storm)for(let i=0;i<9;i++){
+    if(storm)for(let i=0;i<18;i++){
       const drift=Math.sin(storm.age*2.1+i*1.7)*13;
-      const x=(i+.5)*W/9+Math.sin(storm.age*.9+i)*11;
-      const y=storm.y+(i%3-1)*35+drift;
+      const lane=i%9,wave=Math.floor(i/9);
+      const x=(lane+.5)*W/9+Math.sin(storm.age*.9+i)*11;
+      const y=storm.y-wave*storm.direction*SANDSTORM_WAVE_GAP+(lane%3-1)*35+drift;
       phase6WeatherDraw.ellipse(x,y,43+i%3*12,36+i%4*9).fill({color:0xb78b52,alpha:.06});
     }
     for(const patch of game.quicksand){
@@ -498,12 +499,11 @@ function renderPhase6Environment(){
     for(const lure of game.mirages){
       if(lure.state==='sun'){
         phase6WeatherDraw.rect(0,0,W,H).fill({color:0xffd56d,alpha:.075+.065*Math.sin(lure.age*9)});
-        environmentGround.ellipse(lure.x,lure.y,36,17).stroke({color:0xffe79a,width:2,alpha:.45+.35*Math.sin(game.time*8)});
       }else if(lure.state==='lure'){
         sprite(`mirage-${lure.id}`,phase6Frames.mirage,hazardLayer,lure.x,lure.y,86,66,sheetLoop(game.time,8,4),.65);
         const art=lure.type==='syringe'?syringeTexture:lure.type==='laser'?laserTexture:lure.type==='grenade'?stunLauncherTexture:lure.type==='missile'?missileLauncherTexture:lure.type==='nuclear'?nuclearLauncherTexture:textures[WEAPONS[lure.type].frame];
         const size=lure.type==='syringe'?[68,47,6]:lure.type==='laser'?[66,27,4]:lure.type==='missile'?[58,29,7]:lure.type==='grenade'?[56,37,7]:lure.type==='nuclear'?[60,40,7]:[62,62,0];
-        sprite(`bait-${lure.id}`,[art],obstacleLayer,lure.x,lure.y-size[2]+Math.sin(game.time*3+lure.id)*2,size[0],size[1],0,.67+.22*Math.sin(game.time*7)).zIndex=lure.y+19;
+        sprite(`bait-${lure.id}`,[art],obstacleLayer,lure.x,lure.y-size[2]+Math.sin(game.time*1.8+lure.id)*1.2,size[0],size[1],0,.78+.12*Math.sin(game.time*2.5)).zIndex=lure.y+19;
       }else{
         const frame=lure.state==='strike'?Math.min(4,Math.floor(lure.strikeAge*14)):5;
         sprite(`scorpion-${lure.id}`,phase6Frames.scorpion,obstacleLayer,lure.x,lure.y,90,86,frame,lure.state==='retreat'?Math.max(0,1-lure.strikeAge/.6):1).zIndex=lure.y+19;
@@ -1179,7 +1179,7 @@ async function boot(){
     const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashVentPuffs.push(puff);ashCloudLayer.addChildAt(puff,0);
   }
   draw=new Graphics();joystickDraw=new Graphics();phase6WeatherLayer=new Container();phase6WeatherDraw=new Graphics();phase6WeatherLayer.addChild(phase6WeatherDraw);
-  for(let i=0;i<6;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
+  for(let i=0;i<12;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
   app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw);
   buildWeaponChoices();
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';

@@ -40,8 +40,12 @@ export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_F
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma', DESERT:'desert', SNOW:'snow' };
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
-export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.24, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
+export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
+export const SANDSTORM_WAVE_GAP = 150;
+export function sandstormCovers(storm,y){
+  return !!storm&&(Math.abs(y-storm.y)<115||Math.abs(y-(storm.y-storm.direction*SANDSTORM_WAVE_GAP))<115);
+}
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -238,7 +242,7 @@ export class Match {
     }else if(this.map===MAPS.DESERT){
       if(kind===0){
         const direction=this.random()<.5?1:-1;
-        this.sandstorm={age:0,life:7.4,direction,y:direction>0?-170:H+170};
+        this.sandstorm={age:0,life:8.5,direction,y:direction>0?-170:H+170};
         this.emit('sandstorm');
       }else if(kind===1){
         for(const owner of [0,1]){
@@ -252,7 +256,7 @@ export class Match {
       }else if(kind===2){
         let added=false;
         for(const owner of [0,1])if(this.quicksand.filter(patch=>patch.owner===owner).length<4){
-          this.quicksand.push({id:this.id++,owner,...this.environmentalPoint(owner,this.quicksand.filter(patch=>patch.owner===owner)),age:0,open:0,occupied:false,radius:38});
+          this.quicksand.push({id:this.id++,owner,...this.environmentalPoint(owner,this.quicksand.filter(patch=>patch.owner===owner)),age:0,open:0,occupied:false,radius:PHASE6_RULES.quicksandRadius});
           added=true;
         }
         if(added)this.emit('quicksand');
@@ -347,7 +351,8 @@ export class Match {
     if(this.ash){this.ash.age+=dt;if(this.ash.age>=this.ash.life)this.ash=null;}
     if(this.sandstorm){
       const storm=this.sandstorm;storm.age+=dt;
-      storm.y=storm.direction>0?-170+(H+340)*storm.age/storm.life:H+170-(H+340)*storm.age/storm.life;
+      const travel=H+340+SANDSTORM_WAVE_GAP;
+      storm.y=storm.direction>0?-170+travel*storm.age/storm.life:H+170-travel*storm.age/storm.life;
       if(storm.age>=storm.life)this.sandstorm=null;
     }
     for(const eagle of this.eagles){
@@ -434,12 +439,12 @@ export class Match {
       square:[[0,0],[33,0],[0,17],[33,17]],
     };
     const shapes=Object.keys(formations);
-    const south=[80,400].flatMap(originX=>{
+    const south=[80,315].flatMap(originX=>{
       const shape=shapes[Math.floor(this.random()*shapes.length)];
       return formations[shape].map(([dx,dy])=>({type:'crate',x:originX+dx,y:670+dy,formation:shape}));
     });
     const barrelCount=1+Math.floor(this.random()*2);
-    const clear=point=>Math.hypot(point.x-190,point.y-760)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
+    const clear=point=>point.x<=355&&Math.hypot(point.x-190,point.y-760)>58&&south.every(o=>Math.hypot(point.x-o.x,point.y-o.y)>58);
     for(let i=0;i<barrelCount;i++){
       let point;
       for(let attempt=0;attempt<24;attempt++){
@@ -756,7 +761,7 @@ export class Match {
     if(this.aiClock<=0) {
       this.aiClock=.2+this.random()*.12;
       const bank=BANK_BOUNDS[1];
-      const sandBlind=!!this.sandstorm&&(Math.abs(p.y-this.sandstorm.y)<145||Math.abs(enemy.y-this.sandstorm.y)<145);
+      const sandBlind=sandstormCovers(this.sandstorm,p.y)||sandstormCovers(this.sandstorm,enemy.y);
       // Patrol almost the full bank depth, including the sand beside the river wall.
       let tx=sandBlind?p.x:enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
       const visibleLures=this.mirages.filter(i=>i.owner===1&&i.state==='lure'&&i.aiInterested);
@@ -782,7 +787,7 @@ export class Match {
           h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.dive-.65)&&distance(p,h.target)<70);
       const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<75&&Math.abs(h.x-p.x)<190);
       const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.start&&distance(p,h)<55);
-      const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<65);
+      const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<80);
       const lateral=avalanche;
       if(lateral){ty=p.y+(p.y>=lateral.y?100:-100);if(distance(p,lateral)<54)this.dodge(p,p.x-lateral.x,p.y-lateral.y);}
       if(eagle){
@@ -804,7 +809,7 @@ export class Match {
     if(p.slot?.type==='laser') {
       if(this.aiFire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1)this.fire(p,1);}
     } else if(p.slot&&this.aiFire) this.fire(p);
-    if(!this.sandstorm||Math.abs(p.y-this.sandstorm.y)>=145&&Math.abs(enemy.y-this.sandstorm.y)>=145)if(Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol');
+    if(!sandstormCovers(this.sandstorm,p.y)&&!sandstormCovers(this.sandstorm,enemy.y))if(Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol');
   }
   update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;

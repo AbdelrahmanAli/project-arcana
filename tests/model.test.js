@@ -721,6 +721,7 @@ test('fast projectiles use swept collision rather than skipping targets',()=>{
 
 test('opposing conventional rounds cancel when their swept paths cross',()=>{
   const m=new Match(()=>.5);m.think=()=>{};m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
   m.bullets=[
     {id:1,x:180,y:320,vx:0,vy:900,owner:1,type:'pistol',damage:5,color:0,life:1,travel:0,targetDistance:Infinity},
     {id:2,x:180,y:332,vx:0,vy:-900,owner:0,type:'rifle',damage:7,color:0,life:1,travel:0,targetDistance:Infinity}
@@ -763,7 +764,7 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
     const southCrates=southObjects.filter(o=>o.type==='crate'),southBarrels=southObjects.filter(o=>o.type==='barrel');
     assert.ok(southCrates.length>=6&&southCrates.length<=8&&southBarrels.length>=1&&southBarrels.length<=2);
     const offsets={T:[[-33,0],[0,0],[33,0],[0,17]],L:[[0,0],[33,0],[0,17]],square:[[0,0],[33,0],[0,17],[33,17]]};
-    for(const originX of [80,400]){
+    for(const originX of [80,315]){
       const group=southCrates.filter(o=>originX===80?o.x<240:o.x>240);
       const origin=group.find(o=>o.x===originX&&o.y===670);
       assert.ok(origin,`crate formation starts at ${originX}`);
@@ -771,6 +772,7 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
       assert.ok(['T','L','square'].includes(shape));
       assert.ok(group.every(o=>o.formation===shape&&o.y>=670&&o.y<=687));
       assert.deepEqual(group.map(o=>`${o.x},${o.y}`).sort(),offsets[shape].map(([x,y])=>`${originX+x},${670+y}`).sort());
+      assert.ok(group.every(o=>o.x<=353),'crates remain clear of right-side controls');
     }
     for(const [index,south] of southObjects.entries()){
       const north=northObjects[index];assert.equal(south.type,north.type);
@@ -778,7 +780,7 @@ test('arena cover is mirrored, leaves spawn lanes open, and supply drops avoid s
     }
     for(const player of m.players)for(const obstacle of m.obstacles)assert.ok(Math.hypot(player.x-obstacle.x,player.y-obstacle.y)>55);
     for(const barrel of southBarrels){
-      assert.ok(barrel.x>=55&&barrel.x<=425&&barrel.y>=650&&barrel.y<=870);
+      assert.ok(barrel.x>=55&&barrel.x<=355&&barrel.y>=650&&barrel.y<=870);
       for(const other of southObjects)if(other!==barrel)assert.ok(Math.hypot(barrel.x-other.x,barrel.y-other.y)>51);
     }
     for(let launch=0;launch<6;launch++)m.launch();

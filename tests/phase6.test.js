@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT} from '../src/model.js';
+import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT,SANDSTORM_WAVE_GAP,sandstormCovers} from '../src/model.js';
 
 test('Desert and Snow keep equal bank depth and an impassable channel',()=>{
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
@@ -22,6 +22,29 @@ test('Desert cycle pairs each hazard and fixed mirages use the match weapon',()=
   m.startEnvironmentEvent();assert.deepEqual(m.quicksand.map(e=>e.owner),[0,1]);
   m.startEnvironmentEvent();assert.deepEqual(m.mirages.map(e=>e.owner),[0,1]);
   for(const lure of m.mirages)if(lure.type!=='syringe')assert.equal(lure.type,'nuclear');
+});
+
+test('both sandstorm waves obscure visibility and leave the arena together',()=>{
+  for(const direction of [-1,1]){
+    const storm={y:470,direction};
+    assert.ok(sandstormCovers(storm,470));
+    assert.ok(sandstormCovers(storm,470-direction*SANDSTORM_WAVE_GAP));
+    assert.equal(sandstormCovers(storm,470+direction*250),false);
+  }
+  const m=new Match(()=>.25,{map:MAPS.DESERT});m.startEnvironmentEvent();
+  m.updateEnvironment(m.sandstorm.life);
+  assert.equal(m.sandstorm,null);
+});
+
+test('quicksand reaches farther and pulls a fighter toward its center',()=>{
+  const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[0];
+  m.obstacles.forEach(o=>o.destroyed=true);
+  m.environmentCycle=2;m.startEnvironmentEvent();
+  assert.ok(m.quicksand.every(patch=>patch.radius===PHASE6_RULES.quicksandRadius));
+  m.quicksand=[{id:99,owner:0,x:p.x+45,y:p.y,age:0,open:0,occupied:false,radius:PHASE6_RULES.quicksandRadius}];
+  const x=p.x;m.updateEnvironment(.2);
+  assert.ok(p.x>x+5);
+  assert.equal(m.quicksand[0].occupied,true);
 });
 
 test('quicksand slows but dodge still moves and eagle contact respects invincibility',()=>{
