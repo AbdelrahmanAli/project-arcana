@@ -17,6 +17,15 @@
 .secondary:hover:not(:disabled) { background:#31403d; }
 .secondary:disabled { opacity:.48; cursor:default; }
 .menu-card .settings-help { text-align:left; font-size:10px; border-top:1px solid #566056; padding-top:16px; margin:18px 0; }
+.alarm-setting { margin:17px 0 0; padding:14px; text-align:left; background:#122425; border:1px solid #7e795b; }
+.alarm-setting label { display:flex; justify-content:space-between; color:#e9d5a2; font-size:10px; font-weight:700; letter-spacing:1px; }
+.alarm-setting output { color:#f4c96c; }
+.alarm-setting input { display:block; width:100%; margin:15px 0 11px; accent-color:#e6b85f; touch-action:auto; cursor:pointer; }
+.alarm-actions { display:flex; gap:8px; }
+.alarm-actions .secondary { flex:1; width:auto; min-width:0; margin:0; padding:8px 4px; font-size:8px; }
+.alarm-actions #alarm-mute[aria-pressed="true"] { color:#f3f0e3; border-color:#d7ba70; background:#4c3430; }
+.menu-card .audio-credit { margin:0 0 15px; font-size:8px; line-height:1.5; color:#a8b8aa; }
+.audio-credit a { color:#e9c878; }
 .opponent-toast { position:absolute; z-index:4; pointer-events:none; transform:translate(-50%,-50%); white-space:nowrap; opacity:0; transition:opacity .2s; color:#ffe5a6; background:#182022d9; border:1px solid #a98b4b; font:bold clamp(6px,1.5vw,9px) 'IBM Plex Mono',monospace; letter-spacing:.4px; padding:3px 5px; text-shadow:1px 1px #000; }
 .console { position:relative; isolation:isolate; background:#192725; border-top:0; }
 .console::before { content:""; position:absolute; z-index:-1; inset:0; background:linear-gradient(#0713134d,#081516cc),url('/art/arena.png') center 95%/100% auto no-repeat; opacity:.85; }

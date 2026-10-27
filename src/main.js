@@ -316,8 +316,21 @@ $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
 $('menu-settings').addEventListener('click',()=>showMenuPanel('settings-panel'));
 $('settings-back').addEventListener('click',()=>showMenuPanel('menu-home'));
-function toggleSound(){const muted=sound.toggle();for(const id of ['sound','settings-sound'])$(id).textContent=muted?'SOUND OFF':'SOUND ON';$('sound').setAttribute('aria-label',muted?'Enable sound':'Mute sound');}
+function syncSoundSettings(){
+  for(const id of ['sound','settings-sound'])$(id).textContent=sound.muted?'SOUND OFF':'SOUND ON';
+  $('sound').setAttribute('aria-label',sound.muted?'Enable sound':'Mute sound');
+  $('alarm-volume').value=String(sound.alarmVolume);
+  $('alarm-volume-value').textContent=sound.alarmMuted?'MUTED':`${sound.alarmVolume}%`;
+  $('alarm-mute').textContent=sound.alarmMuted?'UNMUTE ALARM':'MUTE ALARM';
+  $('alarm-mute').setAttribute('aria-pressed',String(sound.alarmMuted));
+  $('alarm-preview').disabled=sound.muted||sound.alarmMuted||sound.alarmVolume===0;
+}
+function toggleSound(){sound.toggle();syncSoundSettings();}
 $('sound').addEventListener('click',toggleSound);$('settings-sound').addEventListener('click',toggleSound);
+$('alarm-volume').addEventListener('input',e=>{sound.setAlarmVolume(e.target.value);syncSoundSettings();});
+$('alarm-mute').addEventListener('click',()=>{sound.toggleAlarmMute();syncSoundSettings();});
+$('alarm-preview').addEventListener('click',()=>sound.previewAlarm());
+syncSoundSettings();
 $('arena').addEventListener('pointerdown',e=>{
   if(e.target.closest('.overlay, .main-menu, .fire-controls')||!started||paused||game.finished||game.ending>0||stick)return;
   e.preventDefault();const p=point(e);stick={id:e.pointerId,x:p.x,y:p.y,dx:0,dy:0};$('arena').setPointerCapture(e.pointerId);

@@ -1,5 +1,15 @@
 import { Howl, Howler } from 'howler';
 
+const AUDIO_PREFS_KEY='tower-deal-audio-v1';
+function loadAudioPrefs(){
+  try { return JSON.parse(localStorage.getItem(AUDIO_PREFS_KEY))||{}; }
+  catch { return {}; }
+}
+function saveAudioPrefs(sound){
+  try { localStorage.setItem(AUDIO_PREFS_KEY,JSON.stringify({muted:sound.muted,alarmMuted:sound.alarmMuted,alarmVolume:sound.alarmVolume})); }
+  catch { /* Storage may be unavailable in a private browser. */ }
+}
+
 // Original synthesized prototype effects, played and mixed exclusively by Howler.
 function pcmWav(duration, sampleAt) {
   const rate=22050,n=Math.floor(rate*duration),buffer=new ArrayBuffer(44+n*2),v=new DataView(buffer);
@@ -126,17 +136,6 @@ function phase6WindWav(){
   const duration=8.5;let seed=83217,low=0;
   return pcmWav(duration,t=>{seed=(seed*1664525+1013904223)>>>0;const white=seed/2147483648-1;low=low*.91+white*.09;return low*.34*Math.min(1,t/.4,(duration-t)/.55);});
 }
-function eagleAttackWav(){
-  let seed=31891,wind=0;
-  return pcmWav(.52,t=>{
-    seed=(seed*1664525+1013904223)>>>0;
-    wind=wind*.72+(seed/2147483648-1)*.28;
-    const sweep=Math.sin(2*Math.PI*(690*t-450*t*t));
-    const dive=Math.sin(2*Math.PI*(235*t-125*t*t));
-    const envelope=Math.sin(Math.PI*Math.min(1,t/.52))**.8;
-    return (wind*.33+sweep*.22+dive*.16)*envelope;
-  });
-}
 function scorpionBiteWav(){
   let seed=9127,crunch=0;
   return pcmWav(.3,t=>{
@@ -148,7 +147,13 @@ function scorpionBiteWav(){
   });
 }
 export class Sound {
-  constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;}
+  constructor(){
+    const prefs=loadAudioPrefs();
+    this.muted=prefs.muted===true;
+    this.alarmMuted=prefs.alarmMuted===true;
+    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):100;
+    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;
+  }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
@@ -169,7 +174,7 @@ export class Sound {
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
     this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});
-    this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:.23,preload:true});
+    this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:this.alarmMuted?0:.23*this.alarmVolume/100,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});
     this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});
@@ -184,14 +189,14 @@ export class Sound {
     this.clips.volcanoFireImpact=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.27,preload:true});
     this.clips.rockBreak=new Howl({src:[wav(.3,120,.83,10)],format:['wav'],volume:.2,preload:true});
     for(const [name,duration,freq,noise,volume] of [
-      ['eagle',.6,680,.32,.21],['eagleHit',.25,200,.75,.25],['quicksand',.55,78,.8,.17],
+      ['eagleHit',.25,200,.75,.25],['quicksand',.55,78,.8,.17],
       ['mirageSun',.55,860,.15,.11],['scorpionReveal',.28,490,.6,.19],
       ['avalanche',1.1,65,.92,.22],['avalancheHit',.52,72,.94,.26],['hail',.65,330,.78,.13],['hailImpact',.22,430,.76,.16],['iceSlide',.26,620,.5,.09],
     ])this.clips[name]=new Howl({src:[wav(duration,freq,noise,5)],format:['wav'],volume,preload:true,pool:8});
-    this.clips.eagleAttack=new Howl({src:[eagleAttackWav()],format:['wav'],volume:.27,preload:true,pool:8});
+    this.clips.eagleAttack=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-tailed-hawk.mp3`],format:['mp3'],volume:.31,preload:true,pool:8});
     this.clips.scorpionBite=new Howl({src:[scorpionBiteWav()],format:['wav'],volume:.31,preload:true,pool:8});
     this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.24,preload:true});
-    Howler.ctx?.resume();
+    Howler.mute(this.muted);Howler.ctx?.resume();
   }
   play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
@@ -206,12 +211,29 @@ export class Sound {
     if(!this.ready)return;
     if(phase!==this.towerPhase){
       this.towerPhase=phase;
-      if(phase==='rise'&&progress<.15&&!this.muted)this.clips.riseAlarm.play('alert');
+      if(phase==='rise'&&progress<.15&&!this.muted&&!this.alarmMuted&&this.alarmVolume>0)this.clips.riseAlarm.play('alert');
     }
     const wet=(map==='riverside'||map==='storm')&&phase!=='rest'&&height>.015;
     if(wet!==this.watering){this.watering=wet;if(wet)this.clips.water.play();else this.clips.water.stop();}
     if(wet)this.clips.water.volume(.025+.06*Math.min(1,height*2));
   }
-  toggle(){this.muted=!this.muted;Howler.mute(this.muted);return this.muted;}
+  setAlarmVolume(volume){
+    this.alarmVolume=Math.max(0,Math.min(100,Number(volume)||0));
+    this.alarmMuted=this.alarmVolume===0;
+    if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
+    saveAudioPrefs(this);
+  }
+  toggleAlarmMute(){
+    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=100;
+    this.alarmMuted=!this.alarmMuted;
+    if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
+    saveAudioPrefs(this);
+    return this.alarmMuted;
+  }
+  previewAlarm(){
+    if(this.muted||this.alarmMuted||this.alarmVolume===0)return;
+    this.init();this.clips.riseAlarm.stop();this.clips.riseAlarm.play('alert');
+  }
+  toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
   stop(){this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;Howler.stop();}
 }

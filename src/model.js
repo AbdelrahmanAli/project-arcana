@@ -252,7 +252,6 @@ export class Match {
             firstDone:false,secondDone:false,
             life:EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.retreat});
         }
-        this.emit('eagle');
       }else if(kind===2){
         let added=false;
         for(const owner of [0,1])if(this.quicksand.filter(patch=>patch.owner===owner).length<4){
@@ -368,12 +367,11 @@ export class Match {
         if(site&&p.hp>0&&distance(p,site)<PHASE6_RULES.eagleRadius&&this.damage(p,PHASE6_RULES.eagleDamage)>0)
           this.emit('eagleHit',{x:p.x,player:p.id});
       };
-      if(!eagle.target1&&eagle.age>=firstStart){eagle.target1=target();eagle.target=eagle.target1;eagle.x=eagle.target.x;eagle.y=eagle.target.y;this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});}
+      if(!eagle.target1&&eagle.age>=firstStart){eagle.target1=target();eagle.target=eagle.target1;eagle.x=eagle.target.x;eagle.y=eagle.target.y;if(eagle.owner===0)this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});}
       if(!eagle.firstDone&&eagle.age>=firstImpact){eagle.firstDone=true;strike(eagle.target1);eagle.target=null;}
       if(!eagle.target2&&eagle.age>=secondStart){
         eagle.target2=target();eagle.target=eagle.target2;eagle.x=eagle.target.x;eagle.y=eagle.target.y;
-        this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});
-        if(eagle.owner===0)this.emit('eagle');
+        if(eagle.owner===0)this.emit('eagleAttack',{x:eagle.x,player:eagle.owner});
       }
       if(!eagle.secondDone&&eagle.age>=secondImpact){eagle.secondDone=true;strike(eagle.target2);eagle.target=null;}
     }
