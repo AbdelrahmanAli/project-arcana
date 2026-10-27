@@ -115,17 +115,20 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 - Create original arcade pixel-art arena backgrounds for Desert and Snow at the exact current map geometry. Include separate middle-channel treatments: a deep dry crack and a frozen river. Make outer mountain barriers, cliff/ice edges, Tower base interactions, and passable ground visually consistent with collision.
 - **Desert sprites:** animated blowing-sand layers and edge front; heat shimmer/sunlight pulse; eagle perch, launch, flight, swoop and moving shadow; quicksand opening/spiral/closing; fake pickup shimmer; scorpion emerge, tail windup, strike and burrow; dust and impact traces. The eagle and scorpion should be readable at soldier scale.
 - **Snow sprites:** falling snow layers, ice patch with movement feedback, avalanche leading edge/body/retreat and powder, hail cloud, falling pellet/impact/shatter, and frosted Tower/ice aperture details.
-- Use sprite sheets for moving creatures and attacks, with contact points aligned across frames. Art sources and reproducible preparation scripts belong in the repository. Avoid baking hazards, fighters, weapons, or Tower animation into static arena backgrounds.
+- Create **dedicated sprite sheets** for every major Phase 6 hazard and transition: the eagle's takeoff, wingbeats, dive and departure; quicksand forming, pulling and closing; mirage shimmer and scorpion emergence, windup, strike and burrow; the sandstorm's moving front and body; ice sliding feedback; avalanche approach and sweep; and hail descent, impact and shatter. Ambient snowfall and heat shimmer may combine sprite sheets with lightweight particles or shaders, but cannot replace the key hazard animations with a single still image.
+- Store the original art, final sheets, frame dimensions, and reproducible preparation scripts in the repository. Keep fighters, Tower, weapons, and hazards separate from static arena backgrounds. Each frame must have a stable anchor, scale, and transparent edge; the eagle shadow, scorpion strike, avalanche front, and hail impact must stay aligned with their simulation hit areas.
+- **Smooth animation is a release requirement.** Adjacent frames must show meaningful motion; looping sheets must join cleanly; takeoff, travel, impact, retreat, and idle transitions must not pop, teleport, change size, or detach from their shadows or ground marks. Drive frame selection from game time so pause freezes animation and different frame rates do not change hazard timing. Inspect at phone size during motion, including slower devices; simplify particles before sacrificing the readability of the sprite animation.
 - Add restrained, distinct Howler sounds for eagle wings/cry, sandstorm, quicksand, sunlight/mirage cue, scorpion strike, ice slide, avalanche, and hail. Sounds respect mute, pause, and game over; ambient loops stay below weapon and Tower cues.
 - Keep phone performance in mind: low-resolution sprites, bounded particle counts, no expensive full-screen blur, and no intense white flash for sunlight or snow.
 
 ## Implementation sequence
 
 1. Add Desert and Snow map data, menu cards, Random Map eligibility, background art, channel/base treatment, and collision verification. Check equal bank size and every weapon mode before adding hazards.
-2. Implement Snow ice movement and AI handling, then paired avalanche and hail with warning, damage, animation, and sound.
-3. Implement Desert sandstorm and AI visibility limits, then paired eagle and quicksand events.
-4. Implement the sun cue, fake pickup event, scorpion animation and bite, including fixed-weapon mode compatibility and computer bait behavior.
-5. Tune event spacing and damage, test all five maps on phone-sized and physical devices, refine assets/audio, and publish after regression checks.
+2. Create and review the hazard sprite sheets and source art at the intended in-game scale. Establish consistent frame anchors and contact points before wiring damage or movement to the animations.
+3. Implement Snow ice movement and AI handling, then paired avalanche and hail with warning, damage, animation, and sound.
+4. Implement Desert sandstorm and AI visibility limits, then paired eagle and quicksand events.
+5. Implement the sun cue, fake pickup event, scorpion animation and bite, including fixed-weapon mode compatibility and computer bait behavior.
+6. Tune event spacing and damage, test all five maps on phone-sized and physical devices, refine assets/audio, and publish after regression checks.
 
 ## Acceptance criteria
 
@@ -137,7 +140,8 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 6. Sunlight intensifies before mirages appear. A fake weapon or syringe lures either fighter, does not grant ammo or healing, and reveals a dodgeable scorpion strike. A bite deals 8 HP and a short slow; fixed-mode fakes show the correct weapon. The computer can be fooled under the same rules.
 7. Snowfall, ice, avalanche, and hail are visually distinct. Ice produces brief controllable sliding; avalanche warns, sweeps, pushes, and respects collision; hail falls from a visible cloud onto clear marked sites with bounded damage.
 8. Hazard events affect both banks with comparable warning, counts, duration, and strength. Roll invincibility, sound toggle, pause, death cleanup, and existing combat/loot rules remain intact.
-9. Automated simulation tests and the production build pass. Phone-sized browser visual checks cover every hazard and its animations, while physical phone playtests confirm readability, control feel, audio balance, and acceptable frame rate before Phase 6 is considered complete.
+9. Every major new hazard has a real multi-frame sprite sheet. Phone-sized visual checks confirm smooth loops and transitions, stable sprite scale and ground anchors, correct shadow/impact alignment, and no visible frame popping or missing transparency. Pause freezes each animation and resume continues at the correct point.
+10. Automated simulation tests and the production build pass. Phone-sized browser visual checks cover every hazard and its animations, while physical phone playtests confirm readability, control feel, audio balance, and acceptable frame rate before Phase 6 is considered complete.
 
 ## Out of scope
 
