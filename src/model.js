@@ -41,7 +41,7 @@ export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma', DESER
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
 export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.85 };
-export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDepth:48, push:65 };
+export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDepth:48, pushSpeed:255 };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const SANDSTORM_WAVE_GAP = 150;
 export function sandstormCovers(storm,y){
@@ -115,7 +115,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceVX:0,iceVY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -281,7 +281,7 @@ export class Match {
           const direction=this.random()<.5?1:-1;
           for(let wave=0;wave<3;wave++){
           const occupied=this.hail.filter(h=>h.owner===owner);
-          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.5,warning:2.1+wave*.5,life:5+wave*.5,hit:false});
+          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.65,warning:2.9+wave*.65,life:6.7+wave*.65,hit:false});
           }
         }
         this.emit('hail');
@@ -415,16 +415,19 @@ export class Match {
       const end=avalanche.direction>0?bank.maxY+AVALANCHE.edge:bank.minY-AVALANCHE.edge;
       avalanche.y=start+(end-start)*Math.min(1,(avalanche.age-avalanche.warning)/(avalanche.life-avalanche.warning));
       const p=this.players[avalanche.owner];
-      if(!avalanche.hit&&p.hp>0&&Math.abs(p.x-avalanche.x)<AVALANCHE.halfWidth&&Math.abs(p.y-avalanche.y)<AVALANCHE.hitDepth){
-        avalanche.hit=true;
-        if(this.damage(p,PHASE6_RULES.avalancheDamage)>0){
-          for(let step=0;step<AVALANCHE.push/5;step++){
-            const y=clamp(p.y+avalanche.direction*5,bank.minY,bank.maxY);
-            if(y===p.y||this.obstacles.some(o=>blocksFighter(o,p.x,y)))break;
-            p.y=y;
-          }
-          this.emit('avalancheHit',{x:p.x,player:p.id});
+      if(p.hp>0&&!avalanche.evaded&&Math.abs(p.x-avalanche.x)<AVALANCHE.halfWidth&&Math.abs(p.y-avalanche.y)<AVALANCHE.hitDepth){
+        if(p.dodgeTime>0){avalanche.evaded=true;continue;}
+        if(!avalanche.hit){
+          avalanche.hit=true;
+          if(this.damage(p,PHASE6_RULES.avalancheDamage)>0)this.emit('avalancheHit',{x:p.x,player:p.id});
         }
+        const beforePush=p.y;
+        for(let remaining=AVALANCHE.pushSpeed*dt;remaining>0;remaining-=5){
+          const y=clamp(p.y+avalanche.direction*Math.min(5,remaining),bank.minY,bank.maxY);
+          if(y===p.y||this.obstacles.some(o=>blocksFighter(o,p.x,y)))break;
+          p.y=y;
+        }
+        if(p.y!==beforePush){p.lastMoveX=0;p.lastMoveY=avalanche.direction;p.moving=true;}
       }
     }
     this.avalanches=this.avalanches.filter(avalanche=>avalanche.age<avalanche.life);
@@ -559,20 +562,31 @@ export class Match {
     if(p.stun>0){p.moving=false;return;}
     const rolling=p.dodgeTime>0;
     if(rolling){x=p.dodgeX;y=p.dodgeY;}
+    if(rolling&&this.map===MAPS.SNOW){
+      p.onIce=false;p.iceEntryX=0;p.iceEntryY=0;p.iceSlip=0;
+      p.iceVX=x;p.iceVY=y;
+    }
     if(this.map===MAPS.SNOW&&!rolling){
       const onIce=this.icePatches.some(patch=>patch.owner===p.id&&((p.x-patch.x)/(patch.radius*1.18))**2+((p.y-patch.y)/(patch.radius*.72))**2<1);
       if(onIce&&!p.onIce)this.emit('iceSlide',{x:p.x});
-      p.onIce=onIce;
       if(onIce){
-        const blend=Math.min(1,dt*(Math.hypot(x,y)>.05?7:1.4));
-        p.iceVX+=(x-p.iceVX)*blend;p.iceVY+=(y-p.iceVY)*blend;
+        if(!p.onIce||(!p.iceEntryX&&!p.iceEntryY)){
+          const entryLength=Math.hypot(x,y);
+          const vx=p.moving?p.lastMoveX:entryLength>.05?x:p.iceVX;
+          const vy=p.moving?p.lastMoveY:entryLength>.05?y:p.iceVY;
+          const length=Math.hypot(vx,vy);
+          if(length>.05){p.iceEntryX=vx/length;p.iceEntryY=vy/length;}
+        }
+        p.iceVX=p.iceEntryX;p.iceVY=p.iceEntryY;
         p.iceSlip=PHASE6_RULES.iceSlip;x=p.iceVX;y=p.iceVY;
       }else if(p.iceSlip>0){
+        p.iceEntryX=0;p.iceEntryY=0;
         const blend=Math.min(1,dt*(Math.hypot(x,y)>.05?12:3.2));
         p.iceVX+=(x-p.iceVX)*blend;p.iceVY+=(y-p.iceVY)*blend;
         x=p.iceVX;y=p.iceVY;
         p.iceSlip=Math.max(0,p.iceSlip-dt);
-      }else{p.iceVX=x;p.iceVY=y;}
+      }else{p.iceEntryX=0;p.iceEntryY=0;p.iceVX=x;p.iceVY=y;}
+      p.onIce=onIce;
     }
     const l=Math.hypot(x,y), scale=l>1?1/l:1;
     const oldX=p.x,oldY=p.y;
@@ -585,7 +599,11 @@ export class Match {
     const nextY=clamp(p.y+y*scale*speed*travelDt,BANK_BOUNDS[p.id].minY,BANK_BOUNDS[p.id].maxY);
     if(!this.obstacles.some(o=>blocksFighter(o,p.x,nextY)))p.y=nextY;
     p.moving=Math.hypot(p.x-oldX,p.y-oldY)>dt*2;
-    if(p.moving) p.walk+=dt;
+    if(p.moving){
+      const travel=Math.hypot(p.x-oldX,p.y-oldY);
+      p.lastMoveX=(p.x-oldX)/travel;p.lastMoveY=(p.y-oldY)/travel;
+      p.walk+=dt;
+    }
   }
   dodge(p,x=0,y=0){
     if(this.finished||this.ending>0||p.hp<=0||p.stun>0||p.dodgeTime>0||p.dodgeCooldown>0)return false;

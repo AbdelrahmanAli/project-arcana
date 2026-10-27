@@ -547,15 +547,20 @@ function renderPhase6Environment(){
       const approach=Math.max(0,Math.min(1,(pellet.age-pellet.start)/(pellet.warning-pellet.start)));
       const depart=Math.max(0,Math.min(1,(pellet.age-pellet.warning)/(pellet.life-pellet.warning)));
       const cloudX=pellet.age<pellet.warning
-        ?(direction>0?-125:W+125)+(pellet.x-(direction>0?-125:W+125))*approach
-        :pellet.x+((direction>0?W+125:-125)-pellet.x)*depart;
-      sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-115,220,135,sheetLoop(pellet.age,7,4),.94);
+        ?(direction>0?-165:W+165)+(pellet.x-(direction>0?-165:W+165))*approach
+        :pellet.x+((direction>0?W+165:-165)-pellet.x)*depart;
+      sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-125,280,170,sheetLoop(pellet.age,6,4),.94);
       if(!pellet.hit){
         const pulse=.5+.25*Math.sin(game.time*15+pellet.id);
         environmentGround.ellipse(pellet.x,pellet.y,27,18).fill({color:0xb8e5fa,alpha:.19}).stroke({color:0xe4faff,width:2,alpha:pulse});
-        const fall=Math.max(0,(pellet.age-pellet.start)/(pellet.warning-pellet.start));
-        environmentSky.moveTo(pellet.x-10,pellet.y-92+fall*65).lineTo(pellet.x-16,pellet.y-74+fall*65).stroke({color:0xe3faff,width:3,alpha:.8});
-      }else sprite(`hail-impact-${pellet.id}`,phase6Frames.hailImpact,lightningLayer,pellet.x,pellet.y,60,53,Math.min(3,Math.floor((pellet.age-pellet.warning)*13)),Math.max(0,(pellet.life-pellet.age)/.55));
+      }
+      if(pellet.age>=pellet.warning-.65&&pellet.age<pellet.warning+.42){
+        const frame=pellet.age<pellet.warning
+          ?Math.min(3,Math.floor((pellet.age-pellet.warning+.65)/.65*4))
+          :Math.min(5,4+Math.floor((pellet.age-pellet.warning)/.21));
+        const alpha=pellet.age>pellet.warning+.26?Math.max(0,(pellet.warning+.42-pellet.age)/.16):1;
+        sprite(`hail-icicle-${pellet.id}`,phase6Frames.hailIcicle,lightningLayer,pellet.x,pellet.y-90,96,180,frame,alpha);
+      }
     }
     for(let i=0;i<110;i++){
       const x=(i*73+game.time*(14+i%5*6))%(W+30)-15,y=(i*157+game.time*(64+i%7*10))%(H+40)-20;
@@ -1124,12 +1129,12 @@ async function boot(){
   const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt]=await Promise.all(
     ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
   );
-  const [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailImpactArt,icePatchArt,sandstormArt,mirageArt]=await Promise.all(
-    ['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-impact-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase6/${src}`))
+  const [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt]=await Promise.all(
+    ['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase6/${src}`))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
-  for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailImpactArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
+  for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
@@ -1147,7 +1152,7 @@ async function boot(){
   lavaProjectileFrames=cut(lavaProjectileArt,6,1);lavaPoolFrames=cut(lavaPoolArt,6,1);
   burningRockFlightFrames=cut(burningRockFlightArt,6,1);burningRockGroundFrames=cut(burningRockGroundArt,6,1);
   rockCoolingFrames=cut(rockCoolingArt,6,1);
-  phase6Frames={eagle:cut(eagleArt,6,1),scorpion:cut(scorpionArt,6,1),quicksand:cut(quicksandArt,4,1),avalanche:cut(avalancheArt,4,1),hailCloud:cut(hailCloudArt,4,1),hailImpact:cut(hailImpactArt,4,1),ice:cut(icePatchArt,4,1),sandstorm:cut(sandstormArt,6,1),mirage:cut(mirageArt,4,1)};
+  phase6Frames={eagle:cut(eagleArt,6,1),scorpion:cut(scorpionArt,6,1),quicksand:cut(quicksandArt,4,1),avalanche:cut(avalancheArt,4,1),hailCloud:cut(hailCloudArt,4,1),hailIcicle:cut(hailIcicleArt,6,1),ice:cut(icePatchArt,4,1),sandstorm:cut(sandstormArt,6,1),mirage:cut(mirageArt,4,1)};
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;

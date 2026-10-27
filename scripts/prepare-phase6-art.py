@@ -134,6 +134,20 @@ def small_effect_sheets() -> None:
     hail.save(OUTPUT / "hail-impact-frames.png", optimize=True)
 
 
+def hail_icicle_sheet() -> None:
+    """Keep each generated frame's vertical travel and common ground contact."""
+    source = Image.open(SOURCE / "hail-icicle-sheet.png").convert("RGBA")
+    count, width, height = 6, 96, 192
+    sheet = Image.new("RGBA", (count * width, height), (0, 0, 0, 0))
+    for index in range(count):
+        frame = source.crop((round(index * source.width / count), 0,
+                             round((index + 1) * source.width / count), source.height))
+        sheet.alpha_composite(frame.resize((width, height), Image.Resampling.NEAREST),
+                              (index * width, 0))
+    sheet.save(OUTPUT / "hail-icicle-frames.png", optimize=True)
+    print(f"hail-icicle-frames.png: {count} frames of {width}x{height}")
+
+
 def main() -> None:
     for name in ("desert", "snow"):
         source = "arena-snow-v2.png" if name == "snow" else f"arena-{name}.png"
@@ -144,6 +158,7 @@ def main() -> None:
     clean_eagle_frames()
     sandstorm_sheet()
     small_effect_sheets()
+    hail_icicle_sheet()
 
 
 if __name__ == "__main__":

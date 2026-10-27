@@ -157,7 +157,7 @@ test('Snow starts with two ice patches per bank and pairs avalanche and hail',()
   assert.ok(m.avalanches.every(a=>a.y<BANK_BOUNDS[a.owner].minY||a.y>BANK_BOUNDS[a.owner].maxY));
   m.startEnvironmentEvent();assert.deepEqual([0,1].map(owner=>m.hail.filter(h=>h.owner===owner).length),[3,3]);
   assert.ok(m.hail.every(h=>Math.abs(h.direction)===1));
-  assert.ok(m.hail.every(h=>h.warning-h.start>=1.6&&h.life-h.warning>=2.9),'hail clouds cross each bank at a readable pace');
+  assert.ok(m.hail.every(h=>h.warning-h.start>=2.25&&h.life-h.warning>=3.8),'large hail clouds cross each bank slowly enough to read');
   for(const item of [...m.icePatches,...m.hail])assert.ok(item.y>=BANK_BOUNDS[item.owner].minY&&item.y<=BANK_BOUNDS[item.owner].maxY);
 });
 
@@ -175,7 +175,7 @@ test('ice preserves a short steerable slide and does not leave its bank',()=>{
   assert.ok(p.y>=BANK_BOUNDS[0].minY);
 });
 
-test('ice slide follows movement in all eight directions and responds to a reversal',()=>{
+test('ice locks the entry direction on both axes until the fighter leaves the patch',()=>{
   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
     const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
     p.x=220;p.y=760;p.iceVX=0;p.iceVY=0;p.iceSlip=0;
@@ -188,12 +188,21 @@ test('ice slide follows movement in all eight directions and responds to a rever
   p.x=220;p.y=760;p.iceVX=0;p.iceVY=0;p.iceSlip=0;
   m.icePatches=[{id:1,owner:0,x:p.x,y:p.y,radius:100}];
   for(let i=0;i<18;i++)m.move(p,1,0,1/120);
-  const rightmost=p.x;
-  for(let i=0;i<38;i++)m.move(p,-1,0,1/120);
-  assert.ok(p.x<rightmost-3,'steering back changes direction while sliding');
+  const entryX=p.x;
+  for(let i=0;i<25;i++)m.move(p,-1,0,1/120);
+  assert.ok(p.x>entryX+20,'opposite input cannot reverse an active ice slide');
+  for(let i=0;i<90&&p.onIce;i++)m.move(p,-1,0,1/120);
+  assert.equal(p.onIce,false,'the fighter slides off the patch');
+  const exitX=p.x;
+  for(let i=0;i<32;i++)m.move(p,-1,0,1/120);
+  assert.ok(p.x<exitX-3,'steering returns after leaving the ice');
+  p.x=220;p.y=760;p.onIce=false;p.iceSlip=0;p.moving=true;
+  p.lastMoveX=0;p.lastMoveY=-1;
+  m.move(p,1,0,1/120);
+  assert.ok(p.y<760&&Math.abs(p.x-220)<1,'entry follows actual travel even if the joystick changes on contact');
 });
 
-test('avalanche damages once and hail has a bounded single impact',()=>{
+test('avalanche keeps pushing toward the river, damages once, and a dodge escapes its front',()=>{
   const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
   const bank=BANK_BOUNDS[0],start=bank.maxY+AVALANCHE.edge,end=bank.minY-AVALANCHE.edge;
   const age=AVALANCHE.warning+(p.y-start)/(end-start)*(AVALANCHE.life-AVALANCHE.warning);
@@ -202,7 +211,22 @@ test('avalanche damages once and hail has a bounded single impact',()=>{
   m.updateEnvironment(1/120);
   assert.equal(p.hp,100-PHASE6_RULES.avalancheDamage);
   assert.ok(p.y<beforeY&&p.y>=bank.minY,'avalanche pushes the southern fighter toward the river');
-  const after=p.hp;m.updateEnvironment(1/120);assert.equal(p.hp,after);
+  const after=p.hp,firstPush=p.y;m.updateEnvironment(1/120);assert.equal(p.hp,after);
+  assert.ok(p.y<firstPush,'the wave continues to push while overlapping');
+  const evasion=new Match(()=>.5,{map:MAPS.SNOW}),dodger=evasion.players[0];evasion.obstacles.forEach(o=>o.destroyed=true);
+  const dodgeAge=AVALANCHE.warning+(dodger.y-start)/(end-start)*(AVALANCHE.life-AVALANCHE.warning);
+  evasion.avalanches=[{id:3,owner:0,x:dodger.x,y:dodger.y,direction:-1,age:dodgeAge,warning:AVALANCHE.warning,life:AVALANCHE.life,hit:false}];
+  assert.equal(evasion.dodge(dodger,1,0),true);
+  const dodgeY=dodger.y;evasion.updateEnvironment(1/120);
+  assert.equal(dodger.hp,100);assert.equal(dodger.y,dodgeY);
+  dodger.dodgeTime=0;evasion.updateEnvironment(.05);
+  assert.equal(dodger.hp,100);assert.equal(dodger.y,dodgeY,'dodging the front avoids its later push');
+  const north=new Match(()=>.5,{map:MAPS.SNOW}),opponent=north.players[1];north.obstacles.forEach(o=>o.destroyed=true);
+  const northBank=BANK_BOUNDS[1],northStart=northBank.minY-AVALANCHE.edge,northEnd=northBank.maxY+AVALANCHE.edge;
+  const northAge=AVALANCHE.warning+(opponent.y-northStart)/(northEnd-northStart)*(AVALANCHE.life-AVALANCHE.warning);
+  north.avalanches=[{id:4,owner:1,x:opponent.x,y:opponent.y,direction:1,age:northAge,warning:AVALANCHE.warning,life:AVALANCHE.life,hit:false}];
+  const northY=opponent.y;north.updateEnvironment(1/120);
+  assert.ok(opponent.y>northY&&opponent.y<=northBank.maxY,'the northern wave also pushes toward the river');
   m.hail=[{id:2,owner:0,x:p.x,y:p.y,age:1.14,start:0,warning:1.15,life:1.7,hit:false}];
   m.updateEnvironment(.02);assert.equal(p.hp,after-PHASE6_RULES.hailDamage);
   m.updateEnvironment(.02);assert.equal(p.hp,after-PHASE6_RULES.hailDamage);

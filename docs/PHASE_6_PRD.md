@@ -84,19 +84,19 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 
 - An avalanche enters from beyond the **top** edge of the northern bank and the **bottom** edge of the southern bank. Heavy snow builds from those outer edges before the rolling front arrives and sweeps toward the river.
 - Equivalent avalanches occur on both banks. Both fronts travel toward the river with comparable speed, warning, and force. A fighter can reach the edge of the sweep or dodge through the front.
-- Contact pushes a fighter and deals a moderate one-time hit. Push resolution respects cover and bank bounds and never places a fighter in the frozen channel or traps them against a wall. The initial version does not leave permanent snow cover.
+- Contact deals a moderate one-time hit, then keeps pushing the fighter toward the river bank while the front overlaps them. A timed dodge avoids the front and its push. Push resolution respects cover and bank bounds and never places a fighter in the frozen channel or traps them against a wall. The initial version does not leave permanent snow cover.
 - **Initial tuning proposal:** at least 1 second of approach warning and roughly 12–16 HP per hit. Tune width and push strength against the 1-second dodge cooldown.
 
 ### Sliding ice patches
 
 - Each bank starts with an equivalent number and approximate area of scattered ice patches. Their boundaries and shine read against the snow. Positions may vary by match within safe placement zones; patches do not spread without a cap.
-- Walking onto ice preserves some momentum. Releasing or reversing the movement control produces a short, steerable slide rather than an uncontrollable lock. Ice does not cause damage or change bullets. Dodge travel and invincibility remain predictable, and a roll cannot cross a bank boundary or solid cover.
+- Walking onto ice locks a slide in the direction the fighter actually entered the patch. Releasing or reversing the movement control does not change that direction until they leave the ice. Once off the patch, a short glide fades and normal steering returns. Ice does not cause damage or change bullets. A dodge can break out of the slide and cannot cross a bank boundary or solid cover.
 - The computer predicts enough stopping distance to avoid repeatedly sliding into a wall or hazardous landing area. Pickups on ice remain reachable.
-- **Current tuning:** roughly 0.85 seconds of diminishing slide after leaving a patch, with slower steering response while on ice. Tune on touch controls so stopping still feels intentional.
+- **Current tuning:** fixed entry direction on the patch and roughly 0.85 seconds of diminishing glide after leaving it. Tune on touch controls so the dodge remains a clear escape.
 
 ### Hail squall
 
-- Large clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. Individual pellets descend, strike their marks, bounce or shatter, and fade. Hail visibly comes from above rather than erupting from the ground.
+- Large, slow clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. A six-frame icicle visibly descends from the cloud, strikes its mark, shatters, and fades. Hail visibly comes from above rather than erupting from the ground.
 - Both banks receive the same number of marked strikes and timing, with independently chosen valid locations. Marks must stay visible over snow and ice. A fighter can walk between the impacts or dodge a cluster.
 - A direct hit deals light damage and a brief flinch, shorter than the Stun Launcher effect. Limit repeated hits from one cluster so a fighter cannot lose most of their health from a single squall. Hail does not create permanent blockers.
 - **Initial tuning proposal:** around 1 second of warning per cluster, 4 HP per direct pellet, a short 0.2–0.3-second interruption, and an event damage cap to tune in playtesting.
@@ -138,7 +138,7 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 4. Eagles descend from above toward a shrinking circular shadow before a dodgeable strike. Neither eagle nor scorpion can be hit by any weapon or explosion, and neither blocks a shot.
 5. Quicksand clearly forms, pulls and slows without damage, permits escape and dodge, and never traps a fighter against cover or a bank boundary.
 6. Sunlight intensifies before mirages appear. A fake weapon or syringe lures either fighter, does not grant ammo or healing, and reveals a dodgeable scorpion strike. A bite deals 8 HP and a short slow; fixed-mode fakes show the correct weapon. The computer can be fooled under the same rules.
-7. Snowfall, ice, avalanche, and hail are visually distinct. Ice produces brief controllable sliding; avalanche warns, sweeps, pushes, and respects collision; hail falls from a visible cloud onto clear marked sites with bounded damage.
+7. Snowfall, ice, avalanche, and hail are visually distinct. Ice slides along the direction of entry until the fighter leaves or dodges; avalanche warns, sweeps, continuously pushes, respects collision, and can be dodged; icicles fall from large visible clouds onto clear marked sites with bounded damage.
 8. Hazard events affect both banks with comparable warning, counts, duration, and strength. Roll invincibility, sound toggle, pause, death cleanup, and existing combat/loot rules remain intact.
 9. Every major new hazard has a real multi-frame sprite sheet. Phone-sized visual checks confirm smooth loops and transitions, stable sprite scale and ground anchors, correct shadow/impact alignment, and no visible frame popping or missing transparency. Pause freezes each animation and resume continues at the correct point.
 10. Automated simulation tests and the production build pass. Phone-sized browser visual checks cover every hazard and its animations, while physical phone playtests confirm readability, control feel, audio balance, and acceptable frame rate before Phase 6 is considered complete.
