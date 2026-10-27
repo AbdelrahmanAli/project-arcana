@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES} from '../src/model.js';
+import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT} from '../src/model.js';
 
 test('Desert and Snow keep equal bank depth and an impassable channel',()=>{
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
@@ -18,7 +18,7 @@ test('Desert cycle pairs each hazard and fixed mirages use the match weapon',()=
   const m=new Match(()=>.5,{map:MAPS.DESERT,mode:GAME_MODES.CHOOSE_FIXED,weapon:'nuclear'});
   m.obstacles.forEach(o=>o.destroyed=true);
   m.startEnvironmentEvent();assert.ok(m.sandstorm&&(m.sandstorm.y<0||m.sandstorm.y>940));
-  m.startEnvironmentEvent();assert.deepEqual(m.eagles.map(e=>[e.owner,e.pass]),[[0,0],[0,1],[1,0],[1,1]]);
+  m.startEnvironmentEvent();assert.deepEqual(m.eagles.map(e=>e.owner),[0,1]);
   m.startEnvironmentEvent();assert.deepEqual(m.quicksand.map(e=>e.owner),[0,1]);
   m.startEnvironmentEvent();assert.deepEqual(m.mirages.map(e=>e.owner),[0,1]);
   for(const lure of m.mirages)if(lure.type!=='syringe')assert.equal(lure.type,'nuclear');
@@ -29,36 +29,52 @@ test('quicksand slows but dodge still moves and eagle contact respects invincibi
   m.quicksand=[{id:99,owner:0,x:p.x,y:p.y,age:1.5,open:0,occupied:false,radius:38}];
   const x=p.x;m.move(p,1,0,.1);assert.ok(p.x-x<12);
   assert.equal(m.dodge(p,1,0),true);const next=p.x;m.move(p,1,0,.1);assert.ok(p.x-next>12);
-  m.eagles=[{id:100,owner:0,x:p.x,y:p.y,start:0,targeted:true,age:PHASE6_RULES.eagleWarning-.005,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false}];
+  m.environmentCycle=1;m.startEnvironmentEvent();
+  const eagle=m.eagles[0];eagle.target1={x:p.x,y:p.y};eagle.target=eagle.target1;
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.005;
   const hp=p.hp;m.updateEnvironment(1/120);assert.equal(p.hp,hp);
 });
 
 test('eagle dives at a locked shadow circle and hits only once',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
-  m.eagles=[{id:100,owner:0,x:p.x,y:p.y,start:0,targeted:true,age:PHASE6_RULES.eagleWarning-.01,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false}];
+  m.environmentCycle=1;m.startEnvironmentEvent();
+  const eagle=m.eagles[0];eagle.target1={x:p.x,y:p.y};eagle.target=eagle.target1;
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.01;
   m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
   m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
-  const second={id:101,owner:0,x:p.x+100,y:p.y,start:0,targeted:true,age:PHASE6_RULES.eagleWarning-.01,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false};
-  m.eagles=[second];m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
 });
 
 test('second eagle pass retargets the fighter after the first pass',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT});m.environmentCycle=1;m.startEnvironmentEvent();
-  const second=m.eagles.find(e=>e.owner===0&&e.pass===1),p=m.players[0];
-  assert.equal(second.targeted,false);
-  p.x=300;second.age=second.start-.01;
+  const eagle=m.eagles[0],p=m.players[0];
+  assert.equal(eagle.target2,null);
+  eagle.target1={x:p.x,y:p.y};eagle.firstDone=true;
+  p.x=300;eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover-.01;
   m.updateEnvironment(.02);
-  assert.equal(second.targeted,true);assert.ok(Math.abs(second.x-300)<21);
+  assert.ok(Math.abs(eagle.target2.x-300)<21);
 });
 
 test('both eagle passes can strike the same fighter after separate warnings',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT});m.environmentCycle=1;m.startEnvironmentEvent();
-  const p=m.players[0],dives=m.eagles.filter(e=>e.owner===0);
-  dives[0].age=dives[0].warning-.01;m.updateEnvironment(.02);
+  const p=m.players[0],eagle=m.eagles[0];
+  eagle.target1={x:p.x,y:p.y};eagle.target=eagle.target1;
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.01;m.updateEnvironment(.02);
   assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
-  dives[1].age=dives[1].start-.01;m.updateEnvironment(.02);
-  dives[1].age=dives[1].start+dives[1].warning-.01;m.updateEnvironment(.02);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover-.01;m.updateEnvironment(.02);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover-.01;m.updateEnvironment(.02);
   assert.equal(p.hp,100-2*PHASE6_RULES.eagleDamage);
+});
+
+test('the eagle still makes its second dive when the first misses',()=>{
+  const m=new Match(()=>.5,{map:MAPS.DESERT});m.environmentCycle=1;m.startEnvironmentEvent();
+  const p=m.players[0],eagle=m.eagles[0];
+  eagle.target1={x:p.x+100,y:p.y};eagle.target=eagle.target1;
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.01;m.updateEnvironment(.02);
+  assert.equal(p.hp,100);assert.equal(m.eagles.length,2);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover-.01;m.updateEnvironment(.02);
+  assert.ok(Math.abs(eagle.target2.x-p.x)<21);
+  eagle.age=EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover-.01;m.updateEnvironment(.02);
+  assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
 });
 
 test('quicksand remains after the fighter leaves and closes without cycling',()=>{

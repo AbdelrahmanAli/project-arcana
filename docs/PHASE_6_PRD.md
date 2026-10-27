@@ -53,7 +53,7 @@ Warm yellow sand covers both level banks. Dry stone and mountain faces close the
 
 ### Eagle swoop
 
-- Each bank receives two dives in quick succession. The eagle enters visibly from the left or right at height, descends toward a broad circular shadow that shrinks around the locked landing point, strikes the final circle, then climbs away. The second pass locks onto the fighter's new position.
+- Each bank receives one continuous eagle flight with two dives in quick succession. The eagle enters visibly from the left or right, flies across the bank, then descends toward a broad circular shadow that shrinks around the locked landing point. It recovers in view, locks onto the fighter's new position, makes a second dive even if the first missed, and then flies beyond the opposite map edge before disappearing.
 - The eagle is **non-shootable** and does not block shots. A fighter can move outside the shrinking shadow or dodge through the attack with existing invincibility frames. One dive can hit a fighter at most once.
 - Schedule equivalent dives on both banks. Target positions may vary independently but use the same warning, speed, hit radius, and damage. The computer reacts to the visible shrinking shadow.
 - **Initial tuning proposal:** roughly 1 second of shadow warning and 10–12 HP on a direct hit, with no lasting stun. Tune for phone reaction time.

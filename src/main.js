@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
@@ -436,11 +436,13 @@ function renderPhase6Environment(){
     for(let i=0;i<sandstormSprites.length;i++){
       const cloud=sandstormSprites[i];cloud.visible=!!storm;
       if(storm){
-        const lane=i%3,back=i<3;
-        cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+i*.23,8,6)];
-        cloud.position.set(W*(lane+.5)/3+(back?18:-9),storm.y+(lane%2?26:-18)+(back?26:0));
-        cloud.width=W*(back?.58:.53);cloud.height=back?228:210;
-        cloud.alpha=(back?.49:.72)+Math.sin(storm.age*5+i)*.06;
+        const lane=i%3;
+        // The second set is the same moving frame at the same position, so it
+        // deepens the dust without creating a separate edge or another front.
+        cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+lane*.23,8,6)];
+        cloud.position.set(W*(lane+.5)/3,storm.y+(lane%2?26:-18));
+        cloud.width=W*.53;cloud.height=210;
+        cloud.alpha=.68+Math.sin(storm.age*5+lane)*.05;
       }
     }
     if(storm)for(let i=0;i<9;i++){
@@ -456,22 +458,42 @@ function renderPhase6Environment(){
       if(fraction>.01)sprite(`sand-transition-${patch.id}`,phase6Frames.quicksand,hazardLayer,patch.x,patch.y,width,height,frames[step+1],fraction);
     }
     for(const eagle of game.eagles){
-      if(eagle.age<eagle.start)continue;
-      const age=eagle.age-eagle.start,approach=Math.min(1,age/eagle.warning),depart=Math.max(0,(age-eagle.warning)/(eagle.life-eagle.warning));
-      const radius=61-32*approach,shadowFade=1-depart;
-      for(let ring=0;ring<4;ring++)environmentGround.ellipse(eagle.x,eagle.y,radius*(1-ring*.15),radius*(1-ring*.15)*.68)
-        .fill({color:0x17130b,alpha:(.09+approach*.06)*shadowFade});
-      environmentGround.ellipse(eagle.x,eagle.y,radius,radius*.68).stroke({color:0x422b17,width:1.5,alpha:(.2+approach*.3)*shadowFade});
-      if(approach>.7&&depart===0)for(let n=0;n<5;n++){
-        const angle=n*1.25+eagle.id;
-        circle(environmentGround,eagle.x+Math.cos(angle)*radius*.86,eagle.y+Math.sin(angle)*radius*.57,1.5,0xe6b96d,(approach-.7)*1.6);
+      const {approach,dive,recover,retreat}=EAGLE_FLIGHT;
+      const firstImpact=approach+dive,secondStart=firstImpact+recover,secondImpact=secondStart+dive;
+      const first=eagle.target1||{x:eagle.anchorX,y:eagle.anchorY},second=eagle.target2||first;
+      const fromX=eagle.entrySide<0?-40:W+40,approachX=Math.max(50,Math.min(W-50,eagle.anchorX+eagle.entrySide*75));
+      const recoverX=Math.max(50,Math.min(W-50,first.x-eagle.entrySide*75));
+      const ease=t=>t*t*(3-2*t),mix=(a,b,t)=>a+(b-a)*ease(t);
+      let flightX,flightY,scale,alpha=1,shadow=null,shadowProgress=0,shadowFade=1;
+      if(eagle.age<approach){
+        const t=eagle.age/approach;
+        flightX=mix(fromX,approachX,t);flightY=mix(eagle.anchorY-135,eagle.anchorY-110,t);scale=.52+.18*t;
+      }else if(eagle.age<firstImpact){
+        const t=(eagle.age-approach)/dive;
+        flightX=mix(approachX,first.x,t);flightY=mix(eagle.anchorY-110,first.y-25,t);scale=.7+.3*t;
+        shadow=first;shadowProgress=t;shadowFade=Math.min(1,t*8);
+      }else if(eagle.age<secondStart){
+        const t=(eagle.age-firstImpact)/recover;
+        flightX=mix(first.x,recoverX,t);flightY=mix(first.y-25,first.y-110,t);scale=1-.3*t;
+        if(t<.25){shadow=first;shadowProgress=1;shadowFade=1-t*4;}
+      }else if(eagle.age<secondImpact){
+        const t=(eagle.age-secondStart)/dive;
+        flightX=mix(recoverX,second.x,t);flightY=mix(first.y-110,second.y-25,t);scale=.7+.3*t;
+        shadow=second;shadowProgress=t;shadowFade=Math.min(1,t*8);
+      }else{
+        const t=Math.min(1,(eagle.age-secondImpact)/retreat),exitX=eagle.entrySide<0?W+100:-100;
+        flightX=mix(second.x,exitX,t);flightY=mix(second.y-25,second.y-95,t);scale=1-.3*t;
+        if(t<.2){shadow=second;shadowProgress=1;shadowFade=1-t*5;}
       }
-      const flightProgress=1-Math.pow(1-approach,1.5),fromX=eagle.entrySide<0?-40:W+40;
-      const flightX=fromX+(eagle.x-fromX)*flightProgress+Math.sin(approach*Math.PI)*16-eagle.entrySide*depart*68;
-      const flightY=eagle.y-24-135*(1-approach)-depart*115;
-      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,flightX,flightY,(44+46*approach)*(1-depart*.45),(40+45*approach)*(1-depart*.45),sheetLoop(age,12,6),Math.min(1,.55+approach*.45)*(1-depart*.75));
+      if(shadow){
+        const radius=61-32*shadowProgress;
+        for(let ring=0;ring<4;ring++)environmentGround.ellipse(shadow.x,shadow.y,radius*(1-ring*.15),radius*(1-ring*.15)*.68)
+          .fill({color:0x17130b,alpha:(.09+shadowProgress*.06)*shadowFade});
+        environmentGround.ellipse(shadow.x,shadow.y,radius,radius*.68).stroke({color:0x422b17,width:1.5,alpha:(.2+shadowProgress*.3)*shadowFade});
+      }
+      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,flightX,flightY,90*scale,85*scale,sheetLoop(eagle.age,12,6),alpha);
       bird.scale.x=Math.abs(bird.scale.x)*(eagle.entrySide<0?1:-1);
-      bird.rotation=Math.sin(approach*Math.PI)*.12+depart*.3;
+      bird.rotation=Math.sin(eagle.age*3)*.1;
     }
     for(const lure of game.mirages){
       if(lure.state==='sun'){

@@ -40,7 +40,8 @@ export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_F
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma', DESERT:'desert', SNOW:'snow' };
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
-export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.35, eagleRadius:29, quicksandSlow:.52, quicksandPull:.24, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
+export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.24, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
+export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -241,11 +242,11 @@ export class Match {
         this.emit('sandstorm');
       }else if(kind===1){
         for(const owner of [0,1]){
-          const bank=BANK_BOUNDS[owner],p=this.players[owner];
-          for(let pass=0;pass<2;pass++){
-            const x=clamp(p.x+(this.random()-.5)*40,50,W-50),y=clamp(p.y+(this.random()-.5)*35,bank.minY+42,bank.maxY-42);
-            this.eagles.push({id:this.id++,owner,x,y,entrySide:this.random()<.5?-1:1,pass,start:pass*2.65,age:0,warning:PHASE6_RULES.eagleWarning,life:2.5,targeted:pass===0,hit:false});
-          }
+          const p=this.players[owner];
+          this.eagles.push({id:this.id++,owner,anchorX:p.x,anchorY:p.y,x:p.x,y:p.y,
+            entrySide:this.random()<.5?-1:1,age:0,target1:null,target2:null,target:null,
+            firstDone:false,secondDone:false,
+            life:EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.retreat});
         }
         this.emit('eagle');
       }else if(kind===2){
@@ -351,22 +352,26 @@ export class Match {
     }
     for(const eagle of this.eagles){
       eagle.age+=dt;
-      if(eagle.age<eagle.start)continue;
-      if(!eagle.targeted){
+      const firstStart=EAGLE_FLIGHT.approach,firstImpact=firstStart+EAGLE_FLIGHT.dive;
+      const secondStart=firstImpact+EAGLE_FLIGHT.recover,secondImpact=secondStart+EAGLE_FLIGHT.dive;
+      const target=()=>{
         const bank=BANK_BOUNDS[eagle.owner],p=this.players[eagle.owner];
-        eagle.x=clamp(p.x+(this.random()-.5)*40,50,W-50);
-        eagle.y=clamp(p.y+(this.random()-.5)*35,bank.minY+42,bank.maxY-42);
-        eagle.targeted=true;
+        return {x:clamp(p.x+(this.random()-.5)*32,50,W-50),y:clamp(p.y+(this.random()-.5)*28,bank.minY+42,bank.maxY-42)};
+      };
+      const strike=site=>{
+        const p=this.players[eagle.owner];
+        if(site&&p.hp>0&&distance(p,site)<PHASE6_RULES.eagleRadius&&this.damage(p,PHASE6_RULES.eagleDamage)>0)
+          this.emit('eagleHit',{x:p.x,player:p.id});
+      };
+      if(!eagle.target1&&eagle.age>=firstStart){eagle.target1=target();eagle.target=eagle.target1;eagle.x=eagle.target.x;eagle.y=eagle.target.y;}
+      if(!eagle.firstDone&&eagle.age>=firstImpact){eagle.firstDone=true;strike(eagle.target1);eagle.target=null;}
+      if(!eagle.target2&&eagle.age>=secondStart){
+        eagle.target2=target();eagle.target=eagle.target2;eagle.x=eagle.target.x;eagle.y=eagle.target.y;
         if(eagle.owner===0)this.emit('eagle');
       }
-      if(!eagle.hit&&eagle.age-eagle.start>=eagle.warning){
-        eagle.hit=true;
-        const p=this.players[eagle.owner];
-        if(p.hp>0&&distance(p,eagle)<PHASE6_RULES.eagleRadius&&this.damage(p,PHASE6_RULES.eagleDamage)>0)
-          this.emit('eagleHit',{x:p.x,player:p.id});
-      }
+      if(!eagle.secondDone&&eagle.age>=secondImpact){eagle.secondDone=true;strike(eagle.target2);eagle.target=null;}
     }
-    this.eagles=this.eagles.filter(eagle=>eagle.age<eagle.start+eagle.life);
+    this.eagles=this.eagles.filter(eagle=>eagle.age<eagle.life);
     for(const patch of this.quicksand){
       patch.age+=dt;
       const p=this.players[patch.owner],d=distance(p,patch);
@@ -772,13 +777,19 @@ export class Match {
         tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
         if(distance(p,mapThreat)<(mapThreat.dx?60:33)&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
       }
-      const eagle=this.eagles.find(h=>h.owner===1&&h.targeted&&!h.hit&&h.age-h.start>h.warning-.65&&distance(p,h)<70);
+      const eagle=this.eagles.find(h=>h.owner===1&&h.target&&(
+        h.target===h.target1?h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.65:
+          h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.dive-.65)&&distance(p,h.target)<70);
       const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<75&&Math.abs(h.x-p.x)<190);
       const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.start&&distance(p,h)<55);
       const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<65);
       const lateral=avalanche;
       if(lateral){ty=p.y+(p.y>=lateral.y?100:-100);if(distance(p,lateral)<54)this.dodge(p,p.x-lateral.x,p.y-lateral.y);}
-      if(eagle){tx=p.x+(p.x>=eagle.x?90:-90);ty=p.y+(p.y>=eagle.y?75:-75);if(eagle.age-eagle.start>eagle.warning-.22&&distance(p,eagle)<41)this.dodge(p,p.x-eagle.x,p.y-eagle.y);}
+      if(eagle){
+        const impact=eagle.target===eagle.target1?EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive:EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover;
+        tx=p.x+(p.x>=eagle.target.x?90:-90);ty=p.y+(p.y>=eagle.target.y?75:-75);
+        if(eagle.age>impact-.22&&distance(p,eagle.target)<41)this.dodge(p,p.x-eagle.target.x,p.y-eagle.target.y);
+      }
       if(hail||sand){const threat=hail||sand;tx=p.x+(p.x>=threat.x?95:-95);ty=p.y+(p.y>=threat.y?65:-65);if(hail&&distance(p,hail)<30&&hail.age>hail.warning-.25)this.dodge(p,p.x-hail.x,p.y-hail.y);}
       this.aiTarget={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
       const crates=this.obstacles.filter(o=>o.owner===1&&o.type!=='barrel'&&!o.destroyed);
