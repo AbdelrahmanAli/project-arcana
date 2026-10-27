@@ -2,6 +2,7 @@
 
 ## Storm hazard refinement — 2026-10-27
 
+- Entering a tornado's active pull now emits one short wind-tug sound cue. It does not repeat each frame; leaving and re-entering or ending a dodge inside the pull can cue again. The sound uses the existing Howler mute and pause controls.
 - The tornado pulls from a 118-unit radius, up from 82. Pull strength rises toward its center. The computer begins avoiding it farther away, and the warning shows broken wind arcs around the expanded reach.
 - A new model test checks a meaningful pull near the outer edge, no pull beyond the radius, and no pull during a dodge. The full suite now has 68 passing tests.
 - The lightning strike plays six distinct pixel-art frames with a fixed impact point instead of blinking one still image. The generated sheet is 6 × 112 × 195 pixels per frame.

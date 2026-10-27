@@ -165,8 +165,13 @@ test('tornado pulls from farther away with enough force while dodge avoids the p
   m.updateEnvironment(.05);
   assert.ok(HAZARD_RULES.tornadoPullRadius>=115);
   assert.ok(p.x-110>5,'pull should be noticeably stronger near the outer edge');
+  assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,1,'one cue starts the pull');
+  m.events=[];m.updateEnvironment(.05);
+  assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,0,'staying in range does not repeat the cue');
   p.x=80;m.updateEnvironment(.05);assert.equal(p.x,80,'outside pull range remains safe');
-  p.x=110;p.dodgeTime=.3;m.updateEnvironment(.05);assert.equal(p.x,110,'a roll resists the vortex pull');
+  p.x=130;p.dodgeTime=.3;m.updateEnvironment(.05);assert.equal(p.x,130,'a roll resists the vortex pull');
+  p.dodgeTime=0;m.updateEnvironment(.05);
+  assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,1,'re-entering after a roll cues again');
 });
 
 test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>{

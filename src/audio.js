@@ -111,6 +111,17 @@ function weatherWav(kind){
     return kind==='rain'?(mid*.26+white*.09+low*.12)*edge*.55:(low*.65+mid*.12)*edge*.42;
   });
 }
+function tornadoWindWav(pull=false){
+  const duration=pull?.55:1.15;let seed=pull?7193:10457,low=0,mid=0;
+  return pcmWav(duration,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    low=low*.88+white*.12;mid=mid*.56+white*.44;
+    const envelope=pull?Math.min(1,t/.025)*Math.exp(-t*4.3):Math.sin(Math.PI*t/duration)**.7;
+    const whine=Math.sin(2*Math.PI*(pull?105*t+145*t*t:72*t+35*t*t));
+    return (low*.58+mid*.19+whine*(pull?.17:.08))*envelope*.72;
+  });
+}
 export class Sound {
   constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;}
   init(){
@@ -139,7 +150,8 @@ export class Sound {
     this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});
     this.clips.lightningCharge=new Howl({src:[wav(.43,620,.3,4)],format:['wav'],volume:.12,preload:true});
     this.clips.lightningStrike=new Howl({src:[wav(.68,63,.95,5)],format:['wav'],volume:.34,preload:true});
-    this.clips.tornado=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.2,preload:true});
+    this.clips.tornado=new Howl({src:[tornadoWindWav()],format:['wav'],volume:.16,preload:true});
+    this.clips.tornadoPull=new Howl({src:[tornadoWindWav(true)],format:['wav'],volume:.31,preload:true,pool:4});
     this.clips.ash=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.12,preload:true});
     this.clips.volcanoRockLaunch=new Howl({src:[wav(.45,93,.75,5)],format:['wav'],volume:.21,preload:true});
     this.clips.volcanoFireLaunch=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.2,preload:true});
