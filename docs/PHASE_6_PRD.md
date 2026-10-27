@@ -53,17 +53,17 @@ Warm yellow sand covers both level banks. Dry stone and mountain faces close the
 
 ### Eagle swoop
 
-- Each bank has a visible off-playfield perch or arrival point. An eagle takes flight, and a moving ground shadow traces the path it will swoop over before the bird reaches it. The source, shadow, dive, strike, and departure form one continuous animation.
-- The eagle is **non-shootable** and does not block shots. A fighter can move out of the shadow path or dodge through the attack with existing invincibility frames. One pass can hit a fighter at most once.
-- Schedule equivalent swoops on both banks. Paths and target positions may vary independently but use the same warning, speed, hit radius, and damage. The computer reacts to the moving shadow rather than an invisible future hit.
+- Each bank receives a dive from above. A broad circular shadow marks the locked landing point and shrinks as the eagle approaches; the eagle strikes the final shadow circle, then climbs away.
+- The eagle is **non-shootable** and does not block shots. A fighter can move outside the shrinking shadow or dodge through the attack with existing invincibility frames. One dive can hit a fighter at most once.
+- Schedule equivalent dives on both banks. Target positions may vary independently but use the same warning, speed, hit radius, and damage. The computer reacts to the visible shrinking shadow.
 - **Initial tuning proposal:** roughly 1 second of shadow warning and 10–12 HP on a direct hit, with no lasting stun. Tune for phone reaction time.
 
 ### Quicksand
 
-- A paired event softens one marked patch on each bank. Sand grains spiral inward before the patch starts pulling. Its boundary, active interval, and closing animation remain visible over the yellow ground.
+- A paired event adds one persistent patch to each bank, up to four per side. A patch stays closed on the ground until a fighter steps inside; it opens around them, then closes again when they leave. It does not repeatedly cycle while unoccupied.
 - A fighter inside walks more slowly and is gently drawn toward the center. Quicksand causes **no direct damage** and cannot hold a fighter indefinitely. Reversing movement and a dodge roll both allow escape; dodge distance and invincibility remain intact.
 - Placement avoids solid cover, pickup piles, spawn points at match start, and bank edges where the pull could make an escape route impossible. The computer routes around active quicksand when practical.
-- **Initial tuning proposal:** about 1 second of formation warning and 3 seconds active, with a pull weaker than Storm's tornado. Tune the exact radius and slow by playtesting.
+- **Initial tuning:** slowdown begins on entry, the opening takes about half a second, and the pull remains weaker than Storm's tornado. Tune the exact radius and slow by playtesting.
 
 ### Mirage and scorpion
 
@@ -113,9 +113,9 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 ## Art and sound requirements
 
 - Create original arcade pixel-art arena backgrounds for Desert and Snow at the exact current map geometry. Include separate middle-channel treatments: a deep dry crack and a frozen river. Make outer mountain barriers, cliff/ice edges, Tower base interactions, and passable ground visually consistent with collision.
-- **Desert sprites:** animated blowing-sand layers and edge front; heat shimmer/sunlight pulse; eagle perch, launch, flight, swoop and moving shadow; quicksand opening/spiral/closing; fake pickup shimmer; scorpion emerge, tail windup, strike and burrow; dust and impact traces. The eagle and scorpion should be readable at soldier scale.
+- **Desert sprites:** animated blowing-sand layers with an uneven edge; heat shimmer/sunlight pulse; eagle descent, strike and climb with a shrinking circular shadow; persistent quicksand with occupied opening and closing; full-size fake pickup shimmer; scorpion emerge, tail windup, strike and burrow; dust and impact traces. The eagle and scorpion should be readable at soldier scale.
 - **Snow sprites:** falling snow layers, ice patch with movement feedback, avalanche leading edge/body/retreat and powder, hail cloud, falling pellet/impact/shatter, and frosted Tower/ice aperture details.
-- Create **dedicated sprite sheets** for every major Phase 6 hazard and transition: the eagle's takeoff, wingbeats, dive and departure; quicksand forming, pulling and closing; mirage shimmer and scorpion emergence, windup, strike and burrow; the sandstorm's moving front and body; ice sliding feedback; avalanche approach and sweep; and hail descent, impact and shatter. Ambient snowfall and heat shimmer may combine sprite sheets with lightweight particles or shaders, but cannot replace the key hazard animations with a single still image.
+- Create **dedicated sprite sheets** for every major Phase 6 hazard and transition: the eagle's wingbeats, descent, strike and departure; quicksand opening while occupied and closing afterward; mirage shimmer and scorpion emergence, windup, strike and burrow; the sandstorm's moving uneven front and body; ice sliding feedback; avalanche approach and sweep; and hail descent, impact and shatter. Ambient snowfall and heat shimmer may combine sprite sheets with lightweight particles or shaders, but cannot replace the key hazard animations with a single still image.
 - Store the original art, final sheets, frame dimensions, and reproducible preparation scripts in the repository. Keep fighters, Tower, weapons, and hazards separate from static arena backgrounds. Each frame must have a stable anchor, scale, and transparent edge; the eagle shadow, scorpion strike, avalanche front, and hail impact must stay aligned with their simulation hit areas.
 - **Smooth animation is a release requirement.** Adjacent frames must show meaningful motion; looping sheets must join cleanly; takeoff, travel, impact, retreat, and idle transitions must not pop, teleport, change size, or detach from their shadows or ground marks. Drive frame selection from game time so pause freezes animation and different frame rates do not change hazard timing. Inspect at phone size during motion, including slower devices; simplify particles before sacrificing the readability of the sprite animation.
 - Add restrained, distinct Howler sounds for eagle wings/cry, sandstorm, quicksand, sunlight/mirage cue, scorpion strike, ice slide, avalanche, and hail. Sounds respect mute, pause, and game over; ambient loops stay below weapon and Tower cues.
@@ -135,7 +135,7 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 1. Desert, Snow, and Random Map appear in Choose Map; all four weapon modes, replay, pause, and menu return work on both new maps.
 2. Both banks remain equal and fully usable. The Desert crack and frozen river are impassable, while outer boundaries match their mountain/ice art. The Tower remains centered and its shield, launches, retaliation, and projectiles remain correct.
 3. A sandstorm enters from a screen edge, travels across both banks, obscures the world as a top-layer effect, then exits. Controls and essential health feedback remain usable; the computer cannot aim perfectly through dense sand.
-4. Eagles show a perch/arrival and moving shadow before a dodgeable swoop. Neither eagle nor scorpion can be hit by any weapon or explosion, and neither blocks a shot.
+4. Eagles descend from above toward a shrinking circular shadow before a dodgeable strike. Neither eagle nor scorpion can be hit by any weapon or explosion, and neither blocks a shot.
 5. Quicksand clearly forms, pulls and slows without damage, permits escape and dodge, and never traps a fighter against cover or a bank boundary.
 6. Sunlight intensifies before mirages appear. A fake weapon or syringe lures either fighter, does not grant ammo or healing, and reveals a dodgeable scorpion strike. A bite deals 8 HP and a short slow; fixed-mode fakes show the correct weapon. The computer can be fooled under the same rules.
 7. Snowfall, ice, avalanche, and hail are visually distinct. Ice produces brief controllable sliding; avalanche warns, sweeps, pushes, and respects collision; hail falls from a visible cloud onto clear marked sites with bounded damage.

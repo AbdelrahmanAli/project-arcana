@@ -437,34 +437,45 @@ function renderPhase6Environment(){
       const cloud=sandstormSprites[i];cloud.visible=!!storm;
       if(storm){cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+i*.28,8,6)];cloud.position.set(W*(i+.5)/3,storm.y+(i%2?28:-18));cloud.width=W*.53;cloud.height=210;cloud.alpha=.64+Math.sin(storm.age*5+i)*.08;}
     }
-    if(storm)phase6WeatherDraw.rect(0,Math.max(0,storm.y-95),W,190).fill({color:0xad8a59,alpha:.18});
+    if(storm)for(let i=0;i<9;i++){
+      const drift=Math.sin(storm.age*2.1+i*1.7)*13;
+      const x=(i+.5)*W/9+Math.sin(storm.age*.9+i)*11;
+      const y=storm.y+(i%3-1)*35+drift;
+      phase6WeatherDraw.ellipse(x,y,43+i%3*12,36+i%4*9).fill({color:0xb78b52,alpha:.06});
+    }
     for(const patch of game.quicksand){
-      const frame=patch.age<patch.warning?0:patch.age>patch.life-.8?3:1+Math.floor(patch.age*7)%2;
-      sprite(`sand-${patch.id}`,phase6Frames.quicksand,hazardLayer,patch.x,patch.y,patch.radius*2.5,patch.radius*1.75,frame,patch.age<patch.warning?.78:1);
+      const blend=patch.open*2,step=Math.min(1,Math.floor(blend)),fraction=blend-step;
+      const frames=[3,1,2],width=patch.radius*2.5,height=patch.radius*1.75;
+      sprite(`sand-${patch.id}`,phase6Frames.quicksand,hazardLayer,patch.x,patch.y,width,height,frames[step],1-fraction);
+      if(fraction>.01)sprite(`sand-transition-${patch.id}`,phase6Frames.quicksand,hazardLayer,patch.x,patch.y,width,height,frames[step+1],fraction);
     }
     for(const eagle of game.eagles){
-      if(eagle.age<eagle.warning){
-        environmentGround.moveTo(eagle.direction>0?0:W,eagle.y).lineTo(eagle.direction>0?W:0,eagle.y).stroke({color:0xa27644,width:2,alpha:.26+.12*Math.sin(game.time*13)});
-        const shadowX=eagle.direction>0?eagle.age/eagle.warning*W:W-eagle.age/eagle.warning*W;
-        environmentGround.ellipse(shadowX,eagle.y,23,9).fill({color:0x1c1910,alpha:.17+.16*eagle.age/eagle.warning});
-        sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,eagle.direction>0?30:W-30,eagle.y-55,55,49,0,.65+.35*eagle.age/eagle.warning);
-        continue;
+      const approach=Math.min(1,eagle.age/eagle.warning),depart=Math.max(0,(eagle.age-eagle.warning)/(eagle.life-eagle.warning));
+      const radius=61-32*approach,shadowFade=1-depart;
+      for(let ring=0;ring<4;ring++)environmentGround.ellipse(eagle.x,eagle.y,radius*(1-ring*.15),radius*(1-ring*.15)*.68)
+        .fill({color:0x17130b,alpha:(.09+approach*.06)*shadowFade});
+      environmentGround.ellipse(eagle.x,eagle.y,radius,radius*.68).stroke({color:0x422b17,width:1.5,alpha:(.2+approach*.3)*shadowFade});
+      if(approach>.7&&depart===0)for(let n=0;n<5;n++){
+        const angle=n*1.25+eagle.id;
+        circle(environmentGround,eagle.x+Math.cos(angle)*radius*.86,eagle.y+Math.sin(angle)*radius*.57,1.5,0xe6b96d,(approach-.7)*1.6);
       }
-      environmentGround.ellipse(eagle.x,eagle.y,25,10).fill({color:0x1c1910,alpha:.35});
-      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,eagle.x,eagle.y-39,68,59,sheetLoop(eagle.age-eagle.warning,12,6));
-      bird.scale.x=Math.abs(bird.scale.x)*(eagle.direction>0?1:-1);
+      const flightX=eagle.x-28*(1-approach)+Math.sin(approach*Math.PI)*21+depart*58;
+      const flightY=eagle.y-24-135*(1-approach)-depart*115;
+      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,flightX,flightY,(36+52*approach)*(1-depart*.45),(34+51*approach)*(1-depart*.45),sheetLoop(eagle.age,12,6),Math.min(1,.48+approach*.52)*(1-depart*.75));
+      bird.rotation=Math.sin(approach*Math.PI)*.12+depart*.3;
     }
     for(const lure of game.mirages){
       if(lure.state==='sun'){
         phase6WeatherDraw.rect(0,0,W,H).fill({color:0xffd56d,alpha:.075+.065*Math.sin(lure.age*9)});
         environmentGround.ellipse(lure.x,lure.y,36,17).stroke({color:0xffe79a,width:2,alpha:.45+.35*Math.sin(game.time*8)});
       }else if(lure.state==='lure'){
-        sprite(`mirage-${lure.id}`,phase6Frames.mirage,hazardLayer,lure.x,lure.y,58,55,sheetLoop(game.time,8,4),.65);
+        sprite(`mirage-${lure.id}`,phase6Frames.mirage,hazardLayer,lure.x,lure.y,86,66,sheetLoop(game.time,8,4),.65);
         const art=lure.type==='syringe'?syringeTexture:lure.type==='laser'?laserTexture:lure.type==='grenade'?stunLauncherTexture:lure.type==='missile'?missileLauncherTexture:lure.type==='nuclear'?nuclearLauncherTexture:textures[WEAPONS[lure.type].frame];
-        sprite(`bait-${lure.id}`,[art],obstacleLayer,lure.x,lure.y-7,42,26,0,.65+.25*Math.sin(game.time*7)).zIndex=lure.y-8;
+        const size=lure.type==='syringe'?[68,47,6]:lure.type==='laser'?[66,27,4]:lure.type==='missile'?[58,29,7]:lure.type==='grenade'?[56,37,7]:lure.type==='nuclear'?[60,40,7]:[62,62,0];
+        sprite(`bait-${lure.id}`,[art],obstacleLayer,lure.x,lure.y-size[2]+Math.sin(game.time*3+lure.id)*2,size[0],size[1],0,.67+.22*Math.sin(game.time*7)).zIndex=lure.y+19;
       }else{
         const frame=lure.state==='strike'?Math.min(4,Math.floor(lure.strikeAge*14)):5;
-        sprite(`scorpion-${lure.id}`,phase6Frames.scorpion,obstacleLayer,lure.x,lure.y,58,58,frame,lure.state==='retreat'?Math.max(0,1-lure.strikeAge/.6):1).zIndex=lure.y+2;
+        sprite(`scorpion-${lure.id}`,phase6Frames.scorpion,obstacleLayer,lure.x,lure.y,90,86,frame,lure.state==='retreat'?Math.max(0,1-lure.strikeAge/.6):1).zIndex=lure.y+19;
       }
     }
   }else{

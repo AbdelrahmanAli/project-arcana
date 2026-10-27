@@ -4,9 +4,9 @@ The original generated images are in `docs/art-source/phase6/`. The game loads t
 
 | Runtime asset | Frames | Cell size | Use |
 | --- | ---: | ---: | --- |
-| `eagle-frames.png` | 6 | 128 × 128 | Perch, flight and swoop |
+| `eagle-frames.png` | 6 | 128 × 128 | Descent, wingbeats, strike and climb |
 | `scorpion-frames.png` | 6 | 128 × 128 | Emerge, windup, strike and retreat |
-| `quicksand-frames.png` | 4 | 128 × 96 | Opening, swirling and closing |
+| `quicksand-frames.png` | 4 | 128 × 96 | Persistent closed patch, opening and active pit |
 | `sandstorm-frames.png` | 6 | 480 × 164 | Moving sand front and body |
 | `mirage-frames.png` | 4 | 64 × 64 | Heat shimmer under fake pickup |
 | `ice-patch-frames.png` | 4 | 128 × 88 | Icy glint and slide surface |

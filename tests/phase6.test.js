@@ -26,11 +26,32 @@ test('Desert cycle pairs each hazard and fixed mirages use the match weapon',()=
 
 test('quicksand slows but dodge still moves and eagle contact respects invincibility',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
-  m.quicksand=[{id:99,owner:0,x:p.x,y:p.y,age:1.5,warning:1,life:5,radius:38}];
+  m.quicksand=[{id:99,owner:0,x:p.x,y:p.y,age:1.5,open:0,occupied:false,radius:38}];
   const x=p.x;m.move(p,1,0,.1);assert.ok(p.x-x<12);
   assert.equal(m.dodge(p,1,0),true);const next=p.x;m.move(p,1,0,.1);assert.ok(p.x-next>12);
-  m.eagles=[{id:100,owner:0,x:p.x,y:p.y,direction:1,age:1.5,warning:1,life:4,hit:false}];
+  m.eagles=[{id:100,owner:0,x:p.x,y:p.y,age:PHASE6_RULES.eagleWarning-.005,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false}];
   const hp=p.hp;m.updateEnvironment(1/120);assert.equal(p.hp,hp);
+});
+
+test('eagle dives at a locked shadow circle and hits only once',()=>{
+  const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
+  m.eagles=[{id:100,owner:0,x:p.x,y:p.y,age:PHASE6_RULES.eagleWarning-.01,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false}];
+  m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
+  m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
+  const second={id:101,owner:0,x:p.x+100,y:p.y,age:PHASE6_RULES.eagleWarning-.01,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false};
+  m.eagles=[second];m.updateEnvironment(.02);assert.equal(p.hp,100-PHASE6_RULES.eagleDamage);
+});
+
+test('quicksand remains after the fighter leaves and closes without cycling',()=>{
+  const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
+  m.quicksand=[{id:1,owner:0,x:p.x,y:p.y,age:0,open:0,occupied:false,radius:38}];
+  for(let i=0;i<65;i++)m.updateEnvironment(1/120);
+  assert.ok(m.quicksand[0].open>.9);
+  p.x+=90;
+  for(let i=0;i<120;i++)m.updateEnvironment(1/120);
+  assert.equal(m.quicksand.length,1);assert.equal(m.quicksand[0].open,0);
+  for(let i=0;i<600;i++)m.updateEnvironment(1/120);
+  assert.equal(m.quicksand[0].open,0);
 });
 
 test('scorpion bite has a windup and can be dodged',()=>{
