@@ -45,7 +45,7 @@ A rainy night beside the river, lit by moonlight. Rain moves continuously across
 ### Mud
 
 - Rain creates mud at predefined, mirrored ground sites. The proposed implementation starts with a few patches and introduces additional patches gradually, up to a fixed coverage cap. Mud must not spread without limit or consume a complete firing lane.
-- Mud slows **walking** while a fighter stands on it. It does not deal damage, change shot velocity, or shorten a dodge roll. Proposed initial slow: **25%**; tune after phone playtests.
+- Mud slows **walking** while a fighter stands on it. It does not deal damage, change shot velocity, or shorten a dodge roll. Current slow: **45%**, increased after the first visual review; tune after phone playtests.
 - Patches have clear edges and wet footprints/splashes so a player can tell when the slowdown starts and ends. Cover and pickups remain visible over mud.
 - **Open design choice:** Growing existing patches instead of adding new ones is acceptable if it reads better in motion. Either approach must keep a coverage cap and at least one clear route on each bank.
 
@@ -67,7 +67,7 @@ A rainy night beside the river, lit by moonlight. Rain moves continuously across
 
 ### Visual setting
 
-The central channel contains animated magma instead of water. The Tower still rises from its central base and throws weapons over both banks; the base and surrounding effects need magma-specific art so the interaction looks physically coherent. A volcanic source is visible as part of the arena's background or edge art, and projectile arcs clearly originate from it. Rocks, fire, and ash are distinct from the Tower's own fire retaliation.
+The central channel contains animated magma instead of water. The Tower still rises from its central base and throws weapons over both banks; the base and surrounding effects need magma-specific art so the interaction looks physically coherent. Two volcanic vents are visible, one on each side of the Tower. Paired projectiles arc from the corresponding vent. Rocks, lava, and ash are distinct from the Tower's own fire retaliation.
 
 ### Volcanic rocks
 
@@ -83,7 +83,7 @@ The central channel contains animated magma instead of water. The Tower still ri
 
 ### Ash cloud
 
-- A dense ash front travels across **both banks in the same event**, reducing distant visibility until it passes. Fighters retain a small readable area around themselves for movement. Opponents and distant pickups inside dense ash may be concealed.
+- Ash plumes rise from both volcanic vents and drift over **part of each bank in the same event**, reducing distant visibility until they pass. Fighters retain a small readable area around themselves for movement. Opponents and distant pickups inside dense ash may be concealed.
 - Ash does not cause damage or slow movement. Health bars, controls, own fighter, hazard landing markers, and imminent projectile indicators remain visible above it. Paired bank visibility must be equivalent.
 - New rock and fire volleys pause during the cloud's densest interval. Telegraphs already in progress resolve visibly. Ash recedes with a clear animation rather than switching off instantly.
 

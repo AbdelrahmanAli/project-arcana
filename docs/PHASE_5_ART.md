@@ -8,7 +8,12 @@ The arena and hazard sprites were created with the built-in imagegen tool. The t
 | `arena-magma.webp` | Edit of `arena.png`; source `docs/art-source/phase5/arena-magma.png` | Preserve exact arena geometry; replace river with flowing orange-red magma and banks with heat-lit volcanic stone, keeping open combat space and character contrast. No characters, Tower, UI, or active hazards. |
 | `phase5-mud.png` | Generated transparent sprite | Irregular rain-soaked mud and shallow puddle decal, wider than tall, with wet blue moonlight reflections and footprints; avoid a circular shadow or oil-spill look. |
 | `phase5-tornado.png` | Generated transparent sprite | Compact blue-gray twisting rain and dust vortex, slightly angled top-down view, readable at small world scale. |
+| `phase5-tornado-head.png`, `phase5-tornado-funnel.png` | Crops of the original tornado sprite | The upper spiral rotates continuously while the funnel sways over its fixed ground contact point. |
+| `phase5-lightning.png` | Generated transparent sprite | Tall forked white-cyan lightning bolt with a bright branching ground impact, readable at phone scale. |
 | `phase5-volcanic-rock.png` | Generated transparent sprite | Angular dark basalt solid-cover boulder with glowing magma seams, slightly angled top-down view. |
 | `phase5-volcano-vent.png` | Generated transparent sprite | Low volcanic crater mouth with jagged black basalt rim and bright molten center, viewed from above, for the magma channel edge. |
+| `phase5-ash-cloud.png` | Generated transparent sprite | Broad irregular charcoal volcanic smoke cloud with subtle ember glints, drifting from each vent over part of its bank. |
+| `phase5-lava-projectile.png` | Generated transparent sprite | Compact airborne molten glob with a bright core, cooling crust, and a short droplet trail. |
+| `phase5-lava-pool.png` | Generated transparent sprite | Wide flat lava splash with liquid orange core, dark crust rim, and small flame tongues, distinct from Tower flame strips. |
 
-All prompts requested crisp 1990s arcade pixel art, no text or watermark, and transparent backgrounds for isolated sprites. Rain, lightning, fire, and ash animations use project-native Pixi graphics and the existing flame sprite sheet so their timing and landing positions stay tied to simulation state.
+All prompts requested crisp 1990s arcade pixel art, no text or watermark, and transparent backgrounds for isolated sprites. Pixi animates the lightning sprite's strike and glow, separately rotates the tornado spiral above its funnel, and moves ash and lava sprites along simulation-controlled paths. The original full-size images are in `docs/art-source/phase5/`; `scripts/prepare-phase5-sprites.ps1` creates the smaller game sprites.

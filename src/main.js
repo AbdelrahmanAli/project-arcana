@@ -17,7 +17,7 @@ let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSID
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
-let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVent,volcanicRockTexture,tornadoTexture,mudTexture,mudLayer,environmentGround,environmentSky,ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoHeadTexture,tornadoFunnelTexture,mudTexture,lightningTexture,ashCloudTexture,lavaProjectileTexture,lavaPoolTexture,mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -173,7 +173,7 @@ function clearInput(){
   input.x=0;input.y=0;input.pistol=false;input.special=false;input.dodge=false;game.players[0].charge=0;
   $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
 }
-function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy();map.clear();}
+function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
 const menuPanels=['menu-home','mode-panel','weapon-panel','map-panel','deal-panel','settings-panel'];
 let dealTimer=null,dealRun=0;
 function cancelDealAnimation(){
@@ -233,7 +233,7 @@ function configureArena(){
   for(const [map,group] of Object.entries(arenaGroups))group.visible=map===game.map;
   waterTile=waterTiles[game.map];
   if(farBarrier)farBarrier.tint=nearBarrier.tint=game.map===MAPS.STORM?0x8bacc2:game.map===MAPS.MAGMA?0xc78e78:0xffffff;
-  if(volcanoVent)volcanoVent.visible=game.map===MAPS.MAGMA;
+  for(const vent of volcanoVents)vent.visible=game.map===MAPS.MAGMA;
 }
 function prepareMatch(){
   cancelDealAnimation();
@@ -244,7 +244,7 @@ function prepareMatch(){
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,volcanicFireSprites,mudSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites])clearSpriteMap(map);
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;$('opponent-toast').style.opacity=0;$('opponent-toast').dataset.until='0';
   updateHud();app.ticker.start();
@@ -397,7 +397,8 @@ function updateHud(){
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
   hud.style.setProperty('--hud-scale',scale);
   hud.style.left=`${Math.max(44,Math.min(W-44,enemy.x))/W*100}%`;hud.style.top=`${(enemy.y-30)/H*100}%`;
-  const ashConcealsEnemy=game.map===MAPS.MAGMA&&game.ash&&game.ash.age>1&&game.ash.age<game.ash.life-1&&Math.hypot(p.x-enemy.x,p.y-enemy.y)>95;
+  const ashConcealsEnemy=game.map===MAPS.MAGMA&&Math.hypot(p.x-enemy.x,p.y-enemy.y)>95&&ashCloudVisuals(game.ash).some(cloud=>
+    cloud.owner===enemy.id&&cloud.alpha>.42&&((enemy.x-cloud.x)/(cloud.width*.45))**2+((enemy.y-cloud.y)/(cloud.height*.45))**2<1);
   hud.style.display=enemy.hp>0&&!ashConcealsEnemy?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}${enemyWeapon==='laser'&&enemy.charge>0?`, charging ${Math.round(enemy.charge*100)} percent`:''}`);
@@ -413,8 +414,22 @@ function updateHud(){
   else clearWeaponIconFit(badge.firstElementChild);
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
 }
+function ashCloudVisuals(ash){
+  if(!ash)return [];
+  const clouds=[],fade=Math.max(0,Math.min(1,ash.age/1.15,(ash.life-ash.age)/1.1));
+  for(const owner of [0,1])for(let index=0;index<3;index++){
+    const local=Math.max(0,Math.min(1,(ash.age-index*.42)/3.6));
+    if(local<=0)continue;
+    const progress=1-(1-local)**2,side=owner===0?1:-1,scale=index===0?1:index===1?.83:.69;
+    clouds.push({owner,index,x:owner===0?48+progress*(105+index*26):W-48-progress*(105+index*26),
+      y:RIVER.y+side*progress*(195+index*14),width:(58+148*local)*scale,height:(30+80*local)*scale,
+      alpha:fade*Math.min(1,(ash.age-index*.42)*1.5)*(index===0?.82:.65)});
+  }
+  return clouds;
+}
 function renderEnvironment(){
-  environmentGround.clear();environmentSky.clear();ashSoldier.visible=false;
+  environmentGround.clear();environmentSky.clear();ashWarningDraw.clear();ashSoldier.visible=false;
+  for(const puff of [...ashPuffs,...ashVentPuffs])puff.visible=false;
   if(game.map===MAPS.RIVERSIDE)return;
   if(game.map===MAPS.STORM){
     const liveMud=new Set();
@@ -426,12 +441,16 @@ function renderEnvironment(){
       environmentGround.ellipse(patch.x,patch.y,patch.radius*1.2,patch.radius*.82).stroke({color:0x8caeb7,width:1,alpha:.24+.07*Math.sin(game.time*3+patch.id)});
     }
     for(const [id,sprite] of mudSprites)if(!liveMud.has(id)){sprite.destroy();mudSprites.delete(id);}
+    const liveLightning=new Set();
     for(const strike of game.lightning){
       if(strike.hit){
-        const fade=Math.max(0,(strike.life-strike.age)/.45);
-        environmentSky.moveTo(strike.x-25,strike.y-126).lineTo(strike.x+8,strike.y-70).lineTo(strike.x-3,strike.y-70).lineTo(strike.x+20,strike.y).stroke({color:0xb5edff,width:8,alpha:fade*.65});
-        environmentSky.moveTo(strike.x-25,strike.y-126).lineTo(strike.x+8,strike.y-70).lineTo(strike.x-3,strike.y-70).lineTo(strike.x+20,strike.y).stroke({color:0xffffff,width:3,alpha:fade});
-        circle(environmentSky,strike.x,strike.y,22,0xa5deff,fade*.23);
+        liveLightning.add(strike.id);
+        const fade=Math.max(0,Math.min(1,(strike.life-strike.age)/.24));
+        let bolt=lightningSprites.get(strike.id);
+        if(!bolt){bolt=new Sprite(lightningTexture);bolt.anchor.set(.5,1);lightningLayer.addChild(bolt);lightningSprites.set(strike.id,bolt);}
+        bolt.position.set(strike.x,strike.y+12);bolt.width=127+8*Math.sin(game.time*37+strike.id);bolt.height=195;
+        bolt.alpha=fade*(.84+.15*Math.sin(game.time*49+strike.id));bolt.rotation=Math.sin(game.time*29+strike.id)*.035;
+        circle(environmentSky,strike.x,strike.y,30,0xa5deff,fade*.3);
       }else{
         const pulse=.55+.35*Math.sin(game.time*17+strike.id);
         environmentGround.ellipse(strike.x,strike.y,40,29).fill({color:0x16477a,alpha:.25*pulse}).stroke({color:0x9fdbff,width:3,alpha:.75*pulse});
@@ -439,6 +458,7 @@ function renderEnvironment(){
         for(let n=0;n<5;n++){const a=n*1.26+game.time*2;circle(environmentGround,strike.x+Math.cos(a)*37,strike.y+Math.sin(a)*27,2,0xd3f5ff,pulse);}
       }
     }
+    for(const [id,sprite] of lightningSprites)if(!liveLightning.has(id)){sprite.destroy();lightningSprites.delete(id);}
     const live=new Set();
     for(const vortex of game.tornadoes){
       live.add(vortex.id);
@@ -446,10 +466,18 @@ function renderEnvironment(){
       environmentGround.ellipse(vortex.x,vortex.y,warning?50:62,warning?27:35).stroke({color:0x9cb9c5,width:warning?2:3,alpha:warning?.4:.6});
       if(warning)continue;
       let sprite=tornadoSprites.get(vortex.id);
-      if(!sprite){sprite=new Sprite(tornadoTexture);sprite.anchor.set(.5,.82);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);}
-      sprite.width=85;sprite.height=91;sprite.position.set(vortex.x,vortex.y+8);sprite.rotation=Math.sin(game.time*6+vortex.id)*.06;sprite.alpha=Math.min(1,(vortex.age-vortex.warning)*3,(vortex.life-vortex.age)*2);sprite.zIndex=vortex.y+32;
+      if(!sprite){
+        sprite=new Container();
+        const funnel=new Sprite(tornadoFunnelTexture),head=new Sprite(tornadoHeadTexture);
+        funnel.anchor.set(.5,1);funnel.width=49;funnel.height=68;funnel.position.set(0,21);
+        head.anchor.set(.5);head.width=88;head.height=57;head.position.set(0,-43);
+        sprite.addChild(funnel,head);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);
+      }
+      sprite.position.set(vortex.x,vortex.y+8);sprite.alpha=Math.min(1,(vortex.age-vortex.warning)*3,(vortex.life-vortex.age)*2);sprite.zIndex=vortex.y+32;
+      sprite.children[0].x=Math.sin(game.time*7+vortex.id)*2;
+      sprite.children[1].rotation=game.time*4.8+vortex.id*.7;
     }
-    for(const [id,sprite] of tornadoSprites)if(!live.has(id)){sprite.destroy();tornadoSprites.delete(id);}
+    for(const [id,sprite] of tornadoSprites)if(!live.has(id)){sprite.destroy({children:true});tornadoSprites.delete(id);}
     for(let i=0;i<47;i++){
       const x=(i*79+game.time*95)%(W+100)-50,y=(i*157+game.time*280)%(H+70)-35;
       environmentSky.moveTo(x,y).lineTo(x-5,y+18).stroke({color:0xa6c8d5,width:i%4===0?1.2:.7,alpha:i%3===0?.24:.13});
@@ -465,26 +493,29 @@ function renderEnvironment(){
     let sprite=rockFlightSprites.get(rock.id);
     if(!sprite){sprite=new Sprite(volcanicRockTexture);sprite.anchor.set(.5);aerialSpriteLayer.addChild(sprite);rockFlightSprites.set(rock.id,sprite);}
     sprite.width=30+k*27;sprite.height=30+k*27;
-    sprite.position.set(48+(rock.x-48)*k,RIVER.y+(rock.y-RIVER.y)*k-Math.sin(k*Math.PI)*130);
+    const sourceX=rock.owner===0?48:W-48;
+    sprite.position.set(sourceX+(rock.x-sourceX)*k,RIVER.y+(rock.y-RIVER.y)*k-Math.sin(k*Math.PI)*130);
     sprite.rotation=k*1.5;sprite.alpha=Math.min(1,.5+k);
   }
   for(const [id,sprite] of rockFlightSprites)if(!liveRocks.has(id)){sprite.destroy();rockFlightSprites.delete(id);}
   for(const fire of game.volcanicFire){
     liveFire.add(fire.id);
     let sprite=volcanicFireSprites.get(fire.id);
-    if(!sprite){sprite=new Sprite(flameFrames[0]);sprite.anchor.set(.5,.8);volcanicFireSprites.set(fire.id,sprite);}
+    if(!sprite){sprite=new Sprite(lavaProjectileTexture);sprite.anchor.set(.5);volcanicFireSprites.set(fire.id,sprite);}
     const k=Math.min(1,fire.age/fire.warning);
     if(!fire.hit){
       environmentGround.ellipse(fire.x,fire.y,35,24).fill({color:0x9d200b,alpha:.16}).stroke({color:0xff6132,width:3,alpha:.7+.2*Math.sin(game.time*16)});
       if(sprite.parent!==aerialSpriteLayer)aerialSpriteLayer.addChild(sprite);
-      const fx=48+(fire.x-48)*k,fy=RIVER.y+(fire.y-RIVER.y)*k-Math.sin(k*Math.PI)*110;
+      const sourceX=fire.owner===0?48:W-48;
+      const fx=sourceX+(fire.x-sourceX)*k,fy=RIVER.y+(fire.y-RIVER.y)*k-Math.sin(k*Math.PI)*110;
       sprite.position.set(fx,fy);
-      sprite.width=38;sprite.height=52;
-      circle(aerialProjectileDraw,fx,fy-12,6,0xff6a20,.34);
-      circle(aerialProjectileDraw,fx,fy-12,2.7,0xffed9a,.95);
+      sprite.texture=lavaProjectileTexture;sprite.width=37+k*12;sprite.height=42+k*9;sprite.rotation=fire.owner===0?-.18:Math.PI-.18;sprite.alpha=1;
+      circle(aerialProjectileDraw,fx,fy-12,8,0xff6a20,.29);
+      circle(aerialProjectileDraw,fx,fy-12,3,0xffed9a,.8);
     }else{
-      if(sprite.parent!==flameLayer)flameLayer.addChild(sprite);
-      sprite.position.set(fire.x,fire.y+4);sprite.width=78;sprite.height=75;
+      if(sprite.parent!==hazardLayer)hazardLayer.addChild(sprite);
+      sprite.texture=lavaPoolTexture;sprite.rotation=0;sprite.position.set(fire.x,fire.y+3);
+      sprite.width=91+Math.sin(game.time*8+fire.id)*3;sprite.height=49;
       const fade=Math.min(1,(fire.life-fire.age)*1.4);
       environmentGround.ellipse(fire.x,fire.y,35,25).fill({color:0x9e2609,alpha:.37*fade}).stroke({color:0xff7433,width:2,alpha:.8*fade});
       for(let n=0;n<7;n++){
@@ -493,20 +524,27 @@ function renderEnvironment(){
       }
       sprite.alpha=fade;
     }
-    sprite.texture=flameFrames[(Math.floor(game.time*13+fire.id))%flameFrames.length];
   }
   for(const [id,sprite] of volcanicFireSprites)if(!liveFire.has(id)){sprite.destroy();volcanicFireSprites.delete(id);}
   if(game.ash){
-    const {age,life}=game.ash,strength=Math.min(1,age/1.2,(life-age)/1.2);
-    environmentSky.rect(0,0,W,H).fill({color:0x171b21,alpha:.68*strength});
-    for(let i=0;i<13;i++){
-      const x=(i*83+game.time*27)%(W+140)-70,y=(i*157+game.time*17)%(H+100)-50;
-      environmentSky.ellipse(x,y,55+(i%4)*12,20+(i%3)*8).fill({color:i%2?0x77716d:0x4b4b50,alpha:.18*strength});
+    const clouds=ashCloudVisuals(game.ash);
+    const strength=Math.max(0,Math.min(1,game.ash.age/.7,(game.ash.life-game.ash.age)/1.1));
+    for(let owner=0;owner<2;owner++){
+      const sprite=ashVentPuffs[owner];sprite.visible=true;
+      sprite.position.set(owner===0?48:W-48,RIVER.y-20-Math.sin(game.time*2+owner)*4);
+      sprite.width=92+Math.sin(game.time*1.9+owner)*5;sprite.height=53;
+      sprite.alpha=strength*(.38+.08*Math.sin(game.time*3+owner));
+    }
+    for(let i=0;i<clouds.length;i++){
+      const cloud=clouds[i],sprite=ashPuffs[i];sprite.visible=true;
+      sprite.position.set(cloud.x+Math.sin(game.time*1.7+i)*4,cloud.y);
+      sprite.width=cloud.width;sprite.height=cloud.height;sprite.alpha=cloud.alpha;
+      sprite.rotation=Math.sin(game.time*.6+i)*.025;
     }
     const p=game.players[0],source=soldiers[0];
     if(p.hp>0){ashSoldier.visible=true;ashSoldier.texture=source.texture;ashSoldier.position.copyFrom(source.position);ashSoldier.width=source.width;ashSoldier.height=source.height;ashSoldier.tint=source.tint;ashSoldier.alpha=.92;}
     for(const item of [...game.rocksInFlight,...game.volcanicFire])if(!item.hit){
-      environmentSky.ellipse(item.x,item.y,38,26).stroke({color:game.rocksInFlight.includes(item)?0xffc473:0xff6840,width:2.5,alpha:strength*.95});
+      ashWarningDraw.ellipse(item.x,item.y,38,26).stroke({color:game.rocksInFlight.includes(item)?0xffc473:0xff6840,width:2.5,alpha:.9});
     }
   }
 }
@@ -909,12 +947,13 @@ async function boot(){
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  const [stormBg,magmaBg,volcanicRockArt,tornadoArt,ventArt,mudArt]=await Promise.all(
-    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado.png','phase5-volcano-vent.png','phase5-mud.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+  const [stormBg,magmaBg,volcanicRockArt,tornadoHeadArt,tornadoFunnelArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt]=await Promise.all(
+    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-head.png','phase5-tornado-funnel.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning.png','phase5-ash-cloud.png','phase5-lava-projectile.png','phase5-lava-pool.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
-  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoArt,ventArt,mudArt])art.source.scaleMode='nearest';
-  volcanicRockTexture=volcanicRockArt;tornadoTexture=tornadoArt;mudTexture=mudArt;
+  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoHeadArt,tornadoFunnelArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt])art.source.scaleMode='nearest';
+  volcanicRockTexture=volcanicRockArt;tornadoHeadTexture=tornadoHeadArt;tornadoFunnelTexture=tornadoFunnelArt;mudTexture=mudArt;
+  lightningTexture=lightningArt;ashCloudTexture=ashCloudArt;lavaProjectileTexture=lavaProjectileArt;lavaPoolTexture=lavaPoolArt;
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
     const scale=DEATH_ART_SCALES[player][frame];
@@ -948,7 +987,10 @@ async function boot(){
   farBarrier=new Sprite(rockArt);farBarrier.width=W;farBarrier.height=100;
   farBarrier.position.set(0,-32);world.addChild(farBarrier);
   waterTile=waterTiles[MAPS.RIVERSIDE];
-  volcanoVent=new Sprite(ventArt);volcanoVent.anchor.set(.5);volcanoVent.width=105;volcanoVent.height=84;volcanoVent.position.set(48,RIVER.y);volcanoVent.visible=false;world.addChild(volcanoVent);
+  for(const x of [48,W-48]){
+    const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
+    vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
+  }
   waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer,pickupFlightLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
@@ -987,7 +1029,14 @@ async function boot(){
   // The lower wall covers only a fighter's feet at the back edge.
   nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
-  environmentSky=new Graphics();world.addChild(environmentSky);
+  environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();ashWarningDraw=new Graphics();
+  world.addChild(environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw);
+  for(let i=0;i<6;i++){
+    const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashPuffs.push(puff);ashCloudLayer.addChild(puff);
+  }
+  for(let i=0;i<2;i++){
+    const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashVentPuffs.push(puff);ashCloudLayer.addChildAt(puff,0);
+  }
   ashSoldier=new Sprite(textures[0]);ashSoldier.anchor.set(.5);ashSoldier.visible=false;world.addChild(ashSoldier);
   draw=new Graphics();joystickDraw=new Graphics();app.stage.addChild(draw,joystickDraw);
   buildWeaponChoices();

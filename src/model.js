@@ -39,7 +39,7 @@ export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'n
 export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
 export const MAP_TYPES = Object.values(MAPS);
-export const HAZARD_RULES = { mudSlow:.75, lightningDamage:18, tornadoDamage:10, rockDamage:16, volcanicFireDps:12 };
+export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, rockDamage:16, volcanicFireDps:12 };
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -202,7 +202,7 @@ export class Match {
         }
         this.emit('tornado');
       }else{
-        for(const owner of [0,1])this.lightning.push({id:this.id++,owner,...this.environmentalPoint(owner),age:0,warning:1.2,life:1.65,hit:false});
+        for(const owner of [0,1])this.lightning.push({id:this.id++,owner,...this.environmentalPoint(owner),age:0,warning:1.2,life:1.8,hit:false});
         this.emit('lightningCharge');
       }
     }else if(this.map===MAPS.MAGMA){

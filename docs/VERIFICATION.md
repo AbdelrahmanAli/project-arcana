@@ -1,5 +1,13 @@
 # The Tower Deal verification
 
+## Storm and Magma visual refinement — 2026-10-27
+
+- Mud now reduces walking speed by 45%; a model check compares wet and dry movement directly and confirms that dodge distance stays intact.
+- The Storm lightning uses a transparent pixel-art strike sprite with a longer visible flash. The tornado uses a separate spinning spiral and grounded funnel sprite; its warning and pull timing are unchanged.
+- Magma now has two visible volcanic vents. Rocks and lava projectiles arc from the corresponding vent for each bank. A lava projectile becomes a burning ground-pool sprite at its marked landing point.
+- Ash smoke sprites begin at both vents, rise and drift over portions of the banks, and keep a smaller visible plume at their source. Enemy HUD concealment follows the actual dense cloud area.
+- Phone-sized Chrome captures checked the strike, tornado, both vents, airborne lava, burning pool, and traveling ash. No runtime exceptions occurred.
+
 ## Phase 5: Storm and Magma arenas — 2026-10-26
 
 - All 67 model tests pass. New cases cover equal bank geometry, mud movement and dodge distance, paired lightning, rock cover and projectile blocking, volcanic fire, ash timing, overlapping ground damage, and seeded matches on both new maps.
