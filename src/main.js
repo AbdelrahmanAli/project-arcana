@@ -541,15 +541,19 @@ function renderPhase6Environment(){
         wall.scale.y=Math.abs(wall.scale.y)*(avalanche.direction>0?1:-1);
       }
     }
+    const drawnHailClouds=new Set();
     for(const pellet of game.hail){
       if(pellet.age<pellet.start)continue;
-      const direction=pellet.direction||1;
-      const approach=Math.max(0,Math.min(1,(pellet.age-pellet.start)/(pellet.warning-pellet.start)));
-      const depart=Math.max(0,Math.min(1,(pellet.age-pellet.warning)/(pellet.life-pellet.warning)));
-      const cloudX=pellet.age<pellet.warning
-        ?(direction>0?-165:W+165)+(pellet.x-(direction>0?-165:W+165))*approach
-        :pellet.x+((direction>0?W+165:-165)-pellet.x)*depart;
-      sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-125,280,170,sheetLoop(pellet.age,6,4),.94);
+      const cloudId=pellet.cloudId??pellet.id;
+      if(!drawnHailClouds.has(cloudId)){
+        drawnHailClouds.add(cloudId);
+        const direction=pellet.direction||1;
+        const startX=direction>0?-HAIL_CLUSTER.entry:W+HAIL_CLUSTER.entry;
+        const endX=direction>0?W+HAIL_CLUSTER.entry:-HAIL_CLUSTER.entry;
+        const progress=Math.max(0,Math.min(1,(pellet.age-(pellet.cloudStart??pellet.start))/((pellet.cloudLife??pellet.life)-(pellet.cloudStart??pellet.start))));
+        const cloudX=startX+(endX-startX)*progress;
+        sprite(`hail-cloud-${cloudId}`,phase6Frames.hailCloud,lightningLayer,cloudX,(pellet.cloudY??pellet.y)-125,280,170,sheetLoop(pellet.age,6,4),.94);
+      }
       const markerStart=pellet.warning-HAIL_CLUSTER.fall;
       const markerEnd=pellet.warning+HAIL_CLUSTER.stagger*(HAIL_CLUSTER.offsets.length-1);
       if(pellet.age>=markerStart&&pellet.age<markerEnd){

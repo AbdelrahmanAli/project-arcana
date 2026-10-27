@@ -155,9 +155,17 @@ test('Snow starts with two ice patches per bank and pairs avalanche and hail',()
   m.startEnvironmentEvent();assert.deepEqual(m.avalanches.map(a=>a.owner),[0,1]);
   assert.deepEqual(m.avalanches.map(a=>a.direction),[-1,1]);
   assert.ok(m.avalanches.every(a=>a.y<BANK_BOUNDS[a.owner].minY||a.y>BANK_BOUNDS[a.owner].maxY));
-  m.startEnvironmentEvent();assert.deepEqual([0,1].map(owner=>m.hail.filter(h=>h.owner===owner).length),[3,3]);
+  m.startEnvironmentEvent();assert.deepEqual([0,1].map(owner=>m.hail.filter(h=>h.owner===owner).length),[6,6]);
   assert.ok(m.hail.every(h=>Math.abs(h.direction)===1));
-  assert.ok(m.hail.every(h=>h.warning-h.start>=2.25&&h.life-h.warning>=3.8),'large hail clouds cross each bank slowly enough to read');
+  for(const owner of [0,1]){
+    const groups=Map.groupBy(m.hail.filter(h=>h.owner===owner),h=>h.cloudId);
+    assert.equal(groups.size,2,'each bank has two passing clouds');
+    for(const strikes of groups.values()){
+      assert.equal(strikes.length,3,'each cloud drops three separate icicle clusters');
+      assert.ok(strikes.every(h=>h.cloudLife-h.cloudStart===HAIL_CLUSTER.cloudDuration));
+      assert.ok(strikes[0].warning<strikes[1].warning&&strikes[1].warning<strikes[2].warning,'the strikes follow the cloud across the bank');
+    }
+  }
   for(const item of [...m.icePatches,...m.hail])assert.ok(item.y>=BANK_BOUNDS[item.owner].minY&&item.y<=BANK_BOUNDS[item.owner].maxY);
 });
 

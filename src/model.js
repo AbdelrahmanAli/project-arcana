@@ -42,7 +42,7 @@ export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
 export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.85 };
 export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDepth:48, pushSpeed:255 };
-export const HAIL_CLUSTER = { radius:33, impactRadius:17, stagger:.11, fall:.58, offsets:[[-16,-4],[0,5],[16,-3]] };
+export const HAIL_CLUSTER = { radius:33, impactRadius:17, stagger:.11, fall:.58, cloudDuration:9.6, cloudGap:1.2, entry:165, offsets:[[-16,-4],[0,5],[16,-3]] };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const SANDSTORM_WAVE_GAP = 150;
 export function sandstormCovers(storm,y){
@@ -279,10 +279,20 @@ export class Match {
         this.emit('avalanche');
       }else{
         for(const owner of [0,1]){
-          const direction=this.random()<.5?1:-1;
-          for(let wave=0;wave<3;wave++){
-          const occupied=this.hail.filter(h=>h.owner===owner);
-          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.65,warning:2.9+wave*.65,life:6.7+wave*.65,hit:false});
+          const bank=BANK_BOUNDS[owner];
+          for(let wave=0;wave<2;wave++){
+            const direction=this.random()<.5?1:-1;
+            const cloudId=this.id++,cloudStart=wave*HAIL_CLUSTER.cloudGap;
+            const cloudLife=cloudStart+HAIL_CLUSTER.cloudDuration;
+            const cloudY=this.environmentalPoint(owner,this.hail.filter(h=>h.owner===owner)).y;
+            const startX=direction>0?-HAIL_CLUSTER.entry:W+HAIL_CLUSTER.entry;
+            const endX=direction>0?W+HAIL_CLUSTER.entry:-HAIL_CLUSTER.entry;
+            for(let salvo=0;salvo<3;salvo++){
+              const x=direction>0?90+salvo*130:W-90-salvo*130;
+              const y=clamp(cloudY+(this.random()-.5)*24,bank.minY+45,bank.maxY-45);
+              const warning=cloudStart+(x-startX)/(endX-startX)*HAIL_CLUSTER.cloudDuration;
+              this.hail.push({id:this.id++,cloudId,owner,wave,salvo,direction,x,y,cloudY,cloudStart,cloudLife,age:0,start:cloudStart,warning,life:cloudLife,hit:false});
+            }
           }
         }
         this.emit('hail');
@@ -819,7 +829,7 @@ export class Match {
         h.target===h.target1?h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.65:
           h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.dive-.65)&&distance(p,h.target)<70);
       const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<105&&Math.abs(h.x-p.x)<AVALANCHE.halfWidth);
-      const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.start&&distance(p,h)<55);
+      const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.warning-.75&&distance(p,h)<55);
       const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<80);
       const lateral=avalanche;
       if(lateral){ty=p.y-lateral.direction*110;if(Math.abs(p.y-lateral.y)<65)this.dodge(p,0,-lateral.direction);}

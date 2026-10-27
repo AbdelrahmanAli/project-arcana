@@ -96,7 +96,7 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 
 ### Hail squall
 
-- Large, slow clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. Each clearly marked cluster drops three small, staggered six-frame icicles. Each icicle descends from the cloud, strikes within the marked area, shatters, and fades. A cluster deals at most one light hit. Hail visibly comes from above rather than erupting from the ground.
+- Large, slow clouds travel across each bank from left to right or right to left. Each cloud drops several separate icicle clusters as it passes. The target marker appears when that cluster starts descending. Each cluster drops three small, staggered six-frame icicles. Each icicle descends from the cloud, strikes within the marked area, shatters, and fades. A cluster deals at most one light hit. Hail visibly comes from above rather than erupting from the ground.
 - Both banks receive the same number of marked strikes and timing, with independently chosen valid locations. Marks must stay visible over snow and ice. A fighter can walk between the impacts or dodge a cluster.
 - A direct hit deals light damage and a brief flinch, shorter than the Stun Launcher effect. Limit repeated hits from one cluster so a fighter cannot lose most of their health from a single squall. Hail does not create permanent blockers.
 - **Initial tuning proposal:** around 1 second of warning per cluster, 4 HP per direct pellet, a short 0.2–0.3-second interruption, and an event damage cap to tune in playtesting.
