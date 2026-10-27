@@ -133,8 +133,58 @@ function tornadoWindWav(pull=false){
   });
 }
 function phase6WindWav(){
-  const duration=8.5;let seed=83217,low=0;
-  return pcmWav(duration,t=>{seed=(seed*1664525+1013904223)>>>0;const white=seed/2147483648-1;low=low*.91+white*.09;return low*.34*Math.min(1,t/.4,(duration-t)/.55);});
+  const duration=4;let seed=83217,bass=0,mid=0,grain=0;
+  return pcmWav(duration,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    bass=bass*.97+white*.03;mid=mid*.72+white*.28;
+    grain=grain*.2+white*.8;
+    const gust=.64+.22*Math.sin(2*Math.PI*(.29*t+.025*t*t))+.1*Math.sin(2*Math.PI*.83*t);
+    const edge=Math.min(1,t/.14,(duration-t)/.14);
+    return (bass*.55+mid*.28+grain*.035)*gust*edge;
+  });
+}
+function avalancheWarningWav(){
+  let seed=24711,low=0;
+  return pcmWav(.85,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    low=low*.9+(seed/2147483648-1)*.1;
+    const creak=Math.sin(2*Math.PI*(76*t-18*t*t))*Math.exp(-t*2.7);
+    return (low*.36+creak*.16)*Math.sin(Math.PI*t/.85);
+  });
+}
+function avalancheRushWav(){
+  const duration=3;let seed=62519,bass=0,crunch=0;
+  return pcmWav(duration,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    const white=seed/2147483648-1;
+    bass=bass*.94+white*.06;crunch=crunch*.34+white*.66;
+    const swell=Math.min(1,t/.2)*Math.min(1,(duration-t)/.42);
+    const crack=(Math.sin(2*Math.PI*(3.3*t+.8*t*t))>.93?1:0)*crunch;
+    return (bass*.62+crunch*.13+crack*.22)*swell*(.8+.14*Math.sin(2*Math.PI*.7*t));
+  });
+}
+function iceFallWav(){
+  let seed=12461,air=0;
+  return pcmWav(.65,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    air=air*.66+(seed/2147483648-1)*.34;
+    const fall=Math.min(1,t/.08)*Math.min(1,(.65-t)/.11);
+    const whistle=Math.sin(2*Math.PI*(940*t+460*t*t));
+    const second=Math.sin(2*Math.PI*(1420*t+280*t*t));
+    return (whistle*.16+second*.07+air*.15)*fall;
+  });
+}
+function iceShatterWav(){
+  let seed=48329,crack=0;
+  return pcmWav(.37,t=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    crack=crack*.25+(seed/2147483648-1)*.75;
+    const snap=crack*Math.exp(-t*36)*.52;
+    const shards=crack*(Math.exp(-Math.max(0,t-.09)*30)*(t>.09?.24:0)+Math.exp(-Math.max(0,t-.17)*35)*(t>.17?.14:0));
+    const ring=Math.sin(2*Math.PI*(1750*t-750*t*t))*Math.exp(-t*12)*.16;
+    return snap+shards+ring;
+  });
 }
 function scorpionBiteWav(){
   let seed=9127,crunch=0;
@@ -152,7 +202,7 @@ export class Sound {
     this.muted=prefs.muted===true;
     this.alarmMuted=prefs.alarmMuted===true;
     this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):25;
-    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;
+    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.towerPhase=null;this.ambientMap=null;
   }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
@@ -188,24 +238,37 @@ export class Sound {
     this.clips.volcanoRockImpact=new Howl({src:[wav(.55,66,.9,6)],format:['wav'],volume:.3,preload:true});
     this.clips.volcanoFireImpact=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.27,preload:true});
     this.clips.rockBreak=new Howl({src:[wav(.3,120,.83,10)],format:['wav'],volume:.2,preload:true});
+    this.clips.avalanche=new Howl({src:[avalancheWarningWav()],format:['wav'],volume:.2,preload:true});
+    this.clips.avalancheRush=new Howl({src:[avalancheRushWav()],format:['wav'],volume:.33,preload:true});
+    this.clips.avalancheHit=new Howl({src:[iceShatterWav()],format:['wav'],volume:.21,preload:true});
+    this.clips.hailFall=new Howl({src:[iceFallWav()],format:['wav'],volume:.11,preload:true,pool:8});
+    this.clips.hailImpact=new Howl({src:[iceShatterWav()],format:['wav'],volume:.17,preload:true,pool:8});
     for(const [name,duration,freq,noise,volume] of [
       ['eagleHit',.25,200,.75,.25],['quicksand',.55,78,.8,.17],
       ['mirageSun',.55,860,.15,.11],['scorpionReveal',.28,490,.6,.19],
-      ['avalanche',1.1,65,.92,.22],['avalancheHit',.52,72,.94,.26],['hail',.65,330,.78,.13],['hailImpact',.22,430,.76,.16],['iceSlide',.26,620,.5,.09],
+      ['iceSlide',.26,620,.5,.09],
     ])this.clips[name]=new Howl({src:[wav(duration,freq,noise,5)],format:['wav'],volume,preload:true,pool:8});
     this.clips.eagleAttack=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-tailed-hawk.mp3`],format:['mp3'],volume:.31,preload:true,pool:8});
     this.clips.scorpionBite=new Howl({src:[scorpionBiteWav()],format:['wav'],volume:.31,preload:true,pool:8});
-    this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.24,preload:true});
+    this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.2,loop:true,preload:true});
     Howler.mute(this.muted);Howler.ctx?.resume();
   }
   play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
-  environment(map){
-    if(!this.ready||this.ambientMap===map)return;
-    for(const name of ['rain','lava'])this.clips[name].stop();
-    this.ambientMap=map;
-    if(map==='storm')this.clips.rain.play();
-    else if(map==='magma')this.clips.lava.play();
+  environment(map,sandstormActive=false){
+    if(!this.ready)return;
+    if(this.ambientMap!==map){
+      for(const name of ['rain','lava'])this.clips[name].stop();
+      this.ambientMap=map;
+      if(map==='storm')this.clips.rain.play();
+      else if(map==='magma')this.clips.lava.play();
+    }
+    const storming=map==='desert'&&sandstormActive;
+    if(storming!==this.storming){
+      this.storming=storming;
+      if(storming)this.clips.sandstorm.play();
+      else this.clips.sandstorm.stop();
+    }
   }
   tower(phase,height,progress,map){
     if(!this.ready)return;
@@ -235,5 +298,5 @@ export class Sound {
     this.init();this.clips.riseAlarm.stop();this.clips.riseAlarm.play('alert');
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.storming=false;this.towerPhase=null;this.ambientMap=null;Howler.stop();}
 }

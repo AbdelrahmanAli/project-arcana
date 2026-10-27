@@ -198,6 +198,28 @@ test('three marked icicles land in sequence but deal at most one hit per cluster
   assert.equal(target.hit,true);
 });
 
+test('snow hazard sounds follow the avalanche front and each falling icicle cluster',()=>{
+  const m=new Match(()=>.5,{map:MAPS.SNOW});
+  m.environmentCycle=0;m.startEnvironmentEvent();
+  assert.equal(m.events.filter(e=>e.type==='avalanche').length,1);
+  m.events=[];
+  m.updateEnvironment(AVALANCHE.warning-.01);
+  assert.equal(m.events.filter(e=>e.type==='avalancheRush').length,0);
+  m.updateEnvironment(.02);
+  assert.equal(m.events.filter(e=>e.type==='avalancheRush').length,1,'the paired front gets one sweep cue');
+  m.updateEnvironment(.1);
+  assert.equal(m.events.filter(e=>e.type==='avalancheRush').length,1);
+
+  m.avalanches=[];m.hail=[];m.environmentCycle=1;m.startEnvironmentEvent();m.events=[];
+  const first=m.hail.reduce((a,b)=>a.warning<b.warning?a:b);
+  m.updateEnvironment(first.warning-HAIL_CLUSTER.fall-.01);
+  assert.equal(m.events.filter(e=>e.type==='hailFall').length,0);
+  m.updateEnvironment(.02);
+  assert.ok(m.events.some(e=>e.type==='hailFall'&&e.x===first.x));
+  m.updateEnvironment(HAIL_CLUSTER.fall);
+  assert.ok(m.events.some(e=>e.type==='hailImpact'&&e.x===first.x+HAIL_CLUSTER.offsets[0][0]));
+});
+
 test('ice locks the entry direction on both axes until the fighter leaves the patch',()=>{
   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
     const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);

@@ -421,6 +421,7 @@ export class Match {
     for(const avalanche of this.avalanches){
       avalanche.age+=dt;
       if(avalanche.age<avalanche.warning)continue;
+      if(!avalanche.soundStarted){avalanche.soundStarted=true;if(avalanche.owner===0)this.emit('avalancheRush');}
       const bank=BANK_BOUNDS[avalanche.owner];
       const start=avalanche.direction>0?bank.minY-AVALANCHE.edge:bank.maxY+AVALANCHE.edge;
       const end=avalanche.direction>0?bank.maxY+AVALANCHE.edge:bank.minY-AVALANCHE.edge;
@@ -444,6 +445,9 @@ export class Match {
     this.avalanches=this.avalanches.filter(avalanche=>avalanche.age<avalanche.life);
     for(const pellet of this.hail){
       pellet.age+=dt;
+      if(!pellet.fallSoundPlayed&&pellet.age>=pellet.warning-HAIL_CLUSTER.fall){
+        pellet.fallSoundPlayed=true;this.emit('hailFall',{x:pellet.x});
+      }
       const impacts=pellet.impacts??(pellet.impacts=Array(HAIL_CLUSTER.offsets.length).fill(false));
       for(let index=0;index<HAIL_CLUSTER.offsets.length;index++){
         if(impacts[index]||pellet.age<pellet.warning+index*HAIL_CLUSTER.stagger)continue;
