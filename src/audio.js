@@ -151,7 +151,7 @@ export class Sound {
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
     this.alarmMuted=prefs.alarmMuted===true;
-    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):100;
+    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):10;
     this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;
   }
   init(){
@@ -224,7 +224,7 @@ export class Sound {
     saveAudioPrefs(this);
   }
   toggleAlarmMute(){
-    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=100;
+    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=10;
     this.alarmMuted=!this.alarmMuted;
     if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
     saveAudioPrefs(this);

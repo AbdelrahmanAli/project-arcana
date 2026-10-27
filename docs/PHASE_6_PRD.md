@@ -82,8 +82,8 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 
 ### Avalanche
 
-- An avalanche enters from beyond the left or right edge of each bank and sweeps across it. A distant rumble, falling powder, and a growing edge marker show the approach before the damaging front arrives.
-- Equivalent avalanches occur on both banks. Directions and exact paths may be independently random, but exposed travel distance, speed, warning, and force must be comparable. A fighter can leave the sweep lane or dodge through the front.
+- An avalanche enters from beyond the **top** edge of the northern bank and the **bottom** edge of the southern bank. Heavy snow builds from those outer edges before the rolling front arrives and sweeps toward the river.
+- Equivalent avalanches occur on both banks. Both fronts travel toward the river with comparable speed, warning, and force. A fighter can reach the edge of the sweep or dodge through the front.
 - Contact pushes a fighter and deals a moderate one-time hit. Push resolution respects cover and bank bounds and never places a fighter in the frozen channel or traps them against a wall. The initial version does not leave permanent snow cover.
 - **Initial tuning proposal:** at least 1 second of approach warning and roughly 12–16 HP per hit. Tune width and push strength against the 1-second dodge cooldown.
 
@@ -92,11 +92,11 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 - Each bank starts with an equivalent number and approximate area of scattered ice patches. Their boundaries and shine read against the snow. Positions may vary by match within safe placement zones; patches do not spread without a cap.
 - Walking onto ice preserves some momentum. Releasing or reversing the movement control produces a short, steerable slide rather than an uncontrollable lock. Ice does not cause damage or change bullets. Dodge travel and invincibility remain predictable, and a roll cannot cross a bank boundary or solid cover.
 - The computer predicts enough stopping distance to avoid repeatedly sliding into a wall or hazardous landing area. Pickups on ice remain reachable.
-- **Initial tuning proposal:** 0.25–0.4 seconds of diminishing slide after leaving a patch. Tune on touch controls so stopping still feels intentional.
+- **Current tuning:** roughly 0.85 seconds of diminishing slide after leaving a patch, with slower steering response while on ice. Tune on touch controls so stopping still feels intentional.
 
 ### Hail squall
 
-- A cloud and wind cue precede a cluster of hail falling onto **marked locations** on each bank. The cloud moves overhead while individual pellets descend, strike their marks, bounce or shatter, and fade. Hail visibly comes from above rather than erupting from the ground.
+- Large clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. Individual pellets descend, strike their marks, bounce or shatter, and fade. Hail visibly comes from above rather than erupting from the ground.
 - Both banks receive the same number of marked strikes and timing, with independently chosen valid locations. Marks must stay visible over snow and ice. A fighter can walk between the impacts or dodge a cluster.
 - A direct hit deals light damage and a brief flinch, shorter than the Stun Launcher effect. Limit repeated hits from one cluster so a fighter cannot lose most of their health from a single squall. Hail does not create permanent blockers.
 - **Initial tuning proposal:** around 1 second of warning per cluster, 4 HP per direct pellet, a short 0.2–0.3-second interruption, and an event damage cap to tune in playtesting.

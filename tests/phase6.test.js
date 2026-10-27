@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT,SANDSTORM_WAVE_GAP,sandstormCovers} from '../src/model.js';
+import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT,AVALANCHE,SANDSTORM_WAVE_GAP,sandstormCovers} from '../src/model.js';
 
 test('Desert and Snow keep equal bank depth and an impassable channel',()=>{
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
@@ -153,7 +153,10 @@ test('Snow starts with two ice patches per bank and pairs avalanche and hail',()
   const m=new Match(()=>.5,{map:MAPS.SNOW});
   assert.deepEqual([0,1].map(owner=>m.icePatches.filter(p=>p.owner===owner).length),[2,2]);
   m.startEnvironmentEvent();assert.deepEqual(m.avalanches.map(a=>a.owner),[0,1]);
+  assert.deepEqual(m.avalanches.map(a=>a.direction),[-1,1]);
+  assert.ok(m.avalanches.every(a=>a.y<BANK_BOUNDS[a.owner].minY||a.y>BANK_BOUNDS[a.owner].maxY));
   m.startEnvironmentEvent();assert.deepEqual([0,1].map(owner=>m.hail.filter(h=>h.owner===owner).length),[3,3]);
+  assert.ok(m.hail.every(h=>Math.abs(h.direction)===1));
   for(const item of [...m.icePatches,...m.hail])assert.ok(item.y>=BANK_BOUNDS[item.owner].minY&&item.y<=BANK_BOUNDS[item.owner].maxY);
 });
 
@@ -165,15 +168,21 @@ test('ice preserves a short steerable slide and does not leave its bank',()=>{
   while(p.x<edge)m.move(p,1,0,1/120);
   const x=p.x;m.move(p,0,0,1/120);
   assert.ok(p.x>x);
+  const start=p.x;for(let i=0;i<18;i++)m.move(p,0,0,1/120);
+  assert.ok(p.x-start>10,'ice carries the fighter well beyond the patch');
   for(let i=0;i<100;i++)m.move(p,0,-1,1/120);
   assert.ok(p.y>=BANK_BOUNDS[0].minY);
 });
 
 test('avalanche damages once and hail has a bounded single impact',()=>{
   const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
-  m.avalanches=[{id:1,owner:0,x:p.x,y:p.y,direction:1,age:1.15+(p.x+85)/(480+170)*(4.6-1.15),warning:1.15,life:4.6,hit:false}];
+  const bank=BANK_BOUNDS[0],start=bank.maxY+AVALANCHE.edge,end=bank.minY-AVALANCHE.edge;
+  const age=AVALANCHE.warning+(p.y-start)/(end-start)*(AVALANCHE.life-AVALANCHE.warning);
+  m.avalanches=[{id:1,owner:0,x:p.x,y:p.y,direction:-1,age,warning:AVALANCHE.warning,life:AVALANCHE.life,hit:false}];
+  const beforeY=p.y;
   m.updateEnvironment(1/120);
   assert.equal(p.hp,100-PHASE6_RULES.avalancheDamage);
+  assert.ok(p.y<beforeY&&p.y>=bank.minY,'avalanche pushes the southern fighter toward the river');
   const after=p.hp;m.updateEnvironment(1/120);assert.equal(p.hp,after);
   m.hail=[{id:2,owner:0,x:p.x,y:p.y,age:1.14,start:0,warning:1.15,life:1.7,hit:false}];
   m.updateEnvironment(.02);assert.equal(p.hp,after-PHASE6_RULES.hailDamage);

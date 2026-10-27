@@ -18,6 +18,7 @@ SHEETS = (
     ("scorpion-sheet.png", "scorpion-frames.png", 6, (128, 128), (116, 105), "bottom"),
     ("quicksand-sheet.png", "quicksand-frames.png", 4, (128, 96), (124, 88), "center"),
     ("avalanche-sheet.png", "avalanche-frames.png", 4, (192, 144), (188, 136), "center"),
+    ("avalanche-river-sheet.png", "avalanche-river-frames.png", 4, (256, 192), (248, 178), "center"),
     ("hail-cloud-sheet.png", "hail-cloud-frames.png", 4, (160, 112), (155, 105), "center"),
     ("ice-patch-sheet.png", "ice-patch-frames.png", 4, (128, 88), (124, 80), "center"),
 )
@@ -135,7 +136,8 @@ def small_effect_sheets() -> None:
 
 def main() -> None:
     for name in ("desert", "snow"):
-        image = Image.open(SOURCE / f"arena-{name}.png").convert("RGB")
+        source = "arena-snow-v2.png" if name == "snow" else f"arena-{name}.png"
+        image = Image.open(SOURCE / source).convert("RGB")
         image.save(OUTPUT / f"arena-{name}.webp", "WEBP", quality=90, method=6)
     for item in SHEETS:
         normalize_strip(*item)

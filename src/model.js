@@ -40,7 +40,8 @@ export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_F
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma', DESERT:'desert', SNOW:'snow' };
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
-export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
+export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.85 };
+export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDepth:48, push:65 };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const SANDSTORM_WAVE_GAP = 150;
 export function sandstormCovers(storm,y){
@@ -269,15 +270,19 @@ export class Match {
     }else if(this.map===MAPS.SNOW){
       if(kind===0){
         for(const owner of [0,1]){
-          const bank=BANK_BOUNDS[owner],direction=this.random()<.5?1:-1;
-          this.avalanches.push({id:this.id++,owner,x:direction>0?-85:W+85,
-            y:bank.minY+75+this.random()*(bank.maxY-bank.minY-150),direction,age:0,warning:1.15,life:4.6,hit:false});
+          const bank=BANK_BOUNDS[owner],direction=owner===1?1:-1;
+          this.avalanches.push({id:this.id++,owner,x:W/2,
+            y:direction>0?bank.minY-AVALANCHE.edge:bank.maxY+AVALANCHE.edge,
+            direction,age:0,warning:AVALANCHE.warning,life:AVALANCHE.life,hit:false});
         }
         this.emit('avalanche');
       }else{
-        for(const owner of [0,1])for(let wave=0;wave<3;wave++){
+        for(const owner of [0,1]){
+          const direction=this.random()<.5?1:-1;
+          for(let wave=0;wave<3;wave++){
           const occupied=this.hail.filter(h=>h.owner===owner);
-          this.hail.push({id:this.id++,owner,wave,...this.environmentalPoint(owner,occupied),age:0,start:wave*.32,warning:1.15+wave*.32,life:1.7+wave*.32,hit:false});
+          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.32,warning:1.15+wave*.32,life:2.5+wave*.32,hit:false});
+          }
         }
         this.emit('hail');
       }
@@ -405,15 +410,18 @@ export class Match {
     for(const avalanche of this.avalanches){
       avalanche.age+=dt;
       if(avalanche.age<avalanche.warning)continue;
-      avalanche.x=avalanche.direction>0?-85+(W+170)*(avalanche.age-avalanche.warning)/(avalanche.life-avalanche.warning):W+85-(W+170)*(avalanche.age-avalanche.warning)/(avalanche.life-avalanche.warning);
+      const bank=BANK_BOUNDS[avalanche.owner];
+      const start=avalanche.direction>0?bank.minY-AVALANCHE.edge:bank.maxY+AVALANCHE.edge;
+      const end=avalanche.direction>0?bank.maxY+AVALANCHE.edge:bank.minY-AVALANCHE.edge;
+      avalanche.y=start+(end-start)*Math.min(1,(avalanche.age-avalanche.warning)/(avalanche.life-avalanche.warning));
       const p=this.players[avalanche.owner];
-      if(!avalanche.hit&&p.hp>0&&Math.abs(p.x-avalanche.x)<45&&Math.abs(p.y-avalanche.y)<56){
+      if(!avalanche.hit&&p.hp>0&&Math.abs(p.x-avalanche.x)<AVALANCHE.halfWidth&&Math.abs(p.y-avalanche.y)<AVALANCHE.hitDepth){
         avalanche.hit=true;
         if(this.damage(p,PHASE6_RULES.avalancheDamage)>0){
-          for(let step=0;step<9;step++){
-            const x=clamp(p.x+avalanche.direction*5,38,W-38);
-            if(this.obstacles.some(o=>blocksFighter(o,x,p.y)))break;
-            p.x=x;
+          for(let step=0;step<AVALANCHE.push/5;step++){
+            const y=clamp(p.y+avalanche.direction*5,bank.minY,bank.maxY);
+            if(y===p.y||this.obstacles.some(o=>blocksFighter(o,p.x,y)))break;
+            p.y=y;
           }
           this.emit('avalancheHit',{x:p.x,player:p.id});
         }
@@ -556,7 +564,7 @@ export class Match {
       if(onIce&&!p.onIce)this.emit('iceSlide',{x:p.x});
       p.onIce=onIce;
       if(onIce){
-        const blend=Math.min(1,dt*5);
+        const blend=Math.min(1,dt*2);
         p.iceVX+=(x-p.iceVX)*blend;p.iceVY+=(y-p.iceVY)*blend;
         p.iceSlip=PHASE6_RULES.iceSlip;x=p.iceVX;y=p.iceVY;
       }else if(p.iceSlip>0){
@@ -784,11 +792,11 @@ export class Match {
       const eagle=this.eagles.find(h=>h.owner===1&&h.target&&(
         h.target===h.target1?h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.65:
           h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.dive-.65)&&distance(p,h.target)<70);
-      const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<75&&Math.abs(h.x-p.x)<190);
+      const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<105&&Math.abs(h.x-p.x)<AVALANCHE.halfWidth);
       const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.start&&distance(p,h)<55);
       const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<80);
       const lateral=avalanche;
-      if(lateral){ty=p.y+(p.y>=lateral.y?100:-100);if(distance(p,lateral)<54)this.dodge(p,p.x-lateral.x,p.y-lateral.y);}
+      if(lateral){ty=p.y-lateral.direction*110;if(Math.abs(p.y-lateral.y)<65)this.dodge(p,0,-lateral.direction);}
       if(eagle){
         const impact=eagle.target===eagle.target1?EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive:EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover;
         tx=p.x+(p.x>=eagle.target.x?90:-90);ty=p.y+(p.y>=eagle.target.y?75:-75);
