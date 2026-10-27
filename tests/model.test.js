@@ -191,11 +191,21 @@ test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>
   const rock=rocks[0],p=m.players[0];p.x=rock.x-40;p.y=rock.y;
   m.move(p,1,0,.2);assert.ok(p.x<rock.x-10,'rock stops walking');
   assert.equal(m.nearestObstacleHit({x:rock.x,y:rock.y-30},{x:rock.x,y:rock.y+30})?.obstacle,rock,'rock blocks straight shots');
-  m.environmentCycle=1;m.startEnvironmentEvent();assert.deepEqual(m.volcanicFire.map(o=>o.owner),[0,1]);
-  m.updateEnvironment(1.31);const fire=m.volcanicFire[0];p.x=fire.x;p.y=fire.y;
-  const before=p.hp;for(let i=0;i<120;i++)m.update(1/120);
-  assert.ok(p.hp<before-10&&p.hp>before-14,'volcanic fire applies its expected one-second damage');
-  m.environmentCycle=2;m.startEnvironmentEvent();assert.ok(m.ash);m.updateEnvironment(6.6);assert.equal(m.ash,null);
+  assert.ok(rock.burning>2,'landed rock starts burning');
+  assert.equal(m.hitObstacle(rock,100),true);assert.equal(rock.destroyed,false,'burning rock absorbs a shot');
+  p.x=rock.x-30;p.y=rock.y;
+  const burningHp=p.hp;for(let i=0;i<60;i++)m.update(1/60);
+  assert.ok(p.hp<burningHp-8&&p.hp>burningHp-12,'burning rock damages fighters in its nearby area');
+  p.x=rock.x-100;
+  m.updateEnvironment(3);assert.equal(rock.burning,0,'rock cools after its burning interval');
+  assert.equal(m.hitObstacle(rock,101),true);assert.equal(rock.destroyed,true,'cooled rock can be shot apart');
+  for(const other of m.obstacles)if(other.type==='rock')other.destroyed=true;
+  const lava=new Match(()=>.5,{map:MAPS.MAGMA});lava.obstacles.forEach(o=>o.destroyed=true);
+  lava.environmentCycle=1;lava.startEnvironmentEvent();assert.deepEqual(lava.volcanicFire.map(o=>o.owner),[0,1]);
+  lava.updateEnvironment(1.31);const fire=lava.volcanicFire[0],target=lava.players[0];target.x=fire.x;target.y=fire.y;
+  const before=target.hp;for(let i=0;i<120;i++)lava.update(1/120);
+  assert.ok(target.hp<before-10&&target.hp>before-14,'volcanic fire applies its expected one-second damage');
+  lava.environmentCycle=2;lava.startEnvironmentEvent();assert.ok(lava.ash);lava.updateEnvironment(8.6);assert.equal(lava.ash,null);
 });
 
 test('overlapping volcanic fire, Tower fire, and waste use the highest ground damage rate',()=>{

@@ -11,7 +11,9 @@ $sprites = @(
   @{ Name = 'phase5-lightning.png'; X = 70; Y = 0; W = 884; H = 1536; OutW = 224; OutH = 390 },
   @{ Name = 'phase5-ash-cloud.png'; X = 0; Y = 20; W = 1774; H = 847; OutW = 512; OutH = 244 },
   @{ Name = 'phase5-lava-projectile.png'; X = 65; Y = 170; W = 1080; H = 990; OutW = 192; OutH = 176 },
-  @{ Name = 'phase5-lava-pool.png'; X = 35; Y = 60; W = 2000; H = 650; OutW = 512; OutH = 166 }
+  @{ Name = 'phase5-lava-pool.png'; X = 35; Y = 60; W = 2000; H = 650; OutW = 512; OutH = 166 },
+  @{ Name = 'phase5-burning-rock.png'; X = 0; Y = 0; W = 1341; H = 1173; OutW = 256; OutH = 224 },
+  @{ Name = 'phase5-burning-rock-ground.png'; X = 0; Y = 0; W = 1339; H = 1174; OutW = 256; OutH = 224 }
 )
 
 foreach ($sprite in $sprites) {

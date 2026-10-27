@@ -1,5 +1,12 @@
 # The Tower Deal verification
 
+## Magma smoke and burning rock — 2026-10-27
+
+- Smoke rises from each volcanic vent, crosses its respective bank, and exits the screen before its 8.5-second cycle ends. Enemy concealment follows the moving cloud.
+- Lava projectiles, lava pools, airborne burning rocks, and grounded burning rocks use six-frame pixel-art sheets. A landed rock burns for 3.5 seconds with a 40-unit damage area, absorbs shots during that interval, then cools into shootable solid cover for roughly 15 seconds.
+- The computer treats burning rocks as hazards. The existing burn sound includes their active flames.
+- All 69 model and smoke-path tests pass, and the Vite production build succeeds. A 390 × 844 Chrome visual pass checked the rock and lava animations plus the smoke rising, crossing, and exiting with no runtime exceptions.
+
 ## Paired Storm lightning waves — 2026-10-27
 
 - Each Storm lightning event now schedules two strikes on each bank. Wave two telegraphs 0.55 seconds after wave one and hits 0.55 seconds later, with separate landing sites.

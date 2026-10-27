@@ -39,7 +39,7 @@ export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'n
 export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
 export const MAP_TYPES = Object.values(MAPS);
-export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12 };
+export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5 };
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -216,7 +216,7 @@ export class Match {
         this.emit('lightningCharge');
       }
     }else if(this.map===MAPS.MAGMA){
-      if(kind===2){this.ash={age:0,life:6.5};this.emit('ash');}
+      if(kind===2){this.ash={age:0,life:8.5};this.emit('ash');}
       else for(const owner of [0,1]){
         const point=this.environmentalPoint(owner,kind===0?this.rocksInFlight:[]);
         const event={id:this.id++,owner,...point,age:0,warning:1.3,hit:false};
@@ -269,7 +269,7 @@ export class Match {
         const p=this.players[rock.owner],caught=p.hp>0&&distance(p,rock)<31;
         if(caught)this.damage(p,HAZARD_RULES.rockDamage);
         const clear=!caught&&this.obstacles.every(o=>o.destroyed||distance(o,rock)>48)&&this.players.every(f=>f.hp<=0||distance(f,rock)>35);
-        if(clear)this.obstacles.push({id:this.id++,type:'rock',owner:rock.owner,x:rock.x,y:rock.y,destroyed:false,hits:0,flash:0,ttl:15});
+        if(clear)this.obstacles.push({id:this.id++,type:'rock',owner:rock.owner,x:rock.x,y:rock.y,destroyed:false,hits:0,flash:0,burning:HAZARD_RULES.burningRockDuration,ttl:18.5});
         this.effects.push({id:this.id++,type:'volcanicImpact',x:rock.x,y:rock.y,age:0,life:.6,seed:this.random()});
         this.emit('volcanoRockImpact',{x:rock.x});
       }
@@ -283,7 +283,7 @@ export class Match {
       }
     }
     this.volcanicFire=this.volcanicFire.filter(fire=>fire.age<fire.life);
-    for(const rock of this.obstacles)if(rock.type==='rock'&&!rock.destroyed){rock.ttl-=dt;if(rock.ttl<=0)this.destroyObstacle(rock);}
+    for(const rock of this.obstacles)if(rock.type==='rock'&&!rock.destroyed){rock.ttl-=dt;rock.burning=Math.max(0,(rock.burning||0)-dt);if(rock.ttl<=0)this.destroyObstacle(rock);}
     if(this.ash){this.ash.age+=dt;if(this.ash.age>=this.ash.life)this.ash=null;}
   }
   makeObstacles(){
@@ -328,6 +328,7 @@ export class Match {
   }
   hitObstacle(obstacle,shotId){
     if(obstacle.destroyed)return false;
+    if(obstacle.type==='rock'&&obstacle.burning>0)return true;
     if(obstacle.type==='crate'&&shotId!==undefined){
       if(obstacle.lastHitShot===shotId)return true;
       obstacle.lastHitShot=shotId;
@@ -342,6 +343,7 @@ export class Match {
   }
   destroyObstacle(obstacle){
     if(obstacle.destroyed)return false;
+    if(obstacle.type==='rock'&&obstacle.burning>0)return false;
     obstacle.destroyed=true;obstacle.hits=obstacle.type==='crate'?2:obstacle.hits;obstacle.flash=.15;
     if(obstacle.type==='crate'){
       this.effects.push({id:this.id++,type:'crateBreak',x:obstacle.x,y:obstacle.y,age:0,life:.45,seed:this.random()});
@@ -607,7 +609,7 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
-      const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5)]
+      const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5),...this.obstacles.filter(h=>h.type==='rock'&&!h.destroyed&&h.burning>0)]
         .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
       if(mapThreat){
         tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
@@ -729,8 +731,9 @@ export class Match {
       const radiated=this.waste.some(waste=>distance(p,waste)<WASTE_RADIUS);
       const towerFire=this.flames.some(f=>segmentDistance(p,f,{x:f.x+f.dx*f.reach,y:f.y+f.dy*f.reach})<21);
       const lavaFire=this.volcanicFire.some(f=>f.hit&&distance(p,f)<34);
-      const burning=towerFire||lavaFire;
-      const groundDps=Math.max(radiated?WASTE_DAMAGE_PER_SECOND:0,towerFire?FLAME_DAMAGE_PER_SECOND:0,lavaFire?HAZARD_RULES.volcanicFireDps:0);
+      const burningRock=this.obstacles.some(rock=>rock.type==='rock'&&!rock.destroyed&&rock.burning>0&&distance(p,rock)<HAZARD_RULES.burningRockRadius);
+      const burning=towerFire||lavaFire||burningRock;
+      const groundDps=Math.max(radiated?WASTE_DAMAGE_PER_SECOND:0,towerFire?FLAME_DAMAGE_PER_SECOND:0,lavaFire?HAZARD_RULES.volcanicFireDps:0,burningRock?HAZARD_RULES.burningRockDps:0);
       if(groundDps>0&&this.damageOverTime(p,groundDps*dt)>0){if(radiated)p.radiated=.14;if(burning)p.burning=.14;}
     }
     this.flushHazardDamage(dt);
