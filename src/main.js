@@ -17,7 +17,7 @@ let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSID
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,shieldGlass,shieldDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
-let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],mudTexture,lightningTexture,ashCloudTexture,lavaProjectileTexture,lavaPoolTexture,mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileTexture,lavaPoolTexture,mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],ashSoldier,rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
 const DEATH_CROPS=[
@@ -447,9 +447,10 @@ function renderEnvironment(){
         liveLightning.add(strike.id);
         const fade=Math.max(0,Math.min(1,(strike.life-strike.age)/.24));
         let bolt=lightningSprites.get(strike.id);
-        if(!bolt){bolt=new Sprite(lightningTexture);bolt.anchor.set(.5,1);lightningLayer.addChild(bolt);lightningSprites.set(strike.id,bolt);}
-        bolt.position.set(strike.x,strike.y+12);bolt.width=127+8*Math.sin(game.time*37+strike.id);bolt.height=195;
-        bolt.alpha=fade*(.84+.15*Math.sin(game.time*49+strike.id));bolt.rotation=Math.sin(game.time*29+strike.id)*.035;
+        if(!bolt){bolt=new Sprite(lightningFrames[0]);bolt.anchor.set(.5,1);lightningLayer.addChild(bolt);lightningSprites.set(strike.id,bolt);}
+        bolt.texture=lightningFrames[Math.min(lightningFrames.length-1,Math.floor((strike.age-strike.warning)*10))];
+        bolt.position.set(strike.x,strike.y+12);bolt.width=127;bolt.height=195;
+        bolt.alpha=fade;
         circle(environmentSky,strike.x,strike.y,30,0xa5deff,fade*.3);
       }else{
         const pulse=.55+.35*Math.sin(game.time*17+strike.id);
@@ -464,6 +465,14 @@ function renderEnvironment(){
       live.add(vortex.id);
       const warning=vortex.age<vortex.warning;
       environmentGround.ellipse(vortex.x,vortex.y,warning?50:62,warning?27:35).stroke({color:0x9cb9c5,width:warning?2:3,alpha:warning?.4:.6});
+      for(let segment=0;segment<4;segment++){
+        const start=segment*Math.PI/2+game.time*.65+vortex.id*.3;
+        for(let point=0;point<7;point++){
+          const angle=start+point*.12,x=vortex.x+Math.cos(angle)*118,y=vortex.y+Math.sin(angle)*118;
+          if(point===0)environmentGround.moveTo(x,y);else environmentGround.lineTo(x,y);
+        }
+        environmentGround.stroke({color:0xb4d4de,width:1.4,alpha:warning?.28:.21});
+      }
       if(warning)continue;
       let sprite=tornadoSprites.get(vortex.id);
       if(!sprite){sprite=new Sprite(tornadoFrames[0]);sprite.anchor.set(.5,.82);obstacleLayer.addChild(sprite);tornadoSprites.set(vortex.id,sprite);}
@@ -941,13 +950,13 @@ async function boot(){
     ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
     ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
   ]);
-  const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt]=await Promise.all(
-    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning.png','phase5-ash-cloud.png','phase5-lava-projectile.png','phase5-lava-pool.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+  const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt]=await Promise.all(
+    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile.png','phase5-lava-pool.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
-  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningArt,ashCloudArt,lavaProjectileArt,lavaPoolArt])art.source.scaleMode='nearest';
+  for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt])art.source.scaleMode='nearest';
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
-  lightningTexture=lightningArt;ashCloudTexture=ashCloudArt;lavaProjectileTexture=lavaProjectileArt;lavaPoolTexture=lavaPoolArt;
+  ashCloudTexture=ashCloudArt;lavaProjectileTexture=lavaProjectileArt;lavaPoolTexture=lavaPoolArt;
   deathFrames=[blueDeath,redDeath].map((art,player)=>DEATH_CROPS[player].map(([x,y,w,h])=>new Texture({source:art.source,frame:new Rectangle(x,y,w,h)})));
   deathFrameSizes=DEATH_CROPS.map((frames,player)=>frames.map(([, ,w,h],frame)=>{
     const scale=DEATH_ART_SCALES[player][frame];
@@ -958,6 +967,7 @@ async function boot(){
   rollFrames=[dodgeBlueArt,dodgeRedArt].map(isolatedRollFrames);
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   tornadoFrames=cut(tornadoAnimationArt,8,1);
+  lightningFrames=cut(lightningAnimationArt,6,1);
   flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;

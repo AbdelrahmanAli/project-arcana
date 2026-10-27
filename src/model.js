@@ -39,7 +39,7 @@ export const DROP_TYPES = ['rifle', 'shotgun', 'grenade', 'missile', 'laser', 'n
 export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_FIXED:'random-fixed', CHOOSE_FIXED:'choose-fixed' };
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
 export const MAP_TYPES = Object.values(MAPS);
-export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, rockDamage:16, volcanicFireDps:12 };
+export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12 };
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -236,8 +236,11 @@ export class Match {
       if(vortex.age<vortex.warning)continue;
       vortex.x=clamp(vortex.x+vortex.dx*56*dt,50,W-50);
       const p=this.players[vortex.owner],d=distance(p,vortex);
-      if(d<82&&p.hp>0){
-        if(d>15&&p.dodgeTime<=0)this.move(p,(vortex.x-p.x)/d,(vortex.y-p.y)/d,dt*.22);
+      if(d<HAZARD_RULES.tornadoPullRadius&&p.hp>0){
+        if(d>15&&p.dodgeTime<=0){
+          const strength=HAZARD_RULES.tornadoPullMin+(HAZARD_RULES.tornadoPullMax-HAZARD_RULES.tornadoPullMin)*(1-d/HAZARD_RULES.tornadoPullRadius);
+          this.move(p,(vortex.x-p.x)/d,(vortex.y-p.y)/d,dt*strength);
+        }
         if(d<23&&!vortex.hit[p.id]){
           vortex.hit[p.id]=true;
           if(this.damage(p,HAZARD_RULES.tornadoDamage)>0)this.move(p,vortex.dx,0,.08);
@@ -591,10 +594,10 @@ export class Match {
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
       const mapThreat=[...this.lightning.filter(h=>!h.hit),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5)]
-        .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?95:65));
+        .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
       if(mapThreat){
-        tx=p.x+(p.x>=mapThreat.x?105:-105);ty=p.y+(p.y>=mapThreat.y?48:-48);
-        if(distance(p,mapThreat)<33&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
+        tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
+        if(distance(p,mapThreat)<(mapThreat.dx?60:33)&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
       }
       this.aiTarget={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
       const crates=this.obstacles.filter(o=>o.owner===1&&o.type!=='barrel'&&!o.destroyed);

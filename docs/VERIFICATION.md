@@ -1,5 +1,12 @@
 # The Tower Deal verification
 
+## Storm hazard refinement — 2026-10-27
+
+- The tornado pulls from a 118-unit radius, up from 82. Pull strength rises toward its center. The computer begins avoiding it farther away, and the warning shows broken wind arcs around the expanded reach.
+- A new model test checks a meaningful pull near the outer edge, no pull beyond the radius, and no pull during a dodge. The full suite now has 68 passing tests.
+- The lightning strike plays six distinct pixel-art frames with a fixed impact point instead of blinking one still image. The generated sheet is 6 × 112 × 195 pixels per frame.
+- A frame check confirms all six lightning frames differ and their bottom impact rows remain anchored. Phone-sized Chrome captures show the animated strike and expanded tornado wind arcs with no runtime errors.
+
 ## Storm and Magma visual refinement — 2026-10-27
 
 - Mud now reduces walking speed by 45%; a model check compares wet and dry movement directly and confirms that dodge distance stays intact.

@@ -158,6 +158,17 @@ test('storm hazards arrive in equal pairs and dodge protects from lightning',()=
   m.environmentCycle=2;m.startEnvironmentEvent();assert.deepEqual(m.tornadoes.map(o=>o.owner),[0,1]);
 });
 
+test('tornado pulls from farther away with enough force while dodge avoids the pull',()=>{
+  const m=new Match(()=>.5,{map:MAPS.STORM});m.obstacles.forEach(o=>o.destroyed=true);m.mud=[];
+  const p=m.players[0];p.x=110;p.y=760;
+  m.tornadoes=[{id:999,owner:0,x:220,y:760,dx:1,age:1.2,warning:1,life:6,hit:[false,false]}];
+  m.updateEnvironment(.05);
+  assert.ok(HAZARD_RULES.tornadoPullRadius>=115);
+  assert.ok(p.x-110>5,'pull should be noticeably stronger near the outer edge');
+  p.x=80;m.updateEnvironment(.05);assert.equal(p.x,80,'outside pull range remains safe');
+  p.x=110;p.dodgeTime=.3;m.updateEnvironment(.05);assert.equal(p.x,110,'a roll resists the vortex pull');
+});
+
 test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>{
   const m=new Match(()=>.5,{map:MAPS.MAGMA});m.obstacles.forEach(o=>o.destroyed=true);
   m.startEnvironmentEvent();assert.deepEqual(m.rocksInFlight.map(o=>o.owner),[0,1]);

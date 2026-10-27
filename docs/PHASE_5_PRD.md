@@ -53,13 +53,13 @@ A rainy night beside the river, lit by moonlight. Rain moves continuously across
 
 - A storm event marks one impact area on each bank with a blue-white, ground-anchored charge. After a clear telegraph of approximately **1.2 seconds**, a bolt strikes each marked area.
 - A strike gives one moderate hit to a fighter still inside its radius. Proposed initial damage: **18 HP**. It does not stun and does not leave permanent dangerous ground. The strike can damage crates or detonate barrels under existing explosion interaction rules, subject to playtest balance.
-- Marks stay readable in moonlight and over mud. The bolt connects visibly from sky to marked ground, with a short impact flash and fading scorch trace. Screen brightness stays controlled for comfort and visibility.
+- Marks stay readable in moonlight and over mud. A six-frame bolt animation connects visibly from sky to marked ground, with a short impact flash and fading scorch trace. Screen brightness stays controlled for comfort and visibility.
 - Lightning does not begin a new telegraph while a tornado is active. Already marked strikes finish before the tornado begins.
 
 ### Tornado
 
 - A tornado is a **rare** storm event. Wind, rain, and debris indicate its path before its visible funnel reaches either bank. A paired event sends an equivalent vortex across each bank on a path that leaves room to escape.
-- Wind pulls a nearby fighter toward the funnel. Reaching its center causes a short knockback and modest damage; proposed initial damage: **10 HP**. A dodge roll can escape or pass through without taking damage during its invincibility frames.
+- Wind pulls a nearby fighter toward the funnel within a **118-unit radius**, with force increasing toward the center. Reaching its center causes a short knockback and modest damage; current damage: **10 HP**. A dodge roll can escape or pass through without taking damage or being pulled during its invincibility frames.
 - The first implementation does not alter projectile trajectories or move pickups. This keeps aiming predictable and prevents weapons from unexpectedly leaving their bank.
 - Tornadoes do not run at the same time as lightning strikes. Their frequency and pull strength are tuned after rain, mud, and lightning feel good together.
 
