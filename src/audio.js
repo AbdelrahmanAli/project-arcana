@@ -122,6 +122,10 @@ function tornadoWindWav(pull=false){
     return (low*.58+mid*.19+whine*(pull?.17:.08))*envelope*.72;
   });
 }
+function phase6WindWav(){
+  const duration=7.4;let seed=83217,low=0;
+  return pcmWav(duration,t=>{seed=(seed*1664525+1013904223)>>>0;const white=seed/2147483648-1;low=low*.91+white*.09;return low*.34*Math.min(1,t/.4,(duration-t)/.55);});
+}
 export class Sound {
   constructor(){this.muted=false;this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;}
   init(){
@@ -158,6 +162,12 @@ export class Sound {
     this.clips.volcanoRockImpact=new Howl({src:[wav(.55,66,.9,6)],format:['wav'],volume:.3,preload:true});
     this.clips.volcanoFireImpact=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.27,preload:true});
     this.clips.rockBreak=new Howl({src:[wav(.3,120,.83,10)],format:['wav'],volume:.2,preload:true});
+    for(const [name,duration,freq,noise,volume] of [
+      ['eagle',.6,680,.32,.21],['eagleHit',.25,200,.75,.25],['quicksand',.55,78,.8,.17],
+      ['mirageSun',.55,860,.15,.11],['scorpionReveal',.28,490,.6,.19],['scorpionBite',.25,170,.8,.24],
+      ['avalanche',1.1,65,.92,.22],['avalancheHit',.52,72,.94,.26],['hail',.65,330,.78,.13],['hailImpact',.22,430,.76,.16],['iceSlide',.26,620,.5,.09],
+    ])this.clips[name]=new Howl({src:[wav(duration,freq,noise,5)],format:['wav'],volume,preload:true,pool:8});
+    this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.24,preload:true});
     Howler.ctx?.resume();
   }
   play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
@@ -175,7 +185,7 @@ export class Sound {
       this.towerPhase=phase;
       if(phase==='rise'&&progress<.15&&!this.muted)this.clips.riseAlarm.play('alert');
     }
-    const wet=map!=='magma'&&phase!=='rest'&&height>.015;
+    const wet=(map==='riverside'||map==='storm')&&phase!=='rest'&&height>.015;
     if(wet!==this.watering){this.watering=wet;if(wet)this.clips.water.play();else this.clips.water.stop();}
     if(wet)this.clips.water.volume(.025+.06*Math.min(1,height*2));
   }

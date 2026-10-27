@@ -1,7 +1,7 @@
 # Phase 6 PRD: Desert and Snow arenas
 
 - **Product:** The Tower Deal
-- **Status:** Planned; no Phase 6 gameplay or art is implemented yet
+- **Status:** Implemented in the prototype; physical phone playtesting and final animation polish remain
 - **Platform:** Desktop and phone browsers
 - **Match format:** One round, player versus computer; all four existing weapon modes
 
