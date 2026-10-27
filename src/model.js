@@ -42,6 +42,7 @@ export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
 export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.25, eagleRadius:29, quicksandSlow:.52, quicksandPull:.38, quicksandRadius:50, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.85 };
 export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDepth:48, pushSpeed:255 };
+export const HAIL_CLUSTER = { radius:33, impactRadius:17, stagger:.11, fall:.58, offsets:[[-16,-4],[0,5],[16,-3]] };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const SANDSTORM_WAVE_GAP = 150;
 export function sandstormCovers(storm,y){
@@ -115,7 +116,7 @@ export function segmentEllipseHit(a,b,ellipse) {
   return fraction>=0&&fraction<=1?{x:a.x+(b.x-a.x)*fraction,y:a.y+(b.y-a.y)*fraction}:null;
 }
 function soldier(id, x, y) {
-  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -433,12 +434,18 @@ export class Match {
     this.avalanches=this.avalanches.filter(avalanche=>avalanche.age<avalanche.life);
     for(const pellet of this.hail){
       pellet.age+=dt;
-      if(!pellet.hit&&pellet.age>=pellet.warning){
-        pellet.hit=true;
+      const impacts=pellet.impacts??(pellet.impacts=Array(HAIL_CLUSTER.offsets.length).fill(false));
+      for(let index=0;index<HAIL_CLUSTER.offsets.length;index++){
+        if(impacts[index]||pellet.age<pellet.warning+index*HAIL_CLUSTER.stagger)continue;
+        impacts[index]=true;
+        const [dx,dy]=HAIL_CLUSTER.offsets[index],x=pellet.x+dx,y=pellet.y+dy;
         const p=this.players[pellet.owner];
-        if(p.hp>0&&distance(p,pellet)<23&&this.damage(p,PHASE6_RULES.hailDamage)>0)p.stun=Math.max(p.stun,PHASE6_RULES.hailFlinch);
-        this.emit('hailImpact',{x:pellet.x});
+        if(!pellet.damaged&&p.hp>0&&Math.hypot(p.x-x,p.y-y)<HAIL_CLUSTER.impactRadius&&this.damage(p,PHASE6_RULES.hailDamage)>0){
+          p.stun=Math.max(p.stun,PHASE6_RULES.hailFlinch);pellet.damaged=true;
+        }
+        if(index===0)this.emit('hailImpact',{x});
       }
+      pellet.hit=impacts.every(Boolean);
     }
     this.hail=this.hail.filter(pellet=>pellet.age<pellet.life);
   }
@@ -568,7 +575,7 @@ export class Match {
     }
     if(this.map===MAPS.SNOW&&!rolling){
       const onIce=this.icePatches.some(patch=>patch.owner===p.id&&((p.x-patch.x)/(patch.radius*1.18))**2+((p.y-patch.y)/(patch.radius*.72))**2<1);
-      if(onIce&&!p.onIce)this.emit('iceSlide',{x:p.x});
+      if(onIce&&!p.onIce){p.iceSpray=.26;this.emit('iceSlide',{x:p.x});}
       if(onIce){
         if(!p.onIce||(!p.iceEntryX&&!p.iceEntryY)){
           const entryLength=Math.hypot(x,y);
@@ -852,7 +859,7 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     const specialPressed=!!input.special&&!this.specialHeld;
     this.specialHeld=!!input.special;

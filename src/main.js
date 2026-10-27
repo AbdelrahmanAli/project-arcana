@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension, towerShieldBounds } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension, towerShieldBounds } from './model.js';
 import { Sound } from './audio.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
@@ -550,16 +550,28 @@ function renderPhase6Environment(){
         ?(direction>0?-165:W+165)+(pellet.x-(direction>0?-165:W+165))*approach
         :pellet.x+((direction>0?W+165:-165)-pellet.x)*depart;
       sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-125,280,170,sheetLoop(pellet.age,6,4),.94);
-      if(!pellet.hit){
-        const pulse=.5+.25*Math.sin(game.time*15+pellet.id);
-        environmentGround.ellipse(pellet.x,pellet.y,27,18).fill({color:0xb8e5fa,alpha:.19}).stroke({color:0xe4faff,width:2,alpha:pulse});
+      if(pellet.age<pellet.warning+HAIL_CLUSTER.stagger*2){
+        const pulse=.75+.15*Math.sin(game.time*8+pellet.id);
+        const r=HAIL_CLUSTER.radius;
+        environmentGround.ellipse(pellet.x,pellet.y,r+6,r*.78+5)
+          .fill({color:0x397da5,alpha:.22})
+          .stroke({color:0x387ca5,width:4,alpha:.6*pulse});
+        environmentGround.ellipse(pellet.x,pellet.y,r,r*.78)
+          .fill({color:0x7bc8e8,alpha:.25})
+          .stroke({color:0xe5fbff,width:2.2,alpha:.9*pulse});
+        for(const [dx,dy] of HAIL_CLUSTER.offsets)
+          environmentGround.ellipse(pellet.x+dx,pellet.y+dy,2.4,1.8).fill({color:0x1d678c,alpha:.8});
       }
-      if(pellet.age>=pellet.warning-.65&&pellet.age<pellet.warning+.42){
-        const frame=pellet.age<pellet.warning
-          ?Math.min(3,Math.floor((pellet.age-pellet.warning+.65)/.65*4))
-          :Math.min(5,4+Math.floor((pellet.age-pellet.warning)/.21));
-        const alpha=pellet.age>pellet.warning+.26?Math.max(0,(pellet.warning+.42-pellet.age)/.16):1;
-        sprite(`hail-icicle-${pellet.id}`,phase6Frames.hailIcicle,lightningLayer,pellet.x,pellet.y-90,96,180,frame,alpha);
+      for(let index=0;index<HAIL_CLUSTER.offsets.length;index++){
+        const [dx,dy]=HAIL_CLUSTER.offsets[index];
+        const impactAt=pellet.warning+index*HAIL_CLUSTER.stagger;
+        if(pellet.age<impactAt-HAIL_CLUSTER.fall||pellet.age>=impactAt+.42)continue;
+        const frame=pellet.age<impactAt
+          ?Math.min(3,Math.floor((pellet.age-impactAt+HAIL_CLUSTER.fall)/HAIL_CLUSTER.fall*4))
+          :Math.min(5,4+Math.floor((pellet.age-impactAt)/.21));
+        const alpha=pellet.age>impactAt+.26?Math.max(0,(impactAt+.42-pellet.age)/.16):1;
+        sprite(`hail-icicle-${pellet.id}-${index}`,phase6Frames.hailIcicle,lightningLayer,
+          pellet.x+dx,pellet.y+dy-39,42,78,frame,alpha);
       }
     }
     for(let i=0;i<110;i++){
@@ -944,6 +956,20 @@ function render(){
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
       if(!rolling)groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
+      if(game.map===MAPS.SNOW&&!rolling&&p.moving&&(p.onIce||p.iceSlip>0)){
+        const vx=p.lastMoveX,vy=p.lastMoveY,sideX=-vy,sideY=vx;
+        const burst=Math.min(1,p.iceSpray/.26);
+        for(const side of [-1,1]){
+          const x=p.x+sideX*side*7-vx*7,y=p.y+22+sideY*side*4-vy*7;
+          groundDraw.moveTo(x,y).lineTo(x-vx*19,y-vy*19).stroke({color:0x4c7892,width:2.2,alpha:.66});
+          groundDraw.moveTo(x+sideX,y-1).lineTo(x-vx*13+sideX,y-vy*13-1).stroke({color:0xe5faff,width:1.1,alpha:.82});
+        }
+        for(let i=0;i<7;i++){
+          const drift=10+i*4,spread=(i-3)*(2.2+burst);
+          const x=p.x-vx*drift+sideX*spread,y=p.y+19-vy*drift+sideY*spread;
+          groundDraw.circle(x,y,1.2+(i%2)*.6+burst*.6).fill({color:i%2?0x7bb3cd:0xffffff,alpha:.32+burst*.42});
+        }
+      }
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
         const power=p.charge,ready=power>=1,white=laserWhitePhase(game.time,ready);

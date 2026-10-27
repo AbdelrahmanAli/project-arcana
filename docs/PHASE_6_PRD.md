@@ -90,13 +90,13 @@ Both banks are snow-covered with clear dark paths and cover silhouettes. Snow fa
 ### Sliding ice patches
 
 - Each bank starts with an equivalent number and approximate area of scattered ice patches. Their boundaries and shine read against the snow. Positions may vary by match within safe placement zones; patches do not spread without a cap.
-- Walking onto ice locks a slide in the direction the fighter actually entered the patch. Releasing or reversing the movement control does not change that direction until they leave the ice. Once off the patch, a short glide fades and normal steering returns. Ice does not cause damage or change bullets. A dodge can break out of the slide and cannot cross a bank boundary or solid cover.
+- Walking onto ice locks a slide in the direction the fighter actually entered the patch. Releasing or reversing the movement control does not change that direction until they leave the ice. Brief boot skids and snow spray show the motion without covering the soldier. Once off the patch, a short glide fades and normal steering returns. Ice does not cause damage or change bullets. A dodge can break out of the slide and cannot cross a bank boundary or solid cover.
 - The computer predicts enough stopping distance to avoid repeatedly sliding into a wall or hazardous landing area. Pickups on ice remain reachable.
 - **Current tuning:** fixed entry direction on the patch and roughly 0.85 seconds of diminishing glide after leaving it. Tune on touch controls so the dodge remains a clear escape.
 
 ### Hail squall
 
-- Large, slow clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. A six-frame icicle visibly descends from the cloud, strikes its mark, shatters, and fades. Hail visibly comes from above rather than erupting from the ground.
+- Large, slow clouds travel across each bank from left to right or right to left, passing over **marked locations** as hail falls. Each clearly marked cluster drops three small, staggered six-frame icicles. Each icicle descends from the cloud, strikes within the marked area, shatters, and fades. A cluster deals at most one light hit. Hail visibly comes from above rather than erupting from the ground.
 - Both banks receive the same number of marked strikes and timing, with independently chosen valid locations. Marks must stay visible over snow and ice. A fighter can walk between the impacts or dodge a cluster.
 - A direct hit deals light damage and a brief flinch, shorter than the Stun Launcher effect. Limit repeated hits from one cluster so a fighter cannot lose most of their health from a single squall. Hail does not create permanent blockers.
 - **Initial tuning proposal:** around 1 second of warning per cluster, 4 HP per direct pellet, a short 0.2–0.3-second interruption, and an event damage cap to tune in playtesting.

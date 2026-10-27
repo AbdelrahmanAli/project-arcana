@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT,AVALANCHE,SANDSTORM_WAVE_GAP,sandstormCovers} from '../src/model.js';
+import {Match,MAPS,MAP_TYPES,GAME_MODES,BANK_BOUNDS,RIVER,PHASE6_RULES,EAGLE_FLIGHT,AVALANCHE,HAIL_CLUSTER,SANDSTORM_WAVE_GAP,sandstormCovers} from '../src/model.js';
 
 test('Desert and Snow keep equal bank depth and an impassable channel',()=>{
   assert.equal(BANK_BOUNDS[0].maxY-BANK_BOUNDS[0].minY,BANK_BOUNDS[1].maxY-BANK_BOUNDS[1].minY);
@@ -165,6 +165,7 @@ test('ice preserves a short steerable slide and does not leave its bank',()=>{
   const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
   m.icePatches=[{id:1,owner:0,x:p.x,y:p.y,radius:39}];
   for(let i=0;i<25;i++)m.move(p,1,0,1/120);
+  assert.ok(p.iceSpray>0,'entering the slick snow triggers a short spray');
   const edge=m.icePatches[0].x+m.icePatches[0].radius*1.18+2;
   while(p.x<edge)m.move(p,1,0,1/120);
   const x=p.x;m.move(p,0,0,1/120);
@@ -173,6 +174,20 @@ test('ice preserves a short steerable slide and does not leave its bank',()=>{
   assert.ok(p.x-start>10,'ice carries the fighter well beyond the patch');
   for(let i=0;i<100;i++)m.move(p,0,-1,1/120);
   assert.ok(p.y>=BANK_BOUNDS[0].minY);
+});
+
+test('three marked icicles land in sequence but deal at most one hit per cluster',()=>{
+  assert.equal(HAIL_CLUSTER.offsets.length,3);
+  const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
+  const target={id:1,owner:0,x:220,y:760,age:.99,start:0,warning:1,life:2,hit:false};
+  m.hail=[target];p.x=236;p.y=760;
+  m.updateEnvironment(.02);
+  assert.equal(p.hp,100,'the first icicle misses the fighter at the second landing point');
+  m.updateEnvironment(.1);
+  assert.equal(p.hp,100-PHASE6_RULES.hailDamage,'the second icicle hits inside its marked area');
+  m.updateEnvironment(.12);
+  assert.equal(p.hp,100-PHASE6_RULES.hailDamage,'the third icicle cannot repeat the cluster damage');
+  assert.equal(target.hit,true);
 });
 
 test('ice locks the entry direction on both axes until the fighter leaves the patch',()=>{

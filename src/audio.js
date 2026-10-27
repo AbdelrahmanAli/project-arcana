@@ -151,7 +151,7 @@ export class Sound {
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
     this.alarmMuted=prefs.alarmMuted===true;
-    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):10;
+    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):25;
     this.ready=false;this.clips={};this.burning=false;this.watering=false;this.towerPhase=null;this.ambientMap=null;
   }
   init(){
@@ -171,9 +171,9 @@ export class Sound {
     this.clips.crateBreak=new Howl({src:[wav(.25,180,.9,12)],format:['wav'],volume:.25,preload:true,pool:8});
     this.clips.crateHit=new Howl({src:[wav(.11,225,.72,18)],format:['wav'],volume:.19,preload:true,pool:8});
     this.clips.barrelBlast=new Howl({src:[wav(.64,62,.9,5)],format:['wav'],volume:.3,preload:true,pool:8});
-    this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.18,loop:true,preload:true});
+    this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.14,loop:true,preload:true});
     this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
-    this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.31,preload:true});
+    this.clips.retaliation=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
     this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:this.alarmMuted?0:.23*this.alarmVolume/100,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});
@@ -224,7 +224,7 @@ export class Sound {
     saveAudioPrefs(this);
   }
   toggleAlarmMute(){
-    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=10;
+    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=25;
     this.alarmMuted=!this.alarmMuted;
     if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
     saveAudioPrefs(this);
