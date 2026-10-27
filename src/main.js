@@ -550,17 +550,20 @@ function renderPhase6Environment(){
         ?(direction>0?-165:W+165)+(pellet.x-(direction>0?-165:W+165))*approach
         :pellet.x+((direction>0?W+165:-165)-pellet.x)*depart;
       sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-125,280,170,sheetLoop(pellet.age,6,4),.94);
-      if(pellet.age<pellet.warning+HAIL_CLUSTER.stagger*2){
-        const pulse=.75+.15*Math.sin(game.time*8+pellet.id);
+      const markerStart=pellet.warning-HAIL_CLUSTER.fall;
+      const markerEnd=pellet.warning+HAIL_CLUSTER.stagger*(HAIL_CLUSTER.offsets.length-1);
+      if(pellet.age>=markerStart&&pellet.age<markerEnd){
+        const fade=Math.min(1,(pellet.age-markerStart)/.12);
+        const pulse=(.75+.15*Math.sin(game.time*8+pellet.id))*fade;
         const r=HAIL_CLUSTER.radius;
         environmentGround.ellipse(pellet.x,pellet.y,r+6,r*.78+5)
-          .fill({color:0x397da5,alpha:.22})
+          .fill({color:0x397da5,alpha:.22*fade})
           .stroke({color:0x387ca5,width:4,alpha:.6*pulse});
         environmentGround.ellipse(pellet.x,pellet.y,r,r*.78)
-          .fill({color:0x7bc8e8,alpha:.25})
+          .fill({color:0x7bc8e8,alpha:.25*fade})
           .stroke({color:0xe5fbff,width:2.2,alpha:.9*pulse});
         for(const [dx,dy] of HAIL_CLUSTER.offsets)
-          environmentGround.ellipse(pellet.x+dx,pellet.y+dy,2.4,1.8).fill({color:0x1d678c,alpha:.8});
+          environmentGround.ellipse(pellet.x+dx,pellet.y+dy,2.4,1.8).fill({color:0x1d678c,alpha:.8*fade});
       }
       for(let index=0;index<HAIL_CLUSTER.offsets.length;index++){
         const [dx,dy]=HAIL_CLUSTER.offsets[index];
