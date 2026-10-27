@@ -40,7 +40,7 @@ export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_F
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma', DESERT:'desert', SNOW:'snow' };
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12, burningRockDps:10, burningRockRadius:40, burningRockDuration:3.5, rockCoolingDuration:.9 };
-export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.35, eagleRadius:29, quicksandSlow:.52, quicksandPull:.24, scorpionDamage:8, scorpionSlow:1, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
+export const PHASE6_RULES = { eagleDamage:11, eagleWarning:1.35, eagleRadius:29, quicksandSlow:.52, quicksandPull:.24, scorpionDamage:8, scorpionSlow:1, scorpionStagger:.32, scorpionWindup:.34, avalancheDamage:14, hailDamage:4, hailFlinch:.22, iceSlip:.38 };
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -242,8 +242,10 @@ export class Match {
       }else if(kind===1){
         for(const owner of [0,1]){
           const bank=BANK_BOUNDS[owner],p=this.players[owner];
-          const x=clamp(p.x+(this.random()-.5)*40,50,W-50),y=clamp(p.y+(this.random()-.5)*35,bank.minY+42,bank.maxY-42);
-          this.eagles.push({id:this.id++,owner,x,y,age:0,warning:PHASE6_RULES.eagleWarning,life:2.5,hit:false});
+          for(let pass=0;pass<2;pass++){
+            const x=clamp(p.x+(this.random()-.5)*40,50,W-50),y=clamp(p.y+(this.random()-.5)*35,bank.minY+42,bank.maxY-42);
+            this.eagles.push({id:this.id++,owner,x,y,entrySide:this.random()<.5?-1:1,pass,start:pass*2.65,age:0,warning:PHASE6_RULES.eagleWarning,life:2.5,targeted:pass===0,hit:false});
+          }
         }
         this.emit('eagle');
       }else if(kind===2){
@@ -349,14 +351,22 @@ export class Match {
     }
     for(const eagle of this.eagles){
       eagle.age+=dt;
-      if(!eagle.hit&&eagle.age>=eagle.warning){
+      if(eagle.age<eagle.start)continue;
+      if(!eagle.targeted){
+        const bank=BANK_BOUNDS[eagle.owner],p=this.players[eagle.owner];
+        eagle.x=clamp(p.x+(this.random()-.5)*40,50,W-50);
+        eagle.y=clamp(p.y+(this.random()-.5)*35,bank.minY+42,bank.maxY-42);
+        eagle.targeted=true;
+        if(eagle.owner===0)this.emit('eagle');
+      }
+      if(!eagle.hit&&eagle.age-eagle.start>=eagle.warning){
         eagle.hit=true;
         const p=this.players[eagle.owner];
         if(p.hp>0&&distance(p,eagle)<PHASE6_RULES.eagleRadius&&this.damage(p,PHASE6_RULES.eagleDamage)>0)
           this.emit('eagleHit',{x:p.x,player:p.id});
       }
     }
-    this.eagles=this.eagles.filter(eagle=>eagle.age<eagle.life);
+    this.eagles=this.eagles.filter(eagle=>eagle.age<eagle.start+eagle.life);
     for(const patch of this.quicksand){
       patch.age+=dt;
       const p=this.players[patch.owner],d=distance(p,patch);
@@ -368,13 +378,15 @@ export class Match {
       lure.age+=dt;
       const p=this.players[lure.owner];
       if(lure.state==='sun'&&lure.age>=lure.warning)lure.state='lure';
-      if(lure.state==='lure'&&p.hp>0&&distance(p,lure)<27){
+      if(lure.state==='lure'&&p.hp>0&&distance(p,lure)<40){
         lure.state='strike';lure.strikeAge=0;this.emit('scorpionReveal',{x:lure.x});
       }else if(lure.state==='strike'){
         lure.strikeAge+=dt;
         if(lure.strikeAge>=PHASE6_RULES.scorpionWindup){
           if(p.hp>0&&distance(p,lure)<37&&this.damage(p,PHASE6_RULES.scorpionDamage)>0){
-            p.scorpionSlow=PHASE6_RULES.scorpionSlow;this.emit('scorpionBite',{x:p.x,player:p.id});
+            p.scorpionSlow=PHASE6_RULES.scorpionSlow;
+            p.stun=Math.max(p.stun,PHASE6_RULES.scorpionStagger);
+            this.emit('scorpionBite',{x:p.x,player:p.id});
           }
           lure.state='retreat';lure.strikeAge=0;
         }
@@ -744,7 +756,7 @@ export class Match {
       let tx=sandBlind?p.x:enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
       const visibleLures=this.mirages.filter(i=>i.owner===1&&i.state==='lure'&&i.aiInterested);
       const supplies=[...this.pickups.filter(i=>i.owner===1&&i.flight<=0&&i.ttl>0),...visibleLures]
-        .filter(i=>i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type)
+        .filter(i=>visibleLures.includes(i)||(i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type))
         .sort((a,b)=>(distance(a,p)-(a.type==='syringe'&&p.hp<=65?90:0))-(distance(b,p)-(b.type==='syringe'&&p.hp<=65?90:0)));
       if(supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
       for(const b of this.bullets) {
@@ -760,13 +772,13 @@ export class Match {
         tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
         if(distance(p,mapThreat)<(mapThreat.dx?60:33)&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
       }
-      const eagle=this.eagles.find(h=>h.owner===1&&!h.hit&&h.age>h.warning-.65&&distance(p,h)<70);
+      const eagle=this.eagles.find(h=>h.owner===1&&h.targeted&&!h.hit&&h.age-h.start>h.warning-.65&&distance(p,h)<70);
       const avalanche=this.avalanches.find(h=>h.owner===1&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<75&&Math.abs(h.x-p.x)<190);
       const hail=this.hail.find(h=>h.owner===1&&!h.hit&&h.age>=h.start&&distance(p,h)<55);
       const sand=this.quicksand.find(h=>h.owner===1&&distance(p,h)<65);
       const lateral=avalanche;
       if(lateral){ty=p.y+(p.y>=lateral.y?100:-100);if(distance(p,lateral)<54)this.dodge(p,p.x-lateral.x,p.y-lateral.y);}
-      if(eagle){tx=p.x+(p.x>=eagle.x?90:-90);ty=p.y+(p.y>=eagle.y?75:-75);if(eagle.age>eagle.warning-.22&&distance(p,eagle)<41)this.dodge(p,p.x-eagle.x,p.y-eagle.y);}
+      if(eagle){tx=p.x+(p.x>=eagle.x?90:-90);ty=p.y+(p.y>=eagle.y?75:-75);if(eagle.age-eagle.start>eagle.warning-.22&&distance(p,eagle)<41)this.dodge(p,p.x-eagle.x,p.y-eagle.y);}
       if(hail||sand){const threat=hail||sand;tx=p.x+(p.x>=threat.x?95:-95);ty=p.y+(p.y>=threat.y?65:-65);if(hail&&distance(p,hail)<30&&hail.age>hail.warning-.25)this.dodge(p,p.x-hail.x,p.y-hail.y);}
       this.aiTarget={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
       const crates=this.obstacles.filter(o=>o.owner===1&&o.type!=='barrel'&&!o.destroyed);

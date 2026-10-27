@@ -53,7 +53,7 @@ Warm yellow sand covers both level banks. Dry stone and mountain faces close the
 
 ### Eagle swoop
 
-- Each bank receives a dive from above. A broad circular shadow marks the locked landing point and shrinks as the eagle approaches; the eagle strikes the final shadow circle, then climbs away.
+- Each bank receives two dives in quick succession. The eagle enters visibly from the left or right at height, descends toward a broad circular shadow that shrinks around the locked landing point, strikes the final circle, then climbs away. The second pass locks onto the fighter's new position.
 - The eagle is **non-shootable** and does not block shots. A fighter can move outside the shrinking shadow or dodge through the attack with existing invincibility frames. One dive can hit a fighter at most once.
 - Schedule equivalent dives on both banks. Target positions may vary independently but use the same warning, speed, hit radius, and damage. The computer reacts to the visible shrinking shadow.
 - **Initial tuning proposal:** roughly 1 second of shadow warning and 10–12 HP on a direct hit, with no lasting stun. Tune for phone reaction time.
@@ -70,7 +70,7 @@ Warm yellow sand covers both level banks. Dry stone and mountain faces close the
 - A global sun pulse begins about **2 seconds** before fake items appear: the sand brightens to a warmer gold and local heat shimmer grows. It signals the event without flashing white or hiding real pickups.
 - One mirage item appears at a valid, reachable position on each bank. It resembles either a weapon pickup or a healing syringe, with slight heat wavering as a close-range clue. The two banks receive the same event timing; item type and position may vary independently. A fake item has no ownership transfer, ammo, or healing effect.
 - In Random Fixed Weapon and Choose Fixed Weapon, a fake weapon displays that match's fixed type. In Random Same Weapon, it must use an eligible type without implying that the Tower has made a new paired launch. Fake items do not alter Tower drops or crate loot odds.
-- On close approach, the image breaks, a scorpion rises from the sand, and its tail visibly winds up before one bite attempt. The scorpion is **non-shootable** and does not block shots. Moving away or dodging during the windup prevents the bite; a successful hit deals **8 HP** and a short movement slow. It then burrows away. Untouched mirages fade after a limited time.
+- On close approach, even while carrying a different weapon, the image breaks, a scorpion rises from the sand, and its tail visibly winds up before one bite attempt. The scorpion is **non-shootable** and does not block shots. Moving away or dodging during the windup prevents the bite; a successful hit deals **8 HP**, a brief stagger, and a short movement slow. It then burrows away. Untouched mirages fade after a limited time.
 - The computer may be lured by a mirage and uses the same proximity trigger, bite damage, slow, and dodge opportunity. It must not identify fake items from hidden state before the visual clue appears.
 - **Initial tuning proposal:** about 0.3 seconds between emergence and bite, around 1 second of slow, and 8–10 seconds before an untouched lure fades. Validate that the tell is readable but the trap remains tempting.
 

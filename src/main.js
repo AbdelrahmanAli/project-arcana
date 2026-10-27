@@ -435,7 +435,13 @@ function renderPhase6Environment(){
     const storm=game.sandstorm;
     for(let i=0;i<sandstormSprites.length;i++){
       const cloud=sandstormSprites[i];cloud.visible=!!storm;
-      if(storm){cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+i*.28,8,6)];cloud.position.set(W*(i+.5)/3,storm.y+(i%2?28:-18));cloud.width=W*.53;cloud.height=210;cloud.alpha=.64+Math.sin(storm.age*5+i)*.08;}
+      if(storm){
+        const lane=i%3,back=i<3;
+        cloud.texture=phase6Frames.sandstorm[sheetLoop(storm.age+i*.23,8,6)];
+        cloud.position.set(W*(lane+.5)/3+(back?18:-9),storm.y+(lane%2?26:-18)+(back?26:0));
+        cloud.width=W*(back?.58:.53);cloud.height=back?228:210;
+        cloud.alpha=(back?.49:.72)+Math.sin(storm.age*5+i)*.06;
+      }
     }
     if(storm)for(let i=0;i<9;i++){
       const drift=Math.sin(storm.age*2.1+i*1.7)*13;
@@ -450,7 +456,8 @@ function renderPhase6Environment(){
       if(fraction>.01)sprite(`sand-transition-${patch.id}`,phase6Frames.quicksand,hazardLayer,patch.x,patch.y,width,height,frames[step+1],fraction);
     }
     for(const eagle of game.eagles){
-      const approach=Math.min(1,eagle.age/eagle.warning),depart=Math.max(0,(eagle.age-eagle.warning)/(eagle.life-eagle.warning));
+      if(eagle.age<eagle.start)continue;
+      const age=eagle.age-eagle.start,approach=Math.min(1,age/eagle.warning),depart=Math.max(0,(age-eagle.warning)/(eagle.life-eagle.warning));
       const radius=61-32*approach,shadowFade=1-depart;
       for(let ring=0;ring<4;ring++)environmentGround.ellipse(eagle.x,eagle.y,radius*(1-ring*.15),radius*(1-ring*.15)*.68)
         .fill({color:0x17130b,alpha:(.09+approach*.06)*shadowFade});
@@ -459,9 +466,11 @@ function renderPhase6Environment(){
         const angle=n*1.25+eagle.id;
         circle(environmentGround,eagle.x+Math.cos(angle)*radius*.86,eagle.y+Math.sin(angle)*radius*.57,1.5,0xe6b96d,(approach-.7)*1.6);
       }
-      const flightX=eagle.x-28*(1-approach)+Math.sin(approach*Math.PI)*21+depart*58;
+      const flightProgress=1-Math.pow(1-approach,1.5),fromX=eagle.entrySide<0?-40:W+40;
+      const flightX=fromX+(eagle.x-fromX)*flightProgress+Math.sin(approach*Math.PI)*16-eagle.entrySide*depart*68;
       const flightY=eagle.y-24-135*(1-approach)-depart*115;
-      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,flightX,flightY,(36+52*approach)*(1-depart*.45),(34+51*approach)*(1-depart*.45),sheetLoop(eagle.age,12,6),Math.min(1,.48+approach*.52)*(1-depart*.75));
+      const bird=sprite(`eagle-${eagle.id}`,phase6Frames.eagle,lightningLayer,flightX,flightY,(44+46*approach)*(1-depart*.45),(40+45*approach)*(1-depart*.45),sheetLoop(age,12,6),Math.min(1,.55+approach*.45)*(1-depart*.75));
+      bird.scale.x=Math.abs(bird.scale.x)*(eagle.entrySide<0?1:-1);
       bird.rotation=Math.sin(approach*Math.PI)*.12+depart*.3;
     }
     for(const lure of game.mirages){
@@ -1148,7 +1157,7 @@ async function boot(){
     const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashVentPuffs.push(puff);ashCloudLayer.addChildAt(puff,0);
   }
   draw=new Graphics();joystickDraw=new Graphics();phase6WeatherLayer=new Container();phase6WeatherDraw=new Graphics();phase6WeatherLayer.addChild(phase6WeatherDraw);
-  for(let i=0;i<3;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
+  for(let i=0;i<6;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
   app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw);
   buildWeaponChoices();
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';

@@ -1,10 +1,11 @@
 """Prepare the original Phase 6 pixel art as compact, aligned runtime sheets."""
 
 from pathlib import Path
+from collections import deque
 from math import sin, pi
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +66,43 @@ def sandstorm_sheet() -> None:
     sheet.save(OUTPUT / "sandstorm-frames.png", optimize=True)
 
 
+def clean_eagle_frames() -> None:
+    """Keep the central bird in each generated cell, dropping adjacent-frame feathers."""
+    path = OUTPUT / "eagle-frames.png"
+    sheet = Image.open(path).convert("RGBA")
+    cleaned = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+    for index in range(6):
+        frame = sheet.crop((index * 128, 0, (index + 1) * 128, 128))
+        alpha = np.asarray(frame.getchannel("A")) > 26
+        seen = np.zeros(alpha.shape, dtype=bool)
+        largest: list[tuple[int, int]] = []
+        for y in range(128):
+            for x in range(128):
+                if not alpha[y, x] or seen[y, x]:
+                    continue
+                queue = deque([(x, y)])
+                seen[y, x] = True
+                component: list[tuple[int, int]] = []
+                while queue:
+                    cx, cy = queue.popleft()
+                    component.append((cx, cy))
+                    for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1),
+                                   (cx - 1, cy - 1), (cx + 1, cy - 1), (cx - 1, cy + 1), (cx + 1, cy + 1)):
+                        if 0 <= nx < 128 and 0 <= ny < 128 and alpha[ny, nx] and not seen[ny, nx]:
+                            seen[ny, nx] = True
+                            queue.append((nx, ny))
+                if len(component) > len(largest):
+                    largest = component
+        keep = np.zeros((128, 128), dtype=np.uint8)
+        for x, y in largest:
+            keep[y, x] = 255
+        keep = np.asarray(Image.fromarray(keep).filter(ImageFilter.MaxFilter(5))) > 0
+        pixels = np.array(frame)
+        pixels[~keep] = 0
+        cleaned.alpha_composite(Image.fromarray(pixels, "RGBA"), (index * 128, 0))
+    cleaned.save(path, optimize=True)
+
+
 def small_effect_sheets() -> None:
     mirage = Image.new("RGBA", (64 * 4, 64), (0, 0, 0, 0))
     hail = Image.new("RGBA", (48 * 4, 48), (0, 0, 0, 0))
@@ -101,6 +139,7 @@ def main() -> None:
         image.save(OUTPUT / f"arena-{name}.webp", "WEBP", quality=90, method=6)
     for item in SHEETS:
         normalize_strip(*item)
+    clean_eagle_frames()
     sandstorm_sheet()
     small_effect_sheets()
 
