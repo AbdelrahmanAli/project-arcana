@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerShieldBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -151,10 +151,19 @@ test('maps preserve equal banks and mud slows walking without shortening a roll'
 
 test('storm hazards arrive in equal pairs and dodge protects from lightning',()=>{
   const m=new Match(()=>.5,{map:MAPS.STORM});m.obstacles.forEach(o=>o.destroyed=true);
-  m.startEnvironmentEvent();assert.deepEqual(m.lightning.map(o=>o.owner),[0,1]);
-  for(const strike of m.lightning){const p=m.players[strike.owner];p.x=strike.x;p.y=strike.y;}
+  m.startEnvironmentEvent();assert.deepEqual(m.lightning.map(o=>o.owner),[0,1,0,1]);
+  const first=m.lightning.filter(strike=>strike.wave===0),second=m.lightning.filter(strike=>strike.wave===1);
+  assert.ok(Math.abs(second[0].warning-first[0].warning-LIGHTNING_WAVE_DELAY)<1e-9);
+  for(const owner of [0,1])assert.ok(Math.hypot(first[owner].x-second[owner].x,first[owner].y-second[owner].y)>70,'each bank gets separate strike sites');
+  for(const strike of first){const p=m.players[strike.owner];p.x=strike.x;p.y=strike.y;}
   m.players[1].dodgeTime=.3;m.updateEnvironment(1.21);
   assert.equal(m.players[0].hp,100-HAZARD_RULES.lightningDamage);assert.equal(m.players[1].hp,100);
+  assert.ok(first.every(strike=>strike.hit)&&second.every(strike=>!strike.hit));
+  for(const strike of second){const p=m.players[strike.owner];p.x=strike.x;p.y=strike.y;}
+  m.players[1].dodgeTime=0;m.updateEnvironment(LIGHTNING_WAVE_DELAY);
+  assert.equal(m.players[0].hp,100-2*HAZARD_RULES.lightningDamage);
+  assert.equal(m.players[1].hp,100-HAZARD_RULES.lightningDamage);
+  assert.ok(second.every(strike=>strike.hit));
   m.environmentCycle=2;m.startEnvironmentEvent();assert.deepEqual(m.tornadoes.map(o=>o.owner),[0,1]);
 });
 

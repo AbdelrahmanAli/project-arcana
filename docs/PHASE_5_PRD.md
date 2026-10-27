@@ -51,7 +51,7 @@ A rainy night beside the river, lit by moonlight. Rain moves continuously across
 
 ### Lightning
 
-- A storm event marks one impact area on each bank with a blue-white, ground-anchored charge. After a clear telegraph of approximately **1.2 seconds**, a bolt strikes each marked area.
+- A storm event delivers **two paired waves**: one marked impact on each bank, then a second marked impact on each bank **0.55 seconds later**. Each wave gets its own blue-white ground charge and approximately **1.2 seconds** of telegraph time. The two impact points on a bank remain separate.
 - A strike gives one moderate hit to a fighter still inside its radius. Proposed initial damage: **18 HP**. It does not stun and does not leave permanent dangerous ground. The strike can damage crates or detonate barrels under existing explosion interaction rules, subject to playtest balance.
 - Marks stay readable in moonlight and over mud. A six-frame bolt animation connects visibly from sky to marked ground, with a short impact flash and fading scorch trace. Screen brightness stays controlled for comfort and visibility.
 - Lightning does not begin a new telegraph while a tornado is active. Already marked strikes finish before the tornado begins.

@@ -443,6 +443,7 @@ function renderEnvironment(){
     for(const [id,sprite] of mudSprites)if(!liveMud.has(id)){sprite.destroy();mudSprites.delete(id);}
     const liveLightning=new Set();
     for(const strike of game.lightning){
+      if(strike.age<strike.start)continue;
       if(strike.hit){
         liveLightning.add(strike.id);
         const fade=Math.max(0,Math.min(1,(strike.life-strike.age)/.24));

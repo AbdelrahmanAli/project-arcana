@@ -40,6 +40,7 @@ export const GAME_MODES = { RANDOM:'random', RANDOM_SAME:'random-same', RANDOM_F
 export const MAPS = { RIVERSIDE:'riverside', STORM:'storm', MAGMA:'magma' };
 export const MAP_TYPES = Object.values(MAPS);
 export const HAZARD_RULES = { mudSlow:.55, lightningDamage:18, tornadoDamage:10, tornadoPullRadius:118, tornadoPullMin:.62, tornadoPullMax:1.05, rockDamage:16, volcanicFireDps:12 };
+export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -185,10 +186,15 @@ export class Match {
   }
   environmentalPoint(owner,occupied=[]){
     const bank=BANK_BOUNDS[owner];
+    const clear=point=>this.obstacles.every(o=>o.destroyed||Math.hypot(o.x-point.x,o.y-point.y)>64)&&occupied.every(o=>Math.hypot(o.x-point.x,o.y-point.y)>70);
     for(let attempt=0;attempt<30;attempt++){
       const point={x:85+this.random()*(W-170),y:bank.minY+48+this.random()*(bank.maxY-bank.minY-96)};
-      if(this.obstacles.every(o=>o.destroyed||Math.hypot(o.x-point.x,o.y-point.y)>64)&&occupied.every(o=>Math.hypot(o.x-point.x,o.y-point.y)>70))return point;
+      if(clear(point))return point;
     }
+    const center=(bank.minY+bank.maxY)/2;
+    const fallback=[{x:W/2,y:center},{x:W/2,y:center+95},{x:W/2,y:center-95},{x:105,y:center},{x:W-105,y:center}];
+    const safe=fallback.find(clear);
+    if(safe)return safe;
     return {x:W/2,y:(bank.minY+bank.maxY)/2};
   }
   startEnvironmentEvent(){
@@ -202,7 +208,11 @@ export class Match {
         }
         this.emit('tornado');
       }else{
-        for(const owner of [0,1])this.lightning.push({id:this.id++,owner,...this.environmentalPoint(owner),age:0,warning:1.2,life:1.8,hit:false});
+        for(const wave of [0,1])for(const owner of [0,1]){
+          const start=wave*LIGHTNING_WAVE_DELAY,warning=start+1.2;
+          const occupied=this.lightning.filter(strike=>strike.owner===owner);
+          this.lightning.push({id:this.id++,owner,wave,...this.environmentalPoint(owner,occupied),age:0,start,warning,life:warning+.6,hit:false,charged:wave===0});
+        }
         this.emit('lightningCharge');
       }
     }else if(this.map===MAPS.MAGMA){
@@ -222,12 +232,13 @@ export class Match {
     if(this.time>=this.nextEnvironmentEvent){this.startEnvironmentEvent();this.nextEnvironmentEvent=this.time+(this.map===MAPS.STORM?14:13);}
     for(const strike of this.lightning){
       strike.age+=dt;
+      if(!strike.charged&&strike.age>=strike.start){strike.charged=true;if(strike.owner===0)this.emit('lightningCharge',{x:strike.x});}
       if(!strike.hit&&strike.age>=strike.warning){
         strike.hit=true;
         for(const p of this.players)if(p.id===strike.owner&&distance(p,strike)<39)this.damage(p,HAZARD_RULES.lightningDamage);
         this.damageAreaObjects(strike.x,strike.y,30);
         this.mark('scorch',strike.x,strike.y,.65);
-        this.emit('lightningStrike',{x:strike.x});
+        if(strike.owner===0)this.emit('lightningStrike',{x:strike.x});
       }
     }
     this.lightning=this.lightning.filter(strike=>strike.age<strike.life);
@@ -596,7 +607,7 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
-      const mapThreat=[...this.lightning.filter(h=>!h.hit),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5)]
+      const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5)]
         .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
       if(mapThreat){
         tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
