@@ -547,9 +547,9 @@ function renderPhase6Environment(){
       const approach=Math.max(0,Math.min(1,(pellet.age-pellet.start)/(pellet.warning-pellet.start)));
       const depart=Math.max(0,Math.min(1,(pellet.age-pellet.warning)/(pellet.life-pellet.warning)));
       const cloudX=pellet.age<pellet.warning
-        ?(direction>0?-95:W+95)+(pellet.x-(direction>0?-95:W+95))*approach
-        :pellet.x+((direction>0?W+95:-95)-pellet.x)*depart;
-      sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-100,152,96,sheetLoop(pellet.age,9,4),.94);
+        ?(direction>0?-125:W+125)+(pellet.x-(direction>0?-125:W+125))*approach
+        :pellet.x+((direction>0?W+125:-125)-pellet.x)*depart;
+      sprite(`hail-cloud-${pellet.id}`,phase6Frames.hailCloud,lightningLayer,cloudX,pellet.y-115,220,135,sheetLoop(pellet.age,7,4),.94);
       if(!pellet.hit){
         const pulse=.5+.25*Math.sin(game.time*15+pellet.id);
         environmentGround.ellipse(pellet.x,pellet.y,27,18).fill({color:0xb8e5fa,alpha:.19}).stroke({color:0xe4faff,width:2,alpha:pulse});
@@ -559,23 +559,23 @@ function renderPhase6Environment(){
     }
     for(let i=0;i<110;i++){
       const x=(i*73+game.time*(14+i%5*6))%(W+30)-15,y=(i*157+game.time*(64+i%7*10))%(H+40)-20;
-      const radius=2+i%4*.42;
-      phase6WeatherDraw.circle(x+1,y+1,radius+1).fill({color:0x326b9b,alpha:.32});
-      phase6WeatherDraw.circle(x,y,radius).fill({color:0xffffff,alpha:.72+i%4*.06});
-      if(i%3===0)phase6WeatherDraw.moveTo(x-2,y-6).lineTo(x-1,y-1).stroke({color:0x5e91b2,width:1.2,alpha:.38});
+      const radius=1.1+i%4*.22;
+      phase6WeatherDraw.circle(x+.5,y+.5,radius+.4).fill({color:0x577e99,alpha:.2});
+      phase6WeatherDraw.circle(x,y,radius).fill({color:0xffffff,alpha:.55+i%4*.07});
     }
     for(const avalanche of game.avalanches)if(avalanche.age<avalanche.warning){
       const bank=BANK_BOUNDS[avalanche.owner];
-      const spread=45+avalanche.age/avalanche.warning*130;
-      phase6WeatherDraw.rect(0,bank.minY,W,bank.maxY-bank.minY).fill({color:0x8bb9d5,alpha:.07});
-      for(let i=0;i<145;i++){
-        const x=(i*113+Math.sin(i*19)*29+game.time*(i%2?19:-18)+W*4)%W;
-        const travel=(i*61+avalanche.age*(125+i%6*11))%spread;
-        const y=avalanche.direction>0?bank.minY+travel:bank.maxY-travel;
-        const radius=2.7+i%3*.58;
-        phase6WeatherDraw.circle(x+1,y+1,radius+1.1).fill({color:0x3e739c,alpha:.63});
-        phase6WeatherDraw.circle(x,y,radius).fill({color:0xffffff,alpha:.88});
-        phase6WeatherDraw.moveTo(x-2,y-avalanche.direction*8).lineTo(x,y).stroke({color:0x5c92b7,width:2.1,alpha:.72});
+      const intensity=Math.min(1,avalanche.age/.85);
+      const depth=bank.maxY-bank.minY;
+      for(let i=0;i<130;i++){
+        const x=(i*97+game.time*(19+i%4*5)+W*4)%W;
+        const drift=(i*71+game.time*(78+i%5*9))%depth;
+        const y=avalanche.direction>0?bank.minY+drift:bank.maxY-drift;
+        const radius=1.4+i%5*.2;
+        const alpha=(.43+i%4*.08)*intensity;
+        phase6WeatherDraw.circle(x+.5,y+.5,radius+.45).fill({color:0x5685a4,alpha:alpha*.43});
+        phase6WeatherDraw.circle(x,y,radius).fill({color:0xffffff,alpha});
+        if(i%5===0)phase6WeatherDraw.moveTo(x-1,y-avalanche.direction*3).lineTo(x,y).stroke({color:0xffffff,width:.8,alpha:alpha*.75});
       }
     }
   }

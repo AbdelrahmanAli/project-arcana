@@ -281,7 +281,7 @@ export class Match {
           const direction=this.random()<.5?1:-1;
           for(let wave=0;wave<3;wave++){
           const occupied=this.hail.filter(h=>h.owner===owner);
-          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.32,warning:1.15+wave*.32,life:2.5+wave*.32,hit:false});
+          this.hail.push({id:this.id++,owner,wave,direction,...this.environmentalPoint(owner,occupied),age:0,start:wave*.5,warning:2.1+wave*.5,life:5+wave*.5,hit:false});
           }
         }
         this.emit('hail');
@@ -564,12 +564,13 @@ export class Match {
       if(onIce&&!p.onIce)this.emit('iceSlide',{x:p.x});
       p.onIce=onIce;
       if(onIce){
-        const blend=Math.min(1,dt*2);
+        const blend=Math.min(1,dt*(Math.hypot(x,y)>.05?7:1.4));
         p.iceVX+=(x-p.iceVX)*blend;p.iceVY+=(y-p.iceVY)*blend;
         p.iceSlip=PHASE6_RULES.iceSlip;x=p.iceVX;y=p.iceVY;
       }else if(p.iceSlip>0){
-        const steering=1-p.iceSlip/PHASE6_RULES.iceSlip;
-        x=p.iceVX*(1-steering)+x*steering;y=p.iceVY*(1-steering)+y*steering;
+        const blend=Math.min(1,dt*(Math.hypot(x,y)>.05?12:3.2));
+        p.iceVX+=(x-p.iceVX)*blend;p.iceVY+=(y-p.iceVY)*blend;
+        x=p.iceVX;y=p.iceVY;
         p.iceSlip=Math.max(0,p.iceSlip-dt);
       }else{p.iceVX=x;p.iceVY=y;}
     }

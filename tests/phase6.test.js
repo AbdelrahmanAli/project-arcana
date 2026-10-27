@@ -157,6 +157,7 @@ test('Snow starts with two ice patches per bank and pairs avalanche and hail',()
   assert.ok(m.avalanches.every(a=>a.y<BANK_BOUNDS[a.owner].minY||a.y>BANK_BOUNDS[a.owner].maxY));
   m.startEnvironmentEvent();assert.deepEqual([0,1].map(owner=>m.hail.filter(h=>h.owner===owner).length),[3,3]);
   assert.ok(m.hail.every(h=>Math.abs(h.direction)===1));
+  assert.ok(m.hail.every(h=>h.warning-h.start>=1.6&&h.life-h.warning>=2.9),'hail clouds cross each bank at a readable pace');
   for(const item of [...m.icePatches,...m.hail])assert.ok(item.y>=BANK_BOUNDS[item.owner].minY&&item.y<=BANK_BOUNDS[item.owner].maxY);
 });
 
@@ -172,6 +173,24 @@ test('ice preserves a short steerable slide and does not leave its bank',()=>{
   assert.ok(p.x-start>10,'ice carries the fighter well beyond the patch');
   for(let i=0;i<100;i++)m.move(p,0,-1,1/120);
   assert.ok(p.y>=BANK_BOUNDS[0].minY);
+});
+
+test('ice slide follows movement in all eight directions and responds to a reversal',()=>{
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
+    const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
+    p.x=220;p.y=760;p.iceVX=0;p.iceVY=0;p.iceSlip=0;
+    m.icePatches=[{id:1,owner:0,x:p.x,y:p.y,radius:100}];
+    for(let i=0;i<18;i++)m.move(p,dx,dy,1/120);
+    assert.ok((p.x-220)*dx+(p.y-760)*dy>5,`ice movement follows ${dx},${dy}`);
+    if(dx&&dy)assert.ok(Math.abs(Math.abs(p.x-220)-Math.abs(p.y-760))<2,'diagonal slide keeps its heading');
+  }
+  const m=new Match(()=>.5,{map:MAPS.SNOW}),p=m.players[0];m.obstacles.forEach(o=>o.destroyed=true);
+  p.x=220;p.y=760;p.iceVX=0;p.iceVY=0;p.iceSlip=0;
+  m.icePatches=[{id:1,owner:0,x:p.x,y:p.y,radius:100}];
+  for(let i=0;i<18;i++)m.move(p,1,0,1/120);
+  const rightmost=p.x;
+  for(let i=0;i<38;i++)m.move(p,-1,0,1/120);
+  assert.ok(p.x<rightmost-3,'steering back changes direction while sliding');
 });
 
 test('avalanche damages once and hail has a bounded single impact',()=>{
