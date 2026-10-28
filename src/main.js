@@ -19,6 +19,7 @@ const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 const PISTOL_AUTO_HOLD_MS=500;
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
+let pistolHintTimer=null;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
@@ -153,6 +154,15 @@ function drawScorchMark(g,mark){
   }
 }
 function point(e){const r=$('arena').getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
+function hidePistolHint(){
+  if(pistolHintTimer!==null)clearTimeout(pistolHintTimer);
+  pistolHintTimer=null;$('pistol-hint').classList.remove('visible');$('pistol-hint').setAttribute('aria-hidden','true');
+}
+function showPistolHint(message,duration=2600){
+  hidePistolHint();
+  const hint=$('pistol-hint');hint.textContent=message;hint.setAttribute('aria-hidden','false');hint.classList.add('visible');
+  pistolHintTimer=setTimeout(hidePistolHint,duration);
+}
 function syncPistolButton(){
   const button=$('pistol-fire'),held=firePointers.pistol!==null||keys.has('Space');
   button.classList.toggle('auto',pistolAuto);
@@ -168,10 +178,10 @@ function armPistolAuto(){
   pistolHoldTimer=setTimeout(()=>{
     pistolHoldTimer=null;
     if(!started||paused||game.finished||game.ending>0||!(firePointers.pistol!==null||keys.has('Space')))return;
-    pistolAuto=true;input.pistol=true;syncPistolButton();
+    pistolAuto=true;input.pistol=true;syncPistolButton();showPistolHint('AUTO ON · TAP TO STOP');
   },PISTOL_AUTO_HOLD_MS);
 }
-function stopPistolAuto(){pistolAuto=false;input.pistol=firePointers.pistol!==null||keys.has('Space');syncPistolButton();}
+function stopPistolAuto(){pistolAuto=false;input.pistol=firePointers.pistol!==null||keys.has('Space');syncPistolButton();showPistolHint('AUTO OFF · HOLD TO RESTART');}
 function releaseFire(mode,cancel=false){
   const held=firePointers[mode]!==null||keys.has(mode==='pistol'?'Space':'KeyE');
   const player=game.players[0];
@@ -180,7 +190,7 @@ function releaseFire(mode,cancel=false){
     if(!held){
       cancelPistolHoldTimer();
       if(cancel)pistolAuto=false;
-      else if(!pistolAuto&&pistolHoldStart&&performance.now()-pistolHoldStart>=PISTOL_AUTO_HOLD_MS)pistolAuto=true;
+      else if(!pistolAuto&&pistolHoldStart&&performance.now()-pistolHoldStart>=PISTOL_AUTO_HOLD_MS){pistolAuto=true;showPistolHint('AUTO ON · TAP TO STOP');}
       pistolHoldStart=0;
     }
     input.pistol=held||pistolAuto;syncPistolButton();return;
@@ -189,10 +199,11 @@ function releaseFire(mode,cancel=false){
   if(mode==='special'&&!held)player.charge=0;
   $(`${mode}-fire`).classList.toggle('pressed',held);
 }
-function clearInput(){
-  cancelPistolHoldTimer();pistolAuto=false;pistolHoldStart=0;pistolCancelKeyUntilRelease=false;
+function clearInput(preservePistolAuto=false){
+  const keepAuto=preservePistolAuto&&pistolAuto;
+  cancelPistolHoldTimer();hidePistolHint();pistolAuto=keepAuto;pistolHoldStart=0;pistolCancelKeyUntilRelease=false;
   keys.clear();stick=null;firePointers.pistol=null;firePointers.special=null;
-  input.x=0;input.y=0;input.pistol=false;input.special=false;input.dodge=false;game.players[0].charge=0;
+  input.x=0;input.y=0;input.pistol=keepAuto&&!paused;input.special=false;input.dodge=false;game.players[0].charge=0;
   syncPistolButton();$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
@@ -327,6 +338,7 @@ function beginMatch(){
   cancelDealAnimation();
   cancelMapDealAnimation();
   started=true;sceneDirty=true;sound.init();
+  pistolAuto=true;input.pistol=true;syncPistolButton();showPistolHint('AUTO ON · TAP TO STOP\nHOLD TO RESTART',5200);
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
   updateHud();app.ticker.start();
@@ -348,7 +360,7 @@ function startPreparedMatch(map){
     animateDeal();
   }else beginMatch();
 }
-function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput();document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
+function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput(true);document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
 function showNumber(playerId,amount,healing=false){

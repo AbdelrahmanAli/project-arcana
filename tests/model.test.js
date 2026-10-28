@@ -727,6 +727,27 @@ test('opponent navigates around grouped crates near a wall and does not detour a
   assert.ok(opponent.y>=BANK_BOUNDS[1].minY&&opponent.y<=BANK_BOUNDS[1].maxY);
 });
 
+test('opponent escapes a Tower fire lane instead of retreating into the river corner',()=>{
+  const m=new Match(()=>.5),opponent=m.players[1];m.nextDrop=Infinity;m.fire=()=>false;
+  opponent.x=38;opponent.y=BANK_BOUNDS[1].maxY;
+  const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
+  m.flames=[{...source,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100}];
+  m.think(1/120);
+  assert.ok(m.aiTarget.x>70&&m.aiTarget.y<opponent.y,'fire escape points back into the bank');
+  for(let i=0;i<180;i++)m.think(1/120);
+  assert.ok(opponent.x>70,'opponent leaves the corner');
+});
+
+test('opponent dodges a marked Tower lane toward open ground at the bank edge',()=>{
+  const m=new Match(()=>.5),opponent=m.players[1];m.nextDrop=Infinity;m.fire=()=>false;
+  opponent.x=38;opponent.y=BANK_BOUNDS[1].maxY;
+  const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
+  m.towerAttacks=[{owner:1,hit:false,sourceX:source.x,sourceY:source.y,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100,age:.35,warning:.5}];
+  m.think(1/120);
+  assert.ok(m.aiTarget.x>70&&m.aiTarget.y<opponent.y,'marked lane escape points inward');
+  assert.ok(opponent.dodgeTime>0&&opponent.dodgeX>0&&opponent.dodgeY<0,'dodge heads away from both walls');
+});
+
 test('opponent patrol reaches the river-facing edge of its bank',()=>{
   const m=new Match(()=>.5),opponent=m.players[1];m.nextDrop=Infinity;m.fire=()=>false;
   m.obstacles.forEach(o=>o.destroyed=true);

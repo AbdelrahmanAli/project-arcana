@@ -122,6 +122,17 @@ function pathClear(a,b,crates){
   }
   return true;
 }
+function escapeLane(p,source,dx,dy,reach,bank){
+  const end={x:source.x+dx*reach,y:source.y+dy*reach};
+  let best=null,bestScore=-Infinity;
+  for(const side of [-1,1]){
+    const point={x:clamp(p.x+side*dy*110,38,W-38),y:clamp(p.y-side*dx*110,bank.minY,bank.maxY)};
+    const travel=distance(p,point);
+    const score=segmentDistance(point,source,end)+Math.min(80,travel)*.15-(travel<10?200:0);
+    if(score>bestScore){best=point;bestScore=score;}
+  }
+  return best;
+}
 function routeAroundCrates(start,target,crates,bank){
   if(!crates.length||pathClear(start,target,crates))return target;
   const columns=24,rows=Math.ceil((bank.maxY-bank.minY)/18)+1,count=columns*rows;
@@ -841,12 +852,13 @@ export class Match {
         if(b.y>p.y&&b.y-p.y<200&&Math.abs(b.x-p.x)<38){tx=p.x+(p.x>W/2?-100:100);break;}
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
-      for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
+      for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){const escape=escapeLane(p,f,f.dx,f.dy,f.maxReach,bank);tx=escape.x;ty=escape.y;}}
       const towerTarget=this.towerAttacks.find(a=>a.owner===1&&!a.hit&&segmentDistance(p,{x:a.sourceX,y:a.sourceY},{x:a.sourceX+a.dx*a.maxReach,y:a.sourceY+a.dy*a.maxReach})<55);
       if(towerTarget){
-        const side=Math.sign((p.x-towerTarget.sourceX)*towerTarget.dy-(p.y-towerTarget.sourceY)*towerTarget.dx)||1;
-        tx=p.x+side*towerTarget.dy*95;ty=p.y-side*towerTarget.dx*95;
-        if(towerTarget.age>towerTarget.warning-.3&&segmentDistance(p,{x:towerTarget.sourceX,y:towerTarget.sourceY},{x:towerTarget.sourceX+towerTarget.dx*towerTarget.maxReach,y:towerTarget.sourceY+towerTarget.dy*towerTarget.maxReach})<30)this.dodge(p,side*towerTarget.dy,-side*towerTarget.dx);
+        const source={x:towerTarget.sourceX,y:towerTarget.sourceY};
+        const escape=escapeLane(p,source,towerTarget.dx,towerTarget.dy,towerTarget.maxReach,bank);
+        tx=escape.x;ty=escape.y;
+        if(towerTarget.age>towerTarget.warning-.3&&segmentDistance(p,source,{x:source.x+towerTarget.dx*towerTarget.maxReach,y:source.y+towerTarget.dy*towerTarget.maxReach})<30)this.dodge(p,escape.x-p.x,escape.y-p.y);
       }
       const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5),...this.obstacles.filter(h=>h.type==='rock'&&!h.destroyed&&h.burning>0)]
         .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
