@@ -387,18 +387,39 @@ function openLineup(map){
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
 }
 function renderLineup(){
-  const choices=$('lineup-choices');choices.replaceChildren();
+  const choices=$('lineup-choices');
   const slots=selectedFormat==='2v2'?['teammate','opponent','opponent2']:['opponent'];
-  const player=document.createElement('p');player.className='lineup-player';player.textContent=`YOU · ${CHARACTER_BY_ID[selectedCharacter].name}`;choices.appendChild(player);
+  const previousScroll=Object.fromEntries([...choices.querySelectorAll('.lineup-options')].map(row=>[row.dataset.slot,row.scrollLeft]));
+  choices.replaceChildren();
+  const player=document.createElement('div');player.className='lineup-player';
+  const playerPortrait=document.createElement('span');playerPortrait.className=`character-portrait ${selectedCharacter}`;playerPortrait.setAttribute('aria-hidden','true');
+  const playerName=document.createElement('span');playerName.textContent=`YOU · ${CHARACTER_BY_ID[selectedCharacter].name}`;
+  player.append(playerPortrait,playerName);choices.appendChild(player);
   for(const slot of slots){
-    const label=document.createElement('label');label.className='lineup-slot';label.textContent=({teammate:'TEAMMATE',opponent:'OPPONENT 1',opponent2:'OPPONENT 2'})[slot];
-    const select=document.createElement('select');select.setAttribute('aria-label',label.textContent);
-    for(const character of [{id:'random',name:'Random'},...CHARACTERS]){
+    const name=({teammate:'TEAMMATE',opponent:selectedFormat==='2v2'?'OPPONENT 1':'OPPONENT',opponent2:'OPPONENT 2'})[slot];
+    const section=document.createElement('section');section.className='lineup-slot';
+    const heading=document.createElement('h3');heading.textContent=name;section.appendChild(heading);
+    const row=document.createElement('div');row.className='lineup-options';row.dataset.slot=slot;row.setAttribute('role','group');row.setAttribute('aria-label',`Choose ${name.toLowerCase()}`);
+    for(const character of [{id:'random',name:'Random',color:'#e9bb70'},...CHARACTERS]){
       if(character.id===selectedCharacter)continue;
-      const option=document.createElement('option');option.value=character.id;option.textContent=character.name;select.appendChild(option);
+      const picked=lineupSelections[slot]||'random';
+      const taken=character.id!=='random'&&slots.some(other=>other!==slot&&lineupSelections[other]===character.id);
+      const button=document.createElement('button');button.type='button';button.className='lineup-option';button.dataset.character=character.id;
+      button.style.setProperty('--character-color',character.color);button.setAttribute('aria-pressed',String(picked===character.id));
+      button.setAttribute('aria-label',`${character.name} for ${name.toLowerCase()}${taken?' (already chosen)':''}`);
+      button.disabled=taken;
+      const portrait=document.createElement('span');portrait.className=character.id==='random'?'lineup-random':`character-portrait ${character.id}`;
+      portrait.textContent=character.id==='random'?'?':'';portrait.setAttribute('aria-hidden','true');
+      const label=document.createElement('strong');label.textContent=character.name;
+      button.append(portrait,label);
+      button.addEventListener('click',()=>{
+        lineupSelections[slot]=character.id;$('lineup-error').textContent='';renderLineup();
+        const selected=choices.querySelector(`.lineup-options[data-slot="${slot}"] [data-character="${character.id}"]`);
+        selected?.focus({preventScroll:true});
+      });
+      row.appendChild(button);
     }
-    select.value=lineupSelections[slot]||'random';select.addEventListener('change',()=>{lineupSelections[slot]=select.value;$('lineup-error').textContent='';});
-    label.appendChild(select);choices.appendChild(label);
+    section.appendChild(row);choices.appendChild(section);row.scrollLeft=previousScroll[slot]||0;
   }
 }
 function startPreparedMatch(map){
@@ -480,6 +501,7 @@ function renderCharacterChoices(){
     const name=document.createElement('strong');name.textContent=character.name;
     button.append(portrait,name);button.addEventListener('click',()=>{
       selectedCharacter=character.id;
+      for(const slot of ['teammate','opponent','opponent2'])if(lineupSelections[slot]===selectedCharacter)lineupSelections[slot]='random';
       try{localStorage.setItem('tower-deal-character-v1',selectedCharacter);}catch { /* Storage is optional. */ }
       renderCharacterChoices();
     });list.appendChild(button);
