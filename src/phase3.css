@@ -85,7 +85,7 @@
 }
 .pistol-fire.auto { border-color: #fff1b1; box-shadow: 0 0 19px #f4c454bb, inset 0 0 10px #f4c45477; }
 .pistol-fire.auto::before { border-style: solid; border-color: #ffeaa0; }
-.dodge-fire { margin-bottom: 16px; border-color: #a7dbe0c9; color: #d5fbff; }
+.dodge-fire { border-color: #a7dbe0c9; color: #d5fbff; }
 .dodge-fire > svg:not(.meter-ring) { position: relative; width: 28px; height: 28px; margin-bottom: 1px; filter: drop-shadow(1px 1px 1px #000b); }
 .dodge-fire strong { position: absolute; top: 5px; right: 6px; font: 800 10px 'IBM Plex Mono', monospace; }
 .dodge-fire.cooldown > svg:not(.meter-ring), .dodge-fire.cooldown b { opacity: .6; }
@@ -167,7 +167,6 @@
   .fire-control::before { inset: 3px; }
   .fire-control b { font-size: 6px; }
   .pistol-fire svg { width: 19px; height: 19px; }
-  .dodge-fire { margin-bottom: 7px; }
   .dodge-fire > svg:not(.meter-ring) { width: 19px; height: 19px; }
   .dodge-fire strong { top: 2px; right: 3px; font-size: 7px; }
   .special-fire strong { top: 2px; right: 3px; font-size: 8px; }
