@@ -26,7 +26,7 @@
   position: absolute;
   z-index: 4;
   right: clamp(8px, 3%, 16px);
-  bottom: clamp(50px, 7.5%, 72px);
+  top: calc(61.8% + 72px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -163,7 +163,7 @@
 }
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
   .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .51064)); }
-  .fire-controls { gap: 6px; bottom: 26px; right: 6px; }
+  .fire-controls { gap: 6px; top: auto; bottom: 26px; right: 6px; }
   .pistol-fire { right: 6px; }
   .fire-control { width: 44px; height: 44px; padding: 2px; }
   .fire-control::before { inset: 3px; }
