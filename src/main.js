@@ -594,40 +594,46 @@ function renderPhase6Environment(){
 }
 function renderTowerAttacks(){
   const live=new Set();
-  const headY=TOWER_GEOMETRY.shaftBaseY-TOWER_GEOMETRY.shaftHeight*game.tower.height-8;
+  const attackSprite=(key,frames,anchorY)=>{
+    live.add(key);
+    let sprite=towerAttackSprites.get(key);
+    if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,anchorY);jetLayer.addChild(sprite);towerAttackSprites.set(key,sprite);}
+    return sprite;
+  };
   for(const attack of game.towerAttacks){
     const progress=Math.min(1,attack.age/attack.warning);
+    const endX=attack.sourceX+attack.dx*attack.maxReach,endY=attack.sourceY+attack.dy*attack.maxReach;
     if(!attack.hit){
-      const radius=attack.type==='fire'?25:attack.type==='lightning'?TOWER_VOLLEY.lightningRadius:TOWER_VOLLEY.icicleRadius;
-      drawTargetLock(environmentGround,attack.x,attack.y,radius,game.time,attack.type);
-      if(attack.type==='fire'){
-        const sourceX=RIVER.x+(attack.owner===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,sourceY=TOWER_GEOMETRY.fireVentY;
-        const dx=attack.x-sourceX,dy=attack.y-sourceY;
-        const scale=Math.min(dx>0?(W-sourceX)/dx:dx<0?-sourceX/dx:Infinity,dy>0?(H-sourceY)/dy:dy<0?-sourceY/dy:Infinity);
-        environmentGround.moveTo(sourceX,sourceY).lineTo(sourceX+dx*scale,sourceY+dy*scale)
-          .stroke({color:0xffa44a,width:2,alpha:.16+.28*progress});
+      const color=AREA_COLORS[attack.type];
+      const pulse=.68+.22*Math.sin(game.time*13+attack.id);
+      environmentGround.moveTo(attack.sourceX,attack.sourceY).lineTo(endX,endY)
+        .stroke({color:color.fill,width:attack.type==='fire'?25:20,alpha:(.1+.1*progress)*pulse});
+      environmentGround.moveTo(attack.sourceX,attack.sourceY).lineTo(endX,endY)
+        .stroke({color:color.edge,width:2,alpha:(.4+.4*progress)*pulse});
+      for(let d=95;d<attack.maxReach;d+=85){
+        const x=attack.sourceX+attack.dx*d,y=attack.sourceY+attack.dy*d;
+        environmentGround.ellipse(x,y,3,2).fill({color:color.center,alpha:.65*pulse});
       }
     }
-    if(attack.type==='fire')continue;
-    const visible=attack.type==='lightning'?attack.hit:attack.age>=attack.warning-HAIL_CLUSTER.fall;
-    if(!visible)continue;
-    live.add(attack.id);
-    const frames=attack.type==='lightning'?lightningFrames:phase6Frames.hailIcicle;
-    let sprite=towerAttackSprites.get(attack.id);
-    if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,attack.type==='lightning'?1:.7);lightningLayer.addChild(sprite);towerAttackSprites.set(attack.id,sprite);}
+    if(attack.type==='fire'||!attack.hit||attack.reach<8)continue;
+    const tipX=attack.sourceX+attack.dx*attack.reach,tipY=attack.sourceY+attack.dy*attack.reach;
+    const fade=Math.max(0,Math.min(1,(attack.life-attack.age)/.35));
     if(attack.type==='lightning'){
-      const dx=RIVER.x-attack.x,dy=headY-attack.y;
-      sprite.texture=frames[Math.min(frames.length-1,Math.floor((attack.age-attack.warning)*12))];
-      sprite.position.set(attack.x,attack.y+9);sprite.width=82;sprite.height=Math.max(100,Math.hypot(dx,dy));
-      sprite.rotation=Math.atan2(dx,-dy);
-      sprite.alpha=Math.max(0,Math.min(1,(attack.life-attack.age)/.35));
+      const sprite=attackSprite(`lightning-${attack.id}`,lightningFrames,1);
+      sprite.texture=lightningFrames[Math.floor((attack.age-attack.warning)*16)%lightningFrames.length];
+      sprite.position.set(tipX,tipY);sprite.width=74;sprite.height=attack.reach;
+      sprite.rotation=Math.atan2(-attack.dx,attack.dy);
+      sprite.alpha=fade;
     }else{
-      const fall=Math.max(0,Math.min(1,(attack.age-(attack.warning-HAIL_CLUSTER.fall))/HAIL_CLUSTER.fall));
-      const sourceX=RIVER.x,sourceY=headY;
-      sprite.texture=frames[attack.hit?Math.min(5,4+Math.floor((attack.age-attack.warning)*8)):Math.min(3,Math.floor(fall*4))];
-      sprite.position.set(sourceX+(attack.x-sourceX)*fall,sourceY+(attack.y-sourceY)*fall-14);
-      sprite.width=46;sprite.height=78;sprite.rotation=Math.atan2(sourceX-attack.x,attack.y-sourceY);
-      sprite.alpha=attack.hit?Math.max(0,Math.min(1,(attack.life-attack.age)/.35)):1;
+      environmentGround.moveTo(attack.sourceX,attack.sourceY).lineTo(tipX,tipY)
+        .stroke({color:0x62c8f0,width:5,alpha:.32*fade});
+      for(let d=24,index=0;d<=attack.reach;d+=32,index++){
+        const sprite=attackSprite(`icicle-${attack.id}-${index}`,phase6Frames.hailIcicle,.68);
+        sprite.texture=phase6Frames.hailIcicle[1+Math.floor(game.time*10+index)%3];
+        sprite.position.set(attack.sourceX+attack.dx*d,attack.sourceY+attack.dy*d);
+        sprite.width=54;sprite.height=73;sprite.rotation=Math.atan2(-attack.dx,attack.dy);
+        sprite.alpha=fade*(.86+.12*Math.sin(game.time*11-index));
+      }
     }
   }
   for(const [id,sprite] of towerAttackSprites)if(!live.has(id)){sprite.destroy();towerAttackSprites.delete(id);}

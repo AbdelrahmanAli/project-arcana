@@ -24,7 +24,7 @@ export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
-export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.9, lightningRadius:38, lightningDamage:14, icicleRadius:32, icicleDamage:10 };
+export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.9, lightningSpeed:620, lightningWidth:22, lightningDamage:14, icicleSpeed:440, icicleWidth:20, icicleDamage:10 };
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
@@ -734,32 +734,45 @@ export class Match {
     const type=['fire','lightning','icicle'][Math.floor(this.random()*3)];
     for(const p of this.players){
       const bank=BANK_BOUNDS[p.id];
-      this.towerAttacks.push({id:this.id++,phase,type,owner:p.id,x:clamp(p.x,35,W-35),y:clamp(p.y,bank.minY+24,bank.maxY-24),age:0,warning:TOWER_VOLLEY.warning,life:TOWER_VOLLEY.warning+.55,hit:false});
+      const x=clamp(p.x,35,W-35),y=clamp(p.y,bank.minY+24,bank.maxY-24);
+      const sourceX=RIVER.x+(p.id===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,sourceY=TOWER_GEOMETRY.fireVentY;
+      const length=Math.max(1,Math.hypot(x-sourceX,y-sourceY)),dx=(x-sourceX)/length,dy=(y-sourceY)/length;
+      const maxReach=flameReach(sourceX,sourceY,dx,dy),speed=type==='lightning'?TOWER_VOLLEY.lightningSpeed:TOWER_VOLLEY.icicleSpeed;
+      this.towerAttacks.push({id:this.id++,phase,type,owner:p.id,x,y,sourceX,sourceY,dx,dy,maxReach,reach:0,age:0,warning:TOWER_VOLLEY.warning,life:TOWER_VOLLEY.warning+(type==='fire'?.35:maxReach/speed+.35),hit:false,damaged:false,marked:0});
     }
     this.emit(type==='lightning'?'lightningCharge':'towerAim');
   }
   updateTowerAttacks(dt){
     for(const attack of this.towerAttacks){
       attack.age+=dt;
-      if(attack.type==='icicle'&&attack.owner===0&&!attack.fallSoundPlayed&&attack.age>=attack.warning-HAIL_CLUSTER.fall){
-        attack.fallSoundPlayed=true;this.emit('hailFall',{x:attack.x});
+      if(attack.age<attack.warning)continue;
+      if(!attack.hit){
+        attack.hit=true;
+        if(attack.type==='fire')this.flames.push({id:this.id++,x:attack.sourceX,y:attack.sourceY,dx:attack.dx,dy:attack.dy,age:0,reach:0,maxReach:attack.maxReach,endAge:null,marked:0,life:4.2});
+        if(attack.owner===0)this.emit(attack.type==='fire'?'towerFire':attack.type==='lightning'?'lightningStrike':'hailFall',{x:attack.sourceX});
       }
-      if(attack.hit||attack.age<attack.warning)continue;
-      attack.hit=true;
+      if(attack.type==='fire')continue;
+      const speed=attack.type==='lightning'?TOWER_VOLLEY.lightningSpeed:TOWER_VOLLEY.icicleSpeed;
+      attack.reach=Math.min(attack.maxReach,attack.reach+speed*dt);
+      const tip={x:attack.sourceX+attack.dx*attack.reach,y:attack.sourceY+attack.dy*attack.reach};
+      for(const obstacle of this.obstacles)if(!obstacle.destroyed&&segmentDistance(obstacle,{x:attack.sourceX,y:attack.sourceY},tip)<OBSTACLE_HALF[obstacle.type].x+8)this.hitObstacle(obstacle,attack.id);
       const p=this.players[attack.owner];
-      if(attack.type==='fire'){
-        const x=RIVER.x+(attack.owner===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
-        const length=Math.max(1,Math.hypot(attack.x-x,attack.y-y)),dx=(attack.x-x)/length,dy=(attack.y-y)/length;
-        this.flames.push({id:this.id++,x,y,dx,dy,age:0,reach:0,maxReach:flameReach(x,y,dx,dy),endAge:null,marked:0,life:4.2});
-      }else{
-        const radius=attack.type==='lightning'?TOWER_VOLLEY.lightningRadius:TOWER_VOLLEY.icicleRadius;
+      const width=attack.type==='lightning'?TOWER_VOLLEY.lightningWidth:TOWER_VOLLEY.icicleWidth;
+      if(!attack.damaged&&segmentDistance(p,{x:attack.sourceX,y:attack.sourceY},tip)<width){
         const damage=attack.type==='lightning'?TOWER_VOLLEY.lightningDamage:TOWER_VOLLEY.icicleDamage;
-        if(distance(p,attack)<radius)this.damage(p,damage);
-        this.damageAreaObjects(attack.x,attack.y,radius*.7);
-        if(attack.type==='icicle')this.effects.push({id:this.id++,type:'iceBurst',x:attack.x,y:attack.y,age:0,life:.4,seed:this.random()});
-        else this.mark('scorch',attack.x,attack.y,.45);
+        if(this.damage(p,damage)>0){
+          attack.damaged=true;
+          if(attack.type==='icicle')this.effects.push({id:this.id++,type:'iceBurst',x:p.x,y:p.y,age:0,life:.4,seed:this.random()});
+        }
       }
-      if(attack.owner===0)this.emit(attack.type==='fire'?'towerFire':attack.type==='lightning'?'lightningStrike':'hailImpact',{x:attack.x});
+      while(attack.marked+75<attack.reach){
+        attack.marked+=75;
+        const x=attack.sourceX+attack.dx*attack.marked,y=attack.sourceY+attack.dy*attack.marked;
+        if(y<RIVER.top||y>RIVER.bottom){
+          if(attack.type==='lightning')this.mark('scorch',x,y,.3);
+        }
+      }
+      if(attack.reach>=attack.maxReach&&attack.owner===0&&!attack.endedSound){attack.endedSound=true;if(attack.type==='icicle')this.emit('hailImpact',{x:tip.x});}
     }
     this.towerAttacks=this.towerAttacks.filter(attack=>attack.age<attack.life);
   }
@@ -829,10 +842,11 @@ export class Match {
       }
       for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
       for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){tx=p.x+(p.x>RIVER.x?95:-95);}}
-      const towerTarget=this.towerAttacks.find(a=>a.owner===1&&!a.hit&&distance(p,a)<(a.type==='fire'?53:a.type==='lightning'?TOWER_VOLLEY.lightningRadius+16:TOWER_VOLLEY.icicleRadius+16));
+      const towerTarget=this.towerAttacks.find(a=>a.owner===1&&!a.hit&&segmentDistance(p,{x:a.sourceX,y:a.sourceY},{x:a.sourceX+a.dx*a.maxReach,y:a.sourceY+a.dy*a.maxReach})<55);
       if(towerTarget){
-        tx=p.x+(p.x>=towerTarget.x?95:-95);ty=p.y+(p.y>=towerTarget.y?70:-70);
-        if(towerTarget.age>towerTarget.warning-.3&&distance(p,towerTarget)<34)this.dodge(p,p.x-towerTarget.x,p.y-towerTarget.y);
+        const side=Math.sign((p.x-towerTarget.sourceX)*towerTarget.dy-(p.y-towerTarget.sourceY)*towerTarget.dx)||1;
+        tx=p.x+side*towerTarget.dy*95;ty=p.y-side*towerTarget.dx*95;
+        if(towerTarget.age>towerTarget.warning-.3&&segmentDistance(p,{x:towerTarget.sourceX,y:towerTarget.sourceY},{x:towerTarget.sourceX+towerTarget.dx*towerTarget.maxReach,y:towerTarget.sourceY+towerTarget.dy*towerTarget.maxReach})<30)this.dodge(p,side*towerTarget.dy,-side*towerTarget.dx);
       }
       const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5),...this.obstacles.filter(h=>h.type==='rock'&&!h.destroyed&&h.burning>0)]
         .find(h=>h.owner===p.id&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));

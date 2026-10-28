@@ -454,19 +454,24 @@ test('timed fire volleys use the same base ports at every tower height',()=>{
   }
 });
 
-test('Riverside locks both bank positions before lightning and icicles land',()=>{
+test('Riverside lightning and icicles travel along locked lanes and hit beyond the aim point',()=>{
   for(const [roll,type,damage] of [[.5,'lightning',TOWER_VOLLEY.lightningDamage],[.99,'icicle',TOWER_VOLLEY.icicleDamage]]){
     const m=new Match(()=>roll,{map:MAPS.RIVERSIDE});m.obstacles.forEach(o=>o.destroyed=true);
     const [player,opponent]=m.players;
+    player.x=opponent.x=RIVER.x;player.y=730;opponent.y=290;
     m.startTowerVolley('rise');
     assert.deepEqual(m.towerAttacks.map(a=>a.owner),[0,1]);
     assert.ok(m.towerAttacks.every(a=>a.type===type));
-    const oldX=player.x;player.x+=90;
+    const oldX=player.x;player.x+=90;opponent.y=220;
+    const enemyLane=m.towerAttacks[1];
+    opponent.x=enemyLane.sourceX+enemyLane.dx*(opponent.y-enemyLane.sourceY)/enemyLane.dy;
     m.updateTowerAttacks(TOWER_VOLLEY.warning-.01);
     assert.equal(player.hp,100);assert.equal(opponent.hp,100);
     assert.equal(m.towerAttacks[0].x,oldX,'the target does not track the fighter');
     m.updateTowerAttacks(.02);
-    assert.equal(player.hp,100,'moving out of the target avoids the strike');
+    assert.equal(opponent.hp,100,'the attack front starts at the Tower');
+    m.updateTowerAttacks(1.1);
+    assert.equal(player.hp,100,'moving away from the line avoids the strike');
     assert.equal(opponent.hp,100-damage);
     m.updateTowerAttacks(.1);assert.equal(opponent.hp,100-damage,'each volley hits once');
   }
@@ -474,12 +479,26 @@ test('Riverside locks both bank positions before lightning and icicles land',()=
 
 test('dodge protects against a locked Tower strike and other maps have no Tower attacks',()=>{
   const m=new Match(()=>.5,{map:MAPS.RIVERSIDE}),p=m.players[0];
-  m.startTowerVolley('lower');p.dodgeTime=.4;m.updateTowerAttacks(TOWER_VOLLEY.warning);
+  m.startTowerVolley('lower');p.dodgeTime=.4;m.updateTowerAttacks(TOWER_VOLLEY.warning+1);
   assert.equal(p.hp,100);
   for(const map of [MAPS.STORM,MAPS.MAGMA,MAPS.DESERT,MAPS.SNOW]){
     const other=new Match(()=>0,{map});other.startTowerVolley('rise');
     assert.equal(other.towerAttacks.length,0,map);
   }
+});
+
+test('a Tower line reaches cover along its route without double-hitting a crate',()=>{
+  const m=new Match(()=>.5,{map:MAPS.RIVERSIDE});
+  m.obstacles.forEach(o=>o.destroyed=true);
+  m.players[0].x=RIVER.x;m.players[0].y=760;
+  m.startTowerVolley('rise');
+  const lane=m.towerAttacks[0],crate=m.obstacles.find(o=>o.type==='crate');
+  crate.destroyed=false;crate.hits=0;crate.y=650;
+  crate.x=lane.sourceX+lane.dx*(crate.y-lane.sourceY)/lane.dy;
+  m.updateTowerAttacks(TOWER_VOLLEY.warning+.6);
+  assert.equal(crate.hits,1);assert.equal(crate.destroyed,false);
+  m.updateTowerAttacks(.15);
+  assert.equal(crate.hits,1,'one volley cracks the crate only once');
 });
 
 test('tower flames advance through space instead of hitting entire banks instantly',()=>{
