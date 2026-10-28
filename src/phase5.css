@@ -9,4 +9,7 @@
 .map-thumb.desert{background-image:url('/art/phase6/arena-desert.webp')}
 .map-thumb.snow{background-image:url('/art/phase6/arena-snow.webp')}
 .map-thumb.random{background:linear-gradient(125deg,#275d57 0 33%,#354b62 33% 66%,#8c442d 66%)}
-@media(max-width:700px) and (orientation:landscape){.map-choice{min-height:50px;margin:4px 0}.map-thumb{height:38px;flex-basis:54px;width:54px}}
+.map-deal-preview .map-thumb{width:min(100%,240px);height:135px;flex:none;background-size:cover;background-position:center;border-color:#bba36b}
+.map-deal-preview.rolling .map-thumb{animation:deal-shuffle .18s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){.map-deal-preview.rolling .map-thumb{animation:none}}
+@media(max-width:700px) and (orientation:landscape){.map-choice{min-height:50px;margin:4px 0}.map-thumb{height:38px;flex-basis:54px;width:54px}.map-deal-preview .map-thumb{height:82px}}

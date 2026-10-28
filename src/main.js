@@ -163,8 +163,9 @@ function clearInput(){
   $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
-const menuPanels=['menu-home','mode-panel','weapon-panel','map-panel','deal-panel','settings-panel'];
-let dealTimer=null,dealRun=0;
+const menuPanels=['menu-home','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','settings-panel'];
+const MAP_ART={riverside:'art/arena.png',storm:'art/arena-storm.webp',magma:'art/arena-magma.webp',desert:'art/phase6/arena-desert.webp',snow:'art/phase6/arena-snow.webp'};
+let dealTimer=null,dealRun=0,mapDealTimer=null,mapDealRun=0;
 function cancelDealAnimation(){
   dealRun++;
   if(dealTimer!==null)clearTimeout(dealTimer);
@@ -172,8 +173,16 @@ function cancelDealAnimation(){
   $('deal-preview').classList.remove('rolling');
   $('menu-open').disabled=false;
 }
+function cancelMapDealAnimation(){
+  mapDealRun++;
+  if(mapDealTimer!==null)clearTimeout(mapDealTimer);
+  mapDealTimer=null;
+  $('map-deal-preview').classList.remove('rolling');
+  $('menu-open').disabled=false;
+}
 function showMenuPanel(id){
   if(id!=='deal-panel')cancelDealAnimation();
+  if(id!=='map-deal-panel')cancelMapDealAnimation();
   for(const panel of menuPanels)$(panel).classList.toggle('hidden',panel!==id);
 }
 function setWeaponPicture(icon,type){
@@ -218,6 +227,42 @@ function animateDeal(){
   };
   tick();
 }
+function showDealMap(map){
+  const picture=$('map-deal-picture');
+  picture.className=`map-thumb ${map}`;
+  picture.style.backgroundImage=`url("${import.meta.env.BASE_URL}${MAP_ART[map]}")`;
+  $('map-deal-name').textContent=map.toUpperCase();
+}
+function animateMapDeal(chosen){
+  cancelMapDealAnimation();
+  const run=mapDealRun,start=Math.floor(Math.random()*MAP_TYPES.length);
+  const preview=$('map-deal-preview'),status=$('map-deal-status');
+  preview.classList.remove('settled');preview.classList.add('rolling');
+  preview.setAttribute('aria-live','off');
+  $('menu-open').disabled=true;
+  status.textContent='THE TOWER IS CHOOSING…';
+  let step=0;
+  const tick=()=>{
+    if(run!==mapDealRun)return;
+    if(step===17){
+      mapDealTimer=null;preview.classList.remove('rolling');preview.classList.add('settled');
+      preview.setAttribute('aria-live','polite');showDealMap(chosen);
+      status.textContent='MATCH STARTS IN 2';
+      mapDealTimer=setTimeout(()=>{
+        if(run!==mapDealRun)return;
+        status.textContent='MATCH STARTS IN 1';
+        mapDealTimer=setTimeout(()=>{if(run===mapDealRun)startPreparedMatch(chosen);},900);
+      },900);
+      return;
+    }
+    let map=MAP_TYPES[(start+step)%MAP_TYPES.length];
+    if(step>=15&&map===chosen)map=MAP_TYPES[(start+step+1)%MAP_TYPES.length];
+    showDealMap(map);
+    mapDealTimer=setTimeout(tick,55+step*step*.7);
+    step++;
+  };
+  tick();
+}
 function configureArena(){
   for(const [map,group] of Object.entries(arenaGroups))group.visible=map===game.map;
   waterTile=waterTiles[game.map];
@@ -229,10 +274,11 @@ function configureArena(){
   }
   for(const vent of volcanoVents)vent.visible=game.map===MAPS.MAGMA;
 }
-function prepareMatch(){
+function prepareMatch(mapOverride=null){
   cancelDealAnimation();
+  cancelMapDealAnimation();
   sound.stop();
-  const map=selectedMap==='random'?MAP_TYPES[Math.floor(Math.random()*MAP_TYPES.length)]:selectedMap;
+  const map=mapOverride||selectedMap;
   game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
@@ -246,13 +292,24 @@ function prepareMatch(){
 }
 function beginMatch(){
   cancelDealAnimation();
+  cancelMapDealAnimation();
   started=true;sceneDirty=true;sound.init();
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
   updateHud();app.ticker.start();
 }
 function reset(){
-  prepareMatch();
+  if(selectedMap==='random'){
+    const chosen=MAP_TYPES[Math.floor(Math.random()*MAP_TYPES.length)];
+    $('overlay').classList.add('hidden');$('menu').classList.remove('hidden');
+    document.querySelector('.game-unit').classList.add('menu-open');
+    showMenuPanel('map-deal-panel');animateMapDeal(chosen);
+    return;
+  }
+  startPreparedMatch(selectedMap);
+}
+function startPreparedMatch(map){
+  prepareMatch(map);
   if(selectedMode===GAME_MODES.RANDOM_FIXED){
     showMenuPanel('deal-panel');$('menu').classList.remove('hidden');
     animateDeal();
