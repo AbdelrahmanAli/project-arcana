@@ -31,6 +31,22 @@ test('2v2 spawns equal teams with independent fighter identities and two weapon 
   assert.equal(weapons.filter(item => item.owner === 1).length, 2);
 });
 
+test('one fighter cannot consume both Tower weapon drops from a 2v2 launch', () => {
+  const match = new Match(() => .5, { format: '2v2', mode: GAME_MODES.CHOOSE_FIXED, weapon: 'rifle' });
+  match.launch();
+  const [first, second] = match.pickups.filter(item => item.owner === 0 && item.type === 'rifle');
+  const player = match.players[0], ally = match.players[2];
+  first.flight = second.flight = 0;
+  player.x = first.x; player.y = first.y;
+  assert.equal(match.collect(player, first), true);
+  player.x = second.x; player.y = second.y;
+  assert.equal(match.collect(player, second), false);
+  assert.ok(second.ttl > 0);
+  ally.x = second.x; ally.y = second.y;
+  assert.equal(match.collect(ally, second), true);
+  assert.equal(ally.slot.type, 'rifle');
+});
+
 test('friendly weapon blasts are harmless but the hostile team takes damage', () => {
   const m = new Match(() => .5, { format: '2v2' });
   const [player, enemy, ally] = m.players;
@@ -96,4 +112,36 @@ test('2v2 ends in a draw when both teams lose their final fighter together', () 
   match.update(1 / 30);
   assert.equal(match.winner, 'draw');
   assert.ok(match.ending > 0);
+});
+
+test('computer teammates split visible opponents and reserve different pickups', () => {
+  const match = new Match(() => .5, { format: '2v2' });
+  match.obstacles.forEach(obstacle => { obstacle.destroyed = true; });
+  const [player, firstEnemy, ally, secondEnemy] = match.players;
+  match.aiState.get(firstEnemy.id).focusId = player.id;
+  assert.equal(match.chooseAiOpponent(secondEnemy, [player, ally]), ally);
+  const supplies = [{ id: 101, x: 200, y: 250, type: 'rifle' }, { id: 102, x: 280, y: 250, type: 'rifle' }];
+  match.aiState.get(firstEnemy.id).pickupId = supplies[0].id;
+  assert.equal(match.chooseAiPickup(secondEnemy, supplies), supplies[1]);
+});
+
+test('the first 2v2 casualty continues through the death animation while the round runs', () => {
+  const match = new Match(() => .5, { format: '2v2' });
+  match.nextDrop = Infinity;
+  match.players[1].hp = 0;
+  for (let step = 0; step < 40; step++) match.update(1 / 120);
+  assert.equal(match.ending, 0);
+  assert.ok(match.players[1].deathAge > .3);
+  assert.equal(match.players[3].hp > 0, true);
+});
+
+test('computer teammates avoid sustained overlap while pursuing the opposing bank', () => {
+  const match = new Match(() => .5, { format: '2v2' });
+  match.nextDrop = Infinity;
+  let overlapping = 0;
+  for (let step = 0; step < 420; step++) {
+    match.update(1 / 60);
+    if (Math.hypot(match.players[1].x - match.players[3].x, match.players[1].y - match.players[3].y) < 35) overlapping++;
+  }
+  assert.ok(overlapping < 40, `opponents overlapped for ${overlapping} frames`);
 });

@@ -107,7 +107,7 @@ export function segmentTowerHit(a,b,tower) {
   return hits.reduce((nearest,hit)=>distance(a,hit)<distance(a,nearest)?hit:nearest);
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,towerWeaponCycle:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -199,7 +199,7 @@ export class Match {
     if(this.map===MAPS.SNOW)this.addIcePatches();
     this.tower={ phase:'rest', progress:0, height:0, riseAttack:false, lowerAttack:false, cycle:-1 };
     this.nextDrop=2.5;
-    this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,fire:false,lastSeen:null,lastSeenAt:-Infinity}]));
+    this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,pickupId:null,focusId:null,fire:false,lastSeen:null,lastSeenAt:-Infinity}]));
     this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
@@ -217,7 +217,7 @@ export class Match {
       if(site){fighter.x=site.x;fighter.y=site.y;}
     }
   }
-  canSee(observer,target){
+  canSee(observer,target,ignoreCover=false){
     if(target.hp<=0)return false;
     if(distance(observer,target)<90)return true;
     if(this.map===MAPS.DESERT&&(sandstormCovers(this.sandstorm,observer.y)||sandstormCovers(this.sandstorm,target.y)))return false;
@@ -225,6 +225,7 @@ export class Match {
       ((target.x-cloud.x)/(cloud.width*.45))**2+((target.y-cloud.y)/(cloud.height*.45))**2<1))return false;
     if(this.map===MAPS.SNOW&&this.avalanches.some(front=>front.age>=front.warning&&
       Math.abs(front.y-target.y)<70&&Math.abs(front.x-target.x)<AVALANCHE.halfWidth))return false;
+    if(ignoreCover)return true;
     return !this.obstacles.some(obstacle=>!obstacle.destroyed&&obstacle.type==='crate'&&
       segmentRectHit(observer,target,obstacleBounds(obstacle)));
   }
@@ -694,12 +695,14 @@ export class Match {
       this.emit('heal',{player:p.id,amount,x:p.x});
       return true;
     }
+    if(this.format==='2v2'&&item.source==='tower'&&p.towerWeaponCycle===item.cycle)return false;
     if(p.slot&&p.slot.type!==item.type)return false;
     const ammo=WEAPONS[item.type].ammo,stacked=!!p.slot;
     if(stacked){
       p.slot.ammoReceived=(p.slot.ammoReceived??p.slot.ammo)+ammo;
       p.slot.ammo+=ammo;
     }else p.slot={type:item.type,ammo,ammoReceived:ammo};
+    if(this.format==='2v2'&&item.source==='tower')p.towerWeaponCycle=item.cycle;
     item.ttl=0;
     this.emit('pickup',{player:p.id,weapon:item.type,...(stacked?{ammoAdded:ammo}:{})});
     return true;
@@ -862,7 +865,7 @@ export class Match {
         const safe=[{x:240,y:bounds.minY+margin+15},{x:240,y:bounds.maxY-margin-15},{x:W/2,y:(bounds.minY+bounds.maxY)/2}];
         ({x,y}=safe.find(point=>!this.obstacles.some(o=>!o.destroyed&&distance(point,o)<57))||safe[0]);
       }
-      const weapon={id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME};
+      const weapon={id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME,source:'tower',cycle:this.tower.cycle};
       this.pickups.push(weapon);weaponDrops.push(weapon);
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
@@ -901,10 +904,43 @@ export class Match {
   think(dt) {
     for(const p of this.players.filter(fighter=>fighter.controller==='computer'&&fighter.hp>0))this.thinkFighter(p,dt);
   }
+  chooseAiOpponent(p,visible){
+    if(!visible.length)return null;
+    const teammate=this.fightersOnBank(p.bank).find(other=>other.id!==p.id&&other.controller==='computer');
+    const teammateFocus=this.aiState.get(teammate?.id)?.focusId;
+    return visible.reduce((best,other)=>{
+      const score=distance(p,other)+(other.id===teammateFocus&&visible.length>1?95:0);
+      const bestScore=best?distance(p,best)+(best.id===teammateFocus&&visible.length>1?95:0):Infinity;
+      return score<bestScore?other:best;
+    },null);
+  }
+  chooseAiPickup(p,supplies){
+    const teammates=this.fightersOnBank(p.bank).filter(other=>other.id!==p.id&&other.controller==='computer');
+    return supplies.find(item=>!teammates.some(other=>
+      this.aiState.get(other.id)?.pickupId===item.id||
+      distance(other,item)+24<distance(p,item)&&(!other.slot||other.slot.type===item.type||item.type==='syringe'&&other.hp<100)))||null;
+  }
+  aiMoveVector(p,waypoint){
+    let dx=waypoint.x-p.x,dy=waypoint.y-p.y;
+    const targetDistance=Math.hypot(dx,dy);
+    if(targetDistance>4){dx/=targetDistance;dy/=targetDistance;}else{dx=0;dy=0;}
+    for(const teammate of this.fightersOnBank(p.bank)){
+      if(teammate.id===p.id)continue;
+      const gap=distance(p,teammate);
+      if(gap>=140)continue;
+      const awayX=gap>1?(p.x-teammate.x)/gap:p.id>teammate.id?1:-1;
+      const awayY=gap>1?(p.y-teammate.y)/gap:0;
+      const strength=(140-gap)/140*(gap<100?3.5:2);
+      dx+=awayX*strength;dy+=awayY*strength;
+    }
+    const length=Math.hypot(dx,dy);
+    return length>.01?{x:dx/length,y:dy/length}:{x:0,y:0};
+  }
   thinkFighter(p,dt) {
     const state=this.aiState.get(p.id);
     const visible=this.opponentsOf(p).filter(other=>this.canSee(p,other));
-    const sighted=visible.reduce((best,other)=>!best||distance(p,other)<distance(p,best)?other:best,null);
+    const sighted=this.chooseAiOpponent(p,visible);
+    state.focusId=sighted?.id??null;
     if(sighted){state.lastSeen={x:sighted.x,y:sighted.y,id:sighted.id};state.lastSeenAt=this.time;}
     const remembered=this.time-state.lastSeenAt<3?state.lastSeen:null;
     const enemy=sighted||remembered||p;
@@ -926,12 +962,23 @@ export class Match {
       const bank=BANK_BOUNDS[p.bank];
       const sandBlind=!sighted;
       // Patrol almost the full bank depth, including the sand beside the river wall.
-      let tx=sandBlind?p.x:enemy.x,ty=bank.minY+(bank.maxY-bank.minY)*(.5+.495*Math.sin(this.time*.6));
+      const bankDepth=bank.maxY-bank.minY;
+      const lane=this.format==='2v2'?(p.id===1?.38:p.id===3?.64:.55):.5;
+      const teammate=this.fightersOnBank(p.bank).find(other=>other.id!==p.id&&other.controller==='computer');
+      const sharedTarget=sighted&&this.aiState.get(teammate?.id)?.focusId===sighted.id;
+      const combatOffset=this.format==='2v2'?(sharedTarget&&p.id===3?80:p.id===1?-20:20):0;
+      const patrolX=this.format==='2v2'?W/2+(p.id===1?-105:105)+Math.sin(this.time*.43+p.id)*52:W/2+Math.sin(this.time*.8+p.id)*145;
+      const laneWave=this.format==='2v2'?.12*Math.sin(this.time*.6+p.id*1.7):.495*Math.sin(this.time*.6);
+      let tx=sandBlind?patrolX:enemy.x+combatOffset;
+      let ty=bank.minY+bankDepth*(lane+laneWave);
       const visibleLures=this.mirages.filter(i=>i.owner===p.bank&&i.state==='lure');
       const supplies=[...this.pickups.filter(i=>i.owner===p.bank&&i.flight<=0&&i.ttl>0),...visibleLures]
-        .filter(i=>visibleLures.includes(i)||(i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type))
+        .filter(i=>visibleLures.includes(i)||!(this.format==='2v2'&&i.source==='tower'&&p.towerWeaponCycle===i.cycle)&&
+          (i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type))
         .sort((a,b)=>(distance(a,p)-(a.type==='syringe'&&p.hp<=65?90:0))-(distance(b,p)-(b.type==='syringe'&&p.hp<=65?90:0)));
-      if(supplies.length){tx=supplies[0].x;ty=supplies[0].y;}
+      const pickup=this.chooseAiPickup(p,supplies);
+      state.pickupId=pickup?.id??null;
+      if(pickup){tx=pickup.x;ty=pickup.y;}
       for(const b of this.bullets) {
         if(this.ownerOf(b.owner).team===p.team)continue;
         if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
@@ -972,8 +1019,8 @@ export class Match {
       const type=this.weapon(p);
       state.fire=!!sighted&&(['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29));
     }
-    const waypoint=state.waypoint||p,dx=waypoint.x-p.x,dy=waypoint.y-p.y,l=Math.hypot(dx,dy);
-    this.move(p,l>4?dx/l:0,l>4?dy/l:0,dt);
+    const waypoint=state.waypoint||p,l=distance(p,waypoint),movement=this.aiMoveVector(p,waypoint);
+    this.move(p,movement.x,movement.y,dt);
     if(l<=4&&state.target&&distance(p,state.target)>10)state.clock=0;
     if(p.dodgeTime>0){p.charge=0;return;}
     if(p.slot?.type==='laser') {
@@ -998,7 +1045,7 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     const specialPressed=!!input.special&&!this.specialHeld;
     this.specialHeld=!!input.special;

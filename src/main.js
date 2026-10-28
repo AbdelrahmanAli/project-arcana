@@ -624,15 +624,9 @@ function updateHud(){
   specialArt.classList.toggle('atlas-icon',slot?.type==='rifle'||slot?.type==='shotgun');
   if(slot&&WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(specialArt,slot.type);else clearWeaponIconFit(specialArt);
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
-  const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
-  const playerHud=$('player-hud');
-  playerHud.style.setProperty('--hud-scale',scale);
-  playerHud.style.left=`${Math.max(50,Math.min(W-50,p.x))/W*100}%`;
-  playerHud.style.top=`${(p.y-38)/H*100}%`;
+  const hud=$('opponent-hud'),playerHud=$('player-hud');
   playerHud.style.display=p.hp>0?'flex':'none';
-  hud.style.setProperty('--hud-scale',scale);
-  hud.style.left=`${Math.max(44,Math.min(W-44,enemy.x))/W*100}%`;hud.style.top=`${(enemy.y-30)/H*100}%`;
-  hud.style.display=enemy.hp>0&&game.canSee(p,enemy)?'flex':'none';
+  hud.style.display=enemy.hp>0&&game.canSee(p,enemy,true)?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}${enemyWeapon==='laser'&&enemy.charge>0?`, charging ${Math.round(enemy.charge*100)} percent`:''}`);
   badge.firstElementChild.classList.toggle('atlas-icon',enemyWeapon==='pistol'||enemyWeapon==='rifle'||enemyWeapon==='shotgun');
@@ -650,7 +644,7 @@ function updateHud(){
     const label=$(`fighter-${fighter.id}-toast`);
     if(label){label.style.left=`${fighter.x/W*100}%`;label.style.top=`${(fighter.y+40)/H*100}%`;}
   }
-  $('opponent-hud').dataset.name=CHARACTER_BY_ID[enemy.characterId]?.name||'';
+  $('opponent-hud').dataset.name=`ENEMY · ${CHARACTER_BY_ID[enemy.characterId]?.name||''}`;
   $('player-hud').querySelector('.player-hud-label').firstChild.textContent=`YOU · ${CHARACTER_BY_ID[p.characterId]?.name||''} `;
   for(const fighter of game.players.slice(2)){
     const id=`fighter-${fighter.id}-hp`;
@@ -658,24 +652,37 @@ function updateHud(){
     if(!hud){
       hud=document.createElement('div');hud.id=`fighter-${fighter.id}-hud`;hud.className='opponent-hud phase7-fighter-hud';
       const name=document.createElement('span');name.className='phase7-fighter-name';hud.appendChild(name);
-      const hp=document.createElement('div');hp.id=id;hp.className='health-segments';hp.setAttribute('role','progressbar');hp.setAttribute('aria-valuemin','0');hp.setAttribute('aria-valuemax','100');
+      const hp=document.createElement('div');hp.id=id;hp.className='health-segments';hp.setAttribute('role','progressbar');hp.setAttribute('aria-label',`${fighter.team===0?'Ally':'Enemy'} health`);hp.setAttribute('aria-valuemin','0');hp.setAttribute('aria-valuemax','100');
       const cells=Array.from({length:20},()=>{const cell=document.createElement('span');cell.className='health-cell';const fill=document.createElement('i');cell.appendChild(fill);hp.appendChild(cell);return fill;});
       healthCells.set(id,cells);hud.appendChild(hp);
-      const badge=document.createElement('div');badge.className='opponent-weapon phase7-weapon';badge.appendChild(document.createElement('span'));hud.appendChild(badge);
+      const badge=document.createElement('div');badge.className='opponent-weapon phase7-weapon';
+      const picture=document.createElement('span'),chargeLabel=document.createElement('span'),chargeTrack=document.createElement('span');
+      chargeLabel.className='opponent-charge-label';chargeLabel.textContent='CHARGING';chargeTrack.className='opponent-charge-track';chargeTrack.appendChild(document.createElement('i'));
+      badge.append(picture,chargeLabel,chargeTrack);hud.appendChild(badge);
       $('arena').appendChild(hud);
     }
     hud.querySelector('.phase7-fighter-name').textContent=`${fighter.team===0?'ALLY':'ENEMY'} · ${CHARACTER_BY_ID[fighter.characterId]?.name||''}`;
-    hud.style.setProperty('--hud-scale',scale);
-    hud.style.left=`${Math.max(50,Math.min(fighter.bank===0?300:W-50,fighter.x))/W*100}%`;
-    const lead=game.players[fighter.bank],nearLead=lead&&Math.abs(lead.x-fighter.x)<120&&Math.abs(lead.y-fighter.y)<80;
-    hud.style.top=`${(fighter.y-37-(nearLead?27:0))/H*100}%`;
-    hud.style.display=fighter.hp>0&&(fighter.team===p.team||game.canSee(p,fighter))?'flex':'none';
+    hud.style.display=fighter.hp>0&&(fighter.team===p.team||game.canSee(p,fighter,true))?'flex':'none';
     updateHealth(id,fighter.hp);
     const badge=hud.querySelector('.phase7-weapon'),type=game.weapon(fighter),picture=badge.firstElementChild;
     if(picture.dataset.weapon!==type)setWeaponPicture(picture,type);
     badge.classList.toggle('charging',type==='laser'&&fighter.charge>0);
+    badge.classList.toggle('laser-white',type==='laser'&&fighter.charge>0&&laserWhitePhase(game.time,fighter.charge>=1));
+    badge.title=WEAPONS[type].name;badge.setAttribute('aria-label',`${fighter.team===0?'Ally':'Enemy'} equipped weapon: ${WEAPONS[type].name}`);
+    badge.querySelector('.opponent-charge-track i').style.width=`${fighter.charge*100}%`;
   }
   for(const id of [2,3])if(!game.players[id]&&$(`fighter-${id}-hud`))$(`fighter-${id}-hud`).style.display='none';
+  syncHudPositions();
+}
+function syncHudPositions(){
+  const scale=$('arena').clientWidth/W;
+  for(const fighter of game.players){
+    const hud=$(fighter.id===0?'player-hud':fighter.id===1?'opponent-hud':`fighter-${fighter.id}-hud`);
+    if(!hud)continue;
+    hud.style.setProperty('--hud-scale',scale);
+    hud.style.left=`${Math.max(50,Math.min(W-50,fighter.x))/W*100}%`;
+    hud.style.top=`${(fighter.y-(fighter.id===0?38:30))/H*100}%`;
+  }
 }
 function sheetLoop(time,fps,count){const span=count*2-2,step=Math.floor(time*fps)%span;return step<count?step:span-step;}
 function pickupLook(type){
@@ -1240,7 +1247,7 @@ function render(){
       const rolling=p.dodgeTime>0;
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
       const actionFrames=p.bank===0?frames.specialNorth:frames.specialSouth;
-      const pose=p.stun>0?actionFrames[3]:p.hurt>0?actionFrames[2]:p.charge>0&&p.characterId!=='tomas'?actionFrames[1]:p.flash>0&&p.lastShotSpecial?actionFrames[0]:frames[facing][frame];
+      const pose=p.stun>0?actionFrames[3]:p.hurt>0?actionFrames[2]:p.flash>0&&p.lastShotSpecial?actionFrames[0]:p.charge>0&&!p.moving&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
       s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
@@ -1262,8 +1269,9 @@ function render(){
       if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
         const power=p.charge,ready=power>=1,white=laserWhitePhase(game.time,ready);
-        circle(draw,p.x,p.y-6,7+power*4,white?0xffe9e4:0xff1631,ready?.28:.2);
-        circle(draw,p.x,p.y-6,2.5+power*1.5,white?0xffffff:0xff263d,1);
+        const dotX=p.x+(p.bank===0?5:-5),dotY=p.y-10;
+        circle(draw,dotX,dotY,6+power*3,white?0xffe9e4:0xff1631,ready?.35:.24);
+        circle(draw,dotX,dotY,3+power*1.5,white?0xffffff:0xff263d,1);
         if(p.id===0){
           draw.roundRect(p.x-19,p.y-36,38,6,2).fill({color:0x220c10,alpha:.9});
           draw.roundRect(p.x-18,p.y-35,36*power,4,1).fill({color:white?0xffffff:ready?0xff5262:0xff263d,alpha:1});
@@ -1626,7 +1634,7 @@ async function boot(){
       showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?game.players[0].hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} tower drops`,'PLAY AGAIN',omen);
     }
     const animating=starting||started&&!paused&&!game.finished;
-    if(animating||sceneDirty){render();if(!animating)updateHud();sceneDirty=false;}
+    if(animating||sceneDirty){render();if(animating)syncHudPositions();else updateHud();sceneDirty=false;}
     hudTime+=dt;if(animating&&hudTime>.05){updateHud();hudTime=0;}
     if(performance.now()>toastUntil&&$('toast').style.opacity!=='0')$('toast').style.opacity=0;
     if(!animating){app.renderer.render(app.stage);app.ticker.stop();}
