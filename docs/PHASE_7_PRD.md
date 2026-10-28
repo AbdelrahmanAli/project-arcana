@@ -1,7 +1,7 @@
 # Phase 7 PRD: Character roster, map-aware AI, and 2v2
 
 - **Product:** The Tower Deal
-- **Status:** Planned
+- **Status:** Implemented locally; physical phone playtest pending
 - **Platform:** Desktop and phone browsers
 - **Match formats:** Existing 1v1 versus computer, plus playable 2v2 with the player and one computer teammate against two computer opponents
 

@@ -1,4 +1,4 @@
-import { W, RIVER } from './model.js';
+import { W, RIVER } from './arena-geometry.js';
 
 // Three plumes per bank rise from its vent, then spread across different lanes.
 export function ashCloudVisuals(ash){

@@ -146,7 +146,7 @@ test('the armed computer can still pursue a mirage',()=>{
   p.slot={type:'rifle',ammo:4};
   const lure={id:1,owner:1,x:p.x+40,y:p.y+30,type:'missile',state:'lure',age:3,warning:2,life:12,aiInterested:true};
   m.mirages=[lure];m.think(1/120);
-  assert.deepEqual(m.aiTarget,{x:lure.x,y:lure.y});
+  assert.deepEqual(m.aiState.get(1).target,{x:lure.x,y:lure.y});
 });
 
 test('Snow starts with two ice patches per bank and pairs avalanche and hail',()=>{

@@ -1,0 +1,20 @@
+.character-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:10px 0 18px}
+.character-choice{background:#132424;border:1px solid #566358;color:#e9e5cf;min-width:0;min-height:100px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+.character-choice[aria-pressed="true"]{border-color:var(--character-color);box-shadow:inset 0 0 0 1px var(--character-color),0 0 13px var(--character-color)}
+.character-choice strong{font:700 10px/1.2 monospace;letter-spacing:.07em;text-transform:uppercase}
+.character-portrait{width:75px;height:75px;display:block;background-position:0 0;background-repeat:no-repeat;background-size:300px 300px;border-bottom:2px solid var(--character-color);image-rendering:pixelated}
+.character-portrait.tomas{background-image:url('/art/phase7/tomas.webp')}
+.character-portrait.nadia{background-image:url('/art/phase7/nadia.webp')}
+.character-portrait.imani{background-image:url('/art/phase7/imani.webp')}
+.character-portrait.mara{background-image:url('/art/phase7/mara.webp')}
+.character-portrait.elias{background-image:url('/art/phase7/elias.webp')}
+.character-portrait.dorian{background-image:url('/art/phase7/dorian.webp')}
+.lineup-player,.lineup-map{font:700 11px/1.4 monospace;color:#e9bb70;letter-spacing:.08em}
+.lineup-slot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font:700 10px monospace;color:#e9e5cf}
+.lineup-slot select{width:60%;background:#132424;color:#e9e5cf;border:1px solid #ab9565;padding:9px;font:700 12px monospace}
+#lineup-error{color:#ff7777;min-height:18px;font:700 11px monospace}
+@media(max-height:720px){.character-choice{min-height:80px}.character-portrait{width:57px;height:57px;background-size:228px 228px}}
+#opponent-hud::before{content:attr(data-name);color:#ffd3bb;font:700 calc(9px * var(--hud-scale)) monospace;text-shadow:1px 1px #111;letter-spacing:.06em;text-transform:uppercase}
+.phase7-fighter-hud{width:calc(100px * var(--hud-scale));z-index:4}
+.phase7-fighter-name{font:700 calc(9px * var(--hud-scale)) monospace;color:#f6e5c5;text-shadow:1px 1px #111;text-transform:uppercase;white-space:nowrap}
+.phase7-fighter-hud .health-segments{width:100%;height:calc(10px * var(--hud-scale));gap:max(1px,calc(1.5px * var(--hud-scale)));padding:1px;border-color:#58343a;box-shadow:0 1px 3px #000c}

@@ -53,7 +53,7 @@ test('opponent pursues a matching drop while carrying its weapon',()=>{
     {owner:1,type:'missile',...target,flight:0,ttl:12},
   ];
   m.think(1/120);
-  assert.deepEqual(m.aiTarget,target);
+  assert.deepEqual(m.aiState.get(1).target,target);
 });
 
 test('pistol remains available with a special weapon and final ammo frees the slot',()=>{
@@ -312,9 +312,9 @@ test('injured computer seeks a syringe and ignores it at full health',()=>{
   m.obstacles.forEach(o=>o.destroyed=true);m.nextDrop=Infinity;
   const syringe={id:900,owner:1,type:'syringe',x:enemy.x+58,y:enemy.y+10,flight:0,ttl:12};
   m.pickups=[syringe];enemy.hp=60;
-  m.think(1/120);assert.deepEqual(m.aiTarget,{x:syringe.x,y:syringe.y});
-  enemy.hp=100;m.aiClock=0;m.think(1/120);
-  assert.notDeepEqual(m.aiTarget,{x:syringe.x,y:syringe.y});
+  m.think(1/120);assert.deepEqual(m.aiState.get(1).target,{x:syringe.x,y:syringe.y});
+  enemy.hp=100;m.aiState.get(1).clock=0;m.think(1/120);
+  assert.notDeepEqual(m.aiState.get(1).target,{x:syringe.x,y:syringe.y});
 });
 
 test('a thrown weapon lands with one visible and audible impact',()=>{
@@ -753,7 +753,7 @@ test('opponent escapes a Tower fire lane instead of retreating into the river co
   const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
   m.flames=[{...source,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100}];
   m.think(1/120);
-  assert.ok(m.aiTarget.x>70&&m.aiTarget.y<opponent.y,'fire escape points back into the bank');
+  assert.ok(m.aiState.get(1).target.x>70&&m.aiState.get(1).target.y<opponent.y,'fire escape points back into the bank');
   for(let i=0;i<180;i++)m.think(1/120);
   assert.ok(opponent.x>70,'opponent leaves the corner');
 });
@@ -764,7 +764,7 @@ test('opponent dodges a marked Tower lane toward open ground at the bank edge',(
   const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
   m.towerAttacks=[{owner:1,hit:false,sourceX:source.x,sourceY:source.y,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100,age:.35,warning:.5}];
   m.think(1/120);
-  assert.ok(m.aiTarget.x>70&&m.aiTarget.y<opponent.y,'marked lane escape points inward');
+  assert.ok(m.aiState.get(1).target.x>70&&m.aiState.get(1).target.y<opponent.y,'marked lane escape points inward');
   assert.ok(opponent.dodgeTime>0&&opponent.dodgeX>0&&opponent.dodgeY<0,'dodge heads away from both walls');
 });
 
