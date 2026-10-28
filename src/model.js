@@ -24,7 +24,7 @@ export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
-export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.9, lightningSpeed:620, lightningWidth:22, lightningDamage:14, icicleSpeed:440, icicleWidth:20, icicleDamage:10 };
+export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.5, lightningSpeed:620, lightningWidth:22, lightningDamage:14, icicleSpeed:440, icicleWidth:20, icicleDamage:10 };
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
