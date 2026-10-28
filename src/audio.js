@@ -210,6 +210,8 @@ export class Sound {
     const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
     this.clips.menuClick=new Howl({src:[wav(.095,680,.14,15)],format:['wav'],volume:.14,preload:true,pool:6});
+    this.clips.dealTick=new Howl({src:[wav(.07,610,.2,16)],format:['wav'],volume:.11,preload:true,pool:8});
+    this.clips.dealSettle=new Howl({src:[wav(.27,410,.28,8)],format:['wav'],volume:.24,preload:true,pool:3});
     this.clips.ready=new Howl({src:[wav(.24,330,.12,7)],format:['wav'],volume:.19,preload:true});
     this.clips.fight=new Howl({src:[wav(.32,510,.24,6)],format:['wav'],volume:.25,preload:true});
     this.clips.empty=new Howl({src:[pcmWav(.16,t=>Math.sin(2*Math.PI*(t<.065?420*t:420*.065+290*(t-.065)))*Math.exp(-t*19)*.38)],format:['wav'],volume:.2,preload:true,pool:4});
@@ -257,7 +259,7 @@ export class Sound {
     this.clips.sandstorm=new Howl({src:[phase6WindWav()],format:['wav'],volume:.2,loop:true,preload:true});
     Howler.mute(this.muted);Howler.ctx?.resume();
   }
-  play(name,x){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);}}
+  play(name,x,rate=1){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);if(rate!==1)s.rate(rate,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
   environment(map,sandstormActive=false){
     if(!this.ready)return;

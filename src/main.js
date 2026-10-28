@@ -246,6 +246,7 @@ function showDealWeapon(type){
 }
 function animateDeal(){
   cancelDealAnimation();
+  sound.init();
   const run=dealRun,chosen=game.fixedWeapon,start=Math.floor(Math.random()*DROP_TYPES.length);
   const preview=$('deal-preview'),status=$('deal-status');
   preview.classList.remove('settled');preview.classList.add('rolling');
@@ -264,12 +265,14 @@ function animateDeal(){
     if(step===17){
       dealTimer=null;preview.classList.remove('rolling');preview.classList.add('settled');
       preview.setAttribute('aria-live','polite');showDealWeapon(chosen);
+      sound.play('dealSettle');
       countDown(3);
       return;
     }
     let type=DROP_TYPES[(start+step)%DROP_TYPES.length];
     if(step>=15&&type===chosen)type=DROP_TYPES[(start+step+1)%DROP_TYPES.length];
     showDealWeapon(type);
+    sound.play('dealTick',undefined,1+step*.012);
     dealTimer=setTimeout(tick,55+step*step*.7);
     step++;
   };
@@ -283,6 +286,7 @@ function showDealMap(map){
 }
 function animateMapDeal(chosen){
   cancelMapDealAnimation();
+  sound.init();
   const run=mapDealRun,start=Math.floor(Math.random()*MAP_TYPES.length);
   const preview=$('map-deal-preview'),status=$('map-deal-status');
   preview.classList.remove('settled');preview.classList.add('rolling');
@@ -295,6 +299,7 @@ function animateMapDeal(chosen){
     if(step===17){
       mapDealTimer=null;preview.classList.remove('rolling');preview.classList.add('settled');
       preview.setAttribute('aria-live','polite');showDealMap(chosen);
+      sound.play('dealSettle');
       status.textContent='MATCH STARTS IN 2';
       mapDealTimer=setTimeout(()=>{
         if(run!==mapDealRun)return;
@@ -306,6 +311,7 @@ function animateMapDeal(chosen){
     let map=MAP_TYPES[(start+step)%MAP_TYPES.length];
     if(step>=15&&map===chosen)map=MAP_TYPES[(start+step+1)%MAP_TYPES.length];
     showDealMap(map);
+    sound.play('dealTick',undefined,1+step*.012);
     mapDealTimer=setTimeout(tick,55+step*step*.7);
     step++;
   };
