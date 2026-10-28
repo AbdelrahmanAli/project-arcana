@@ -234,7 +234,7 @@ function showMenuPanel(id){
 }
 function setWeaponPicture(icon,type){
   icon.className='weapon-picture';
-  icon.classList.add(({rifle:'atlas-icon',shotgun:'atlas-icon',laser:'laser-icon',grenade:'stun-icon',missile:'missile-icon',nuclear:'nuclear-icon'})[type]);
+  icon.classList.add(({pistol:'atlas-icon',rifle:'atlas-icon',shotgun:'atlas-icon',laser:'laser-icon',grenade:'stun-icon',missile:'missile-icon',nuclear:'nuclear-icon'})[type]);
   icon.dataset.weapon=type;
   clearWeaponIconFit(icon);
   if(WEAPON_ART_BOUNDS[type])requestAnimationFrame(()=>{if(icon.dataset.weapon===type)fitWeaponIcon(icon,type);});
@@ -1285,8 +1285,9 @@ function render(){
       const progress=Math.min(1,age/.65),slide=1-(1-progress)*(1-progress);
       const x=p.x+(blue?10:6)*slide,y=p.y+(blue?12:7)*slide;
       const pose=(sprite,index,alpha)=>{
-        sprite.texture=death[deathFacing][index];
-        sprite.width=death.sizes[index][0];sprite.height=death.sizes[index][1];
+        const art=death[deathFacing][index];
+        sprite.texture=art.texture;
+        sprite.width=art.width;sprite.height=art.height;
         sprite.position.set(x,y);sprite.rotation=0;sprite.alpha=alpha;sprite.tint=0xffffff;
       };
       s.visible=frame<3&&blend<1;
@@ -1489,9 +1490,15 @@ async function boot(){
   }
   for(const [index,id] of fighterIds.entries())characterRollFrames.set(id,isolatedRollFrames(phase7Sheets[index+fighterIds.length]));
   for(const [index,id] of fighterIds.entries()){
-    const art=phase7Sheets[index+fighterIds.length*2],width=art.width/4,height=art.height/2;
-    const poses=Array.from({length:8},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%4*width,Math.floor(i/4)*height,width,height)}));
-    characterDeathFrames.set(id,{south:poses.slice(0,4),north:poses.slice(4,8),sizes:[[78,78],[78,78],[100,62],[112,48]]});
+    const art=phase7Sheets[index+fighterIds.length*2],rowHeight=art.height/2,scale=78/rowHeight;
+    const rows=CHARACTER_BY_ID[id].deathCuts.map((cuts,row)=>{
+      const edges=[0,...cuts,art.width];
+      return Array.from({length:4},(_,frame)=>{
+        const left=edges[frame],width=edges[frame+1]-left;
+        return {texture:new Texture({source:art.source,frame:new Rectangle(left,row*rowHeight,width,rowHeight)}),width:width*scale,height:78};
+      });
+    });
+    characterDeathFrames.set(id,{south:rows[0],north:rows[1]});
   }
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   tornadoFrames=cut(tornadoAnimationArt,8,1);
@@ -1559,7 +1566,7 @@ async function boot(){
     baseVentDraw.ellipse(x,y,8,5).fill({color:0x45291f,alpha:.95});
   }
   for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);soldiers.push(s);obstacleLayer.addChild(s);}
-  for(let i=0;i<4;i++){const s=new Sprite(characterDeathFrames.get(fighterIds[i]).south[0]);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
+  for(let i=0;i<4;i++){const s=new Sprite(characterDeathFrames.get(fighterIds[i]).south[0].texture);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
   stunDraw=new Graphics();world.addChild(stunDraw);
   world.addChild(muzzleDraw);
   // The lower wall covers only a fighter's feet at the back edge.

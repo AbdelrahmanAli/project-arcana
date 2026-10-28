@@ -11,6 +11,16 @@ test('six distinct characters contain three women and three men', () => {
   assert.ok(CHARACTERS.every(character => !character.name.includes(' ')));
 });
 
+test('every death sheet has ordered pose cuts for both facing directions', () => {
+  for(const character of CHARACTERS){
+    assert.equal(character.deathCuts.length,2,character.id);
+    for(const cuts of character.deathCuts){
+      assert.equal(cuts.length,3,character.id);
+      assert.ok(cuts.every((cut,index)=>cut>0&&cut<768&&(index===0||cut>cuts[index-1])),character.id);
+    }
+  }
+});
+
 test('lineup resolution keeps manual choices and assigns distinct random fighters', () => {
   const lineup = resolveLineup(() => .1, 'mara', '2v2', { teammate: 'nadia', opponent: 'random', opponent2: 'random' });
   assert.equal(lineup.player, 'mara');
