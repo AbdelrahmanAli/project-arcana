@@ -22,6 +22,8 @@ let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowB
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
+// Fighters are tall sprites anchored at their center; sort by their boots, not their torso.
+const FIGHTER_DEPTH_OFFSET=36;
 const DEATH_CROPS=[
   [[262,24,378,488],[924,127,409,385],[129,611,615,353],[810,512,661,474]],
   [[120,91,430,525],[684,196,405,394],[87,774,486,392],[629,726,589,462]],
@@ -460,6 +462,11 @@ function updateHud(){
   if(slot&&WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(specialArt,slot.type);else clearWeaponIconFit(specialArt);
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
   const hud=$('opponent-hud'),scale=$('arena').clientWidth/W;
+  const playerHud=$('player-hud');
+  playerHud.style.setProperty('--hud-scale',scale);
+  playerHud.style.left=`${Math.max(50,Math.min(W-50,p.x))/W*100}%`;
+  playerHud.style.top=`${(p.y-38)/H*100}%`;
+  playerHud.style.display=p.hp>0?'flex':'none';
   hud.style.setProperty('--hud-scale',scale);
   hud.style.left=`${Math.max(44,Math.min(W-44,enemy.x))/W*100}%`;hud.style.top=`${(enemy.y-30)/H*100}%`;
   const ashConcealsEnemy=game.map===MAPS.MAGMA&&Math.hypot(p.x-enemy.x,p.y-enemy.y)>95&&ashCloudVisuals(game.ash).some(cloud=>
@@ -882,7 +889,8 @@ function render(){
     sprite.texture=rock?(obstacle.burning>0&&!obstacle.destroyed?burningRockGroundFrames[Math.floor(game.time*9+obstacle.id)%burningRockGroundFrames.length]:obstacle.cooling>0&&!obstacle.destroyed?rockCoolingFrames[coolingFrame]:volcanicRockTexture):frames[obstacle.destroyed?(crate?2:obstacle.flash>0?1:2):crate&&obstacle.hits>0?1:0];
     sprite.width=rock?(obstacle.destroyed?34:obstacle.burning>0||obstacle.cooling>0?87:57):crate?40:44;sprite.height=rock?(obstacle.destroyed?24:obstacle.burning>0||obstacle.cooling>0?73:49):crate?40:54;
     sprite.position.set(obstacle.x,obstacle.y+(rock?-3:crate?3:-5));sprite.zIndex=obstacle.destroyed?-1:obstacle.y+(crate?16:17);
-    sprite.alpha=rock&&obstacle.destroyed ? .55 : !obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y<obstacle.y-(crate?4:3)&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
+    const obstacleDepth=obstacle.y+(crate?16:17);
+    sprite.alpha=rock&&obstacle.destroyed ? .55 : !obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y+FIGHTER_DEPTH_OFFSET<obstacleDepth&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
   const t=game.tower;
@@ -1033,7 +1041,7 @@ function render(){
       const hazardBlink=Math.sin(game.time*21+p.id*.4)>0;
       const rolling=p.dodgeTime>0;
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
-      s.visible=true;s.texture=rolling?rollFrames[p.id][p.dodgeDir][rollFrame]:textures[frame];s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+20;
+      s.visible=true;s.texture=rolling?rollFrames[p.id][p.dodgeDir][rollFrame]:textures[frame];s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
       if(!rolling)groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
@@ -1075,7 +1083,7 @@ function render(){
       };
       s.visible=frame<3&&blend<1;
       if(s.visible)pose(s,frame,1-blend);
-      corpse.visible=true;pose(corpse,next,blend);corpse.zIndex=p.y+20;
+      corpse.visible=true;pose(corpse,next,blend);corpse.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*Math.min(1,age/.65)});
     }
     if(p.stun>0&&p.hp>0){
