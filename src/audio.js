@@ -209,6 +209,9 @@ export class Sound {
     this.ready=true;
     const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
+    this.clips.menuClick=new Howl({src:[wav(.095,680,.14,15)],format:['wav'],volume:.14,preload:true,pool:6});
+    this.clips.ready=new Howl({src:[wav(.24,330,.12,7)],format:['wav'],volume:.19,preload:true});
+    this.clips.fight=new Howl({src:[wav(.32,510,.24,6)],format:['wav'],volume:.25,preload:true});
     this.clips.empty=new Howl({src:[pcmWav(.16,t=>Math.sin(2*Math.PI*(t<.065?420*t:420*.065+290*(t-.065)))*Math.exp(-t*19)*.38)],format:['wav'],volume:.2,preload:true,pool:4});
     this.clips.dodgeDenied=new Howl({src:[dodgeDeniedWav()],format:['wav'],volume:.22,preload:true,pool:4});
     this.clips.heal=new Howl({src:[healWav()],format:['wav'],volume:.28,preload:true,pool:4});

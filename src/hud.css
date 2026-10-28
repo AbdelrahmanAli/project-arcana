@@ -18,7 +18,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(#aed895, #669c70);
+  background: linear-gradient(#ff8b79, #c62a3b);
   transform-origin: left center;
   transition: transform 100ms linear;
 }
@@ -44,11 +44,10 @@
   box-shadow: 0 1px 2px #0009;
 }
 #opponent-hp .health-cell { background: #42352f; }
-#opponent-hp .health-cell i { background: linear-gradient(#ff9a74, #c45348); }
 .player-hud { z-index: 4; width: calc(100px * var(--hud-scale)); }
 .player-hud-label { color: #c8f4d1; font-size: calc(9px * var(--hud-scale)); font-weight: 700; letter-spacing: 1px; text-shadow: 1px 2px #101a16, 0 0 5px #07140b; }
 .player-hud-label strong { color: #fff; margin-left: 5px; }
-#player-hp { width: 100%; height: calc(10px * var(--hud-scale)); gap: max(1px, calc(1.5px * var(--hud-scale))); padding: 1px; border-color: #263b30; box-shadow: 0 1px 3px #000c; }
+#player-hp { width: 100%; height: calc(10px * var(--hud-scale)); gap: max(1px, calc(1.5px * var(--hud-scale))); padding: 1px; border-color: #58343a; box-shadow: 0 1px 3px #000c; }
 .opponent-weapon {
   position: relative;
   width: calc(68px * var(--hud-scale));

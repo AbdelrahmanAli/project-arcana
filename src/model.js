@@ -51,6 +51,7 @@ export function sandstormCovers(storm,y){
 }
 export const LIGHTNING_WAVE_DELAY = .55;
 export const HEAL_AMOUNT = 20, PICKUP_LIFETIME = 12;
+export const TOWER_HEAL_CHANCE = .08;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 function flameReach(x,y,dx,dy) {
@@ -790,6 +791,7 @@ export class Match {
   launch() {
     this.launches++;
     const pairedType=this.mode===GAME_MODES.RANDOM_SAME?this.dropWeaponType():null;
+    const weaponDrops=[];
     for(let owner=0;owner<2;owner++) {
       const sx=RIVER.x+(owner===0?-51:51),sy=RIVER.y-78;
       const bounds=BANK_BOUNDS[owner],margin=20;
@@ -804,8 +806,26 @@ export class Match {
         const safe=[{x:240,y:bounds.minY+margin+15},{x:240,y:bounds.maxY-margin-15},{x:W/2,y:(bounds.minY+bounds.maxY)/2}];
         ({x,y}=safe.find(point=>!this.obstacles.some(o=>!o.destroyed&&distance(point,o)<57))||safe[0]);
       }
-      this.pickups.push({id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME});
+      const weapon={id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME};
+      this.pickups.push(weapon);weaponDrops.push(weapon);
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
+    }
+    for(const weapon of weaponDrops){
+      if(this.random()>=TOWER_HEAL_CHANCE)continue;
+      const bounds=BANK_BOUNDS[weapon.owner];
+      const clear=point=>point.x>=48&&point.x<=W-48&&point.y>=bounds.minY+20&&point.y<=bounds.maxY-20&&
+        this.obstacles.every(o=>o.destroyed||distance(point,o)>=57)&&
+        this.pickups.every(item=>item.owner!==weapon.owner||distance(point,item)>=38);
+      let site=null;
+      for(let attempt=0;attempt<16;attempt++){
+        const point={x:55+this.random()*(W-110),y:bounds.minY+20+this.random()*(bounds.maxY-bounds.minY-40)};
+        if(clear(point)){site=point;break;}
+      }
+      if(!site)site=[100,240,380].flatMap(x=>[bounds.minY+45,(bounds.minY+bounds.maxY)/2,bounds.maxY-45].map(y=>({x,y}))).find(clear);
+      if(!site)continue;
+      const sx=weapon.sx+(weapon.owner===0?-15:15),sy=weapon.sy;
+      this.pickups.push({id:this.id++,owner:weapon.owner,type:'syringe',sx,sy,...site,flight:.82,flightDuration:.82,ttl:PICKUP_LIFETIME});
+      this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:weapon.owner});
     }
     this.emit('launch');
   }

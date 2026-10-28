@@ -13,11 +13,15 @@ import './phase5.css';
 
 const $=id=>document.getElementById(id);
 const sound=new Sound();
-let game=new Match(),started=false,paused=false,finishedShown=false;
+let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownStage='',countdownSuspended=false,paused=false,finishedShown=false;
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 const PISTOL_AUTO_HOLD_MS=500;
+const PISTOL_PREF_KEY='tower-deal-auto-pistol-v1';
+let pistolAutoOnStart=true;
+try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAutoOnStart=saved==='true';}
+catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
@@ -323,7 +327,7 @@ function prepareMatch(mapOverride=null){
   cancelMapDealAnimation();
   sound.stop();
   const map=mapOverride||selectedMap;
-  game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;paused=false;finishedShown=false;clearInput();
+  game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;starting=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
   document.querySelector('.game-unit').classList.remove('ended','paused');
@@ -337,11 +341,19 @@ function prepareMatch(mapOverride=null){
 function beginMatch(){
   cancelDealAnimation();
   cancelMapDealAnimation();
-  started=true;sceneDirty=true;sound.init();
-  pistolAuto=true;input.pistol=true;syncPistolButton();showPistolHint('AUTO ON · TAP TO STOP\nHOLD TO RESTART',5200);
+  started=false;starting=true;countdownElapsed=0;countdownStage='ready';countdownSuspended=false;sceneDirty=true;sound.init();clearInput();
+  $('match-countdown').hidden=false;$('match-countdown').classList.remove('fight');$('countdown-word').textContent='READY!';
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
+  document.querySelector('.game-unit').classList.add('counting-down');$('pause').disabled=true;
+  sound.play('ready');
   updateHud();app.ticker.start();
+}
+function finishCountdown(){
+  starting=false;started=true;countdownStage='';sceneDirty=true;
+  $('match-countdown').hidden=true;document.querySelector('.game-unit').classList.remove('counting-down');$('pause').disabled=false;
+  pistolAuto=pistolAutoOnStart;input.pistol=pistolAuto;syncPistolButton();
+  showPistolHint(pistolAuto?'AUTO ON · TAP TO STOP\nHOLD TO RESTART':'TAP TO FIRE · HOLD FOR AUTO',5200);
 }
 function reset(){
   if(selectedMap==='random'){
@@ -375,7 +387,7 @@ function showNumber(playerId,amount,healing=false){
 }
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
 $('pause').addEventListener('click',pause);
-function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
 $('menu-play').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('mode-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
@@ -410,6 +422,11 @@ $('menu-open').addEventListener('click',openMenu);
 $('result-menu').addEventListener('click',openMenu);
 $('menu-settings').addEventListener('click',()=>showMenuPanel('settings-panel'));
 $('settings-back').addEventListener('click',()=>showMenuPanel('menu-home'));
+document.addEventListener('click',event=>{
+  const button=event.target.closest('button');
+  if(!button||button.disabled||!button.closest('#menu, #overlay, .game-top'))return;
+  sound.init();sound.play('menuClick');
+});
 function syncSoundSettings(){
   for(const id of ['sound','settings-sound'])$(id).textContent=sound.muted?'SOUND OFF':'SOUND ON';
   $('sound').setAttribute('aria-label',sound.muted?'Enable sound':'Mute sound');
@@ -424,6 +441,12 @@ $('sound').addEventListener('click',toggleSound);$('settings-sound').addEventLis
 $('alarm-volume').addEventListener('input',e=>{sound.setAlarmVolume(e.target.value);syncSoundSettings();});
 $('alarm-mute').addEventListener('click',()=>{sound.toggleAlarmMute();syncSoundSettings();});
 $('alarm-preview').addEventListener('click',()=>sound.previewAlarm());
+$('auto-pistol').checked=pistolAutoOnStart;
+$('auto-pistol').addEventListener('change',event=>{
+  pistolAutoOnStart=event.target.checked;
+  try {localStorage.setItem(PISTOL_PREF_KEY,String(pistolAutoOnStart));}catch { /* Keep the choice for this session. */ }
+  sound.init();sound.play('menuClick');
+});
 syncSoundSettings();
 $('arena').addEventListener('pointerdown',e=>{
   if(e.target.closest('.overlay, .main-menu, .fire-controls')||!started||paused||game.finished||game.ending>0||stick)return;
@@ -477,16 +500,18 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space'){pistolCancelKeyUntilRelease=false;releaseFire('pistol');}if(e.code==='KeyE')releaseFire('special');});
 function pauseOnFocusLoss(){
+  if(starting){countdownSuspended=true;clearInput();app.ticker.stop();return;}
   if(started&&!paused&&!game.finished)pause();
   else clearInput(paused);
 }
 window.addEventListener('blur',pauseOnFocusLoss);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseOnFocusLoss();});
+window.addEventListener('focus',()=>{if(starting&&!document.hidden){countdownSuspended=false;app.ticker.start();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseOnFocusLoss();else if(starting){countdownSuspended=false;app.ticker.start();}});
 window.addEventListener('resize',()=>{
   sceneDirty=true;
   // The ticker sleeps on menu, pause, and result screens; redraw their HUD once
   // so a phone rotation also refits weapon icons and the opponent badge.
-  if(app?.ticker&&!app.ticker.started)app.ticker.start();
+  if(app?.ticker&&!app.ticker.started&&!countdownSuspended)app.ticker.start();
 });
 
 function updateHud(){
@@ -540,6 +565,14 @@ function updateHud(){
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
 }
 function sheetLoop(time,fps,count){const span=count*2-2,step=Math.floor(time*fps)%span;return step<count?step:span-step;}
+function pickupLook(type){
+  const art=type==='syringe'?syringeTexture:type==='laser'?laserTexture:type==='grenade'?stunLauncherTexture:type==='missile'?missileLauncherTexture:type==='nuclear'?nuclearLauncherTexture:textures[WEAPONS[type].frame];
+  const [width,height,lift,shadowWidth,shadowY]={
+    syringe:[68,47,6,18,7],laser:[66,27,4,26,8],missile:[58,29,7,24,8],
+    grenade:[56,37,7,23,10],nuclear:[60,40,7,23,10],rifle:[62,62,0,21,12],shotgun:[62,62,0,21,12],
+  }[type];
+  return {art,width,height,lift,shadowWidth,shadowY};
+}
 function renderPhase6Environment(){
   phase6WeatherDraw.clear();
   const active=new Set();
@@ -621,10 +654,10 @@ function renderPhase6Environment(){
       if(lure.state==='sun'){
         phase6WeatherDraw.rect(0,0,W,H).fill({color:0xffd56d,alpha:.075+.065*Math.sin(lure.age*9)});
       }else if(lure.state==='lure'){
-        sprite(`mirage-${lure.id}`,phase6Frames.mirage,hazardLayer,lure.x,lure.y,86,66,sheetLoop(game.time,8,4),.65);
-        const art=lure.type==='syringe'?syringeTexture:lure.type==='laser'?laserTexture:lure.type==='grenade'?stunLauncherTexture:lure.type==='missile'?missileLauncherTexture:lure.type==='nuclear'?nuclearLauncherTexture:textures[WEAPONS[lure.type].frame];
-        const size=lure.type==='syringe'?[68,47,6]:lure.type==='laser'?[66,27,4]:lure.type==='missile'?[58,29,7]:lure.type==='grenade'?[56,37,7]:lure.type==='nuclear'?[60,40,7]:[62,62,0];
-        sprite(`bait-${lure.id}`,[art],obstacleLayer,lure.x,lure.y-size[2]+Math.sin(game.time*1.8+lure.id)*1.2,size[0],size[1],0,.78+.12*Math.sin(game.time*2.5)).zIndex=lure.y+19;
+        sprite(`mirage-${lure.id}`,phase6Frames.mirage,hazardLayer,lure.x,lure.y,86,66,sheetLoop(game.time,8,4),.35);
+        const look=pickupLook(lure.type);
+        groundDraw.ellipse(lure.x,lure.y+look.shadowY,look.shadowWidth,5).fill({color:0x121a18,alpha:.4});
+        sprite(`bait-${lure.id}`,[look.art],obstacleLayer,lure.x,lure.y+Math.sin(game.time*3+lure.id)*2-look.lift,look.width,look.height,0,.94+.06*Math.sin(game.time*.8+lure.id)).zIndex=lure.y+19;
       }else{
         const frame=lure.state==='strike'?Math.min(4,Math.floor(lure.strikeAge*14)):5;
         sprite(`scorpion-${lure.id}`,phase6Frames.scorpion,obstacleLayer,lure.x,lure.y,90,86,frame,lure.state==='retreat'?Math.max(0,1-lure.strikeAge/.6):1).zIndex=lure.y+19;
@@ -1071,16 +1104,16 @@ function render(){
   for(let i=flameCount;i<flameSprites.length;i++)flameSprites[i].visible=false;
   const active=new Set();
   for(const item of game.pickups){
-    const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear',isHeal=item.type==='syringe';
+    const look=pickupLook(item.type);
     active.add(item.id);let s=dropSprites.get(item.id);
-    if(!s){const art=isHeal?syringeTexture:isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isHeal?68:isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isHeal?47:isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
+    if(!s){s=new Sprite(look.art);s.anchor.set(.5);s.width=look.width;s.height=look.height;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
     // Airborne drops cross above the Tower and fighters; landed drops share their ground-depth
     // order with soldiers and cover. They stay visible at the landing point.
     const layer=item.flight>0?pickupFlightLayer:obstacleLayer;
     if(s.parent!==layer)layer.addChild(s);
     let x=item.x,y=item.y;
     if(item.flight>0){const k=1-item.flight/(item.flightDuration||.75);x=item.sx+(item.x-item.sx)*k;y=item.sy+(item.y-item.sy)*k-Math.sin(k*Math.PI)*(item.arcHeight||70);s.rotation=Math.sin(k*Math.PI)*(item.source==='crate'?.24:.6);}
-    else{s.rotation=0;s.zIndex=item.y+19;groundDraw.ellipse(x,y+(isHeal?7:isMissile||isLaser?8:isStun||isNuclear?10:12),isHeal?18:isLaser?26:isMissile?24:isStun||isNuclear?23:21,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-(isHeal?6:isLaser?4:isMissile||isStun||isNuclear?7:0);}
+    else{s.rotation=0;s.zIndex=item.y+19;groundDraw.ellipse(x,y+look.shadowY,look.shadowWidth,5).fill({color:0x121a18,alpha:.4});y+=Math.sin(game.time*3+item.id)*2-look.lift;}
     s.position.set(x,y);s.visible=true;s.alpha=item.flight>0||item.ttl>3||Math.floor(item.ttl*6)%2===0?1:.22;
   }
   for(const [id,s] of dropSprites)if(!active.has(id)){s.destroy();dropSprites.delete(id);}
@@ -1287,18 +1320,32 @@ function render(){
   }
 }
 async function boot(){
+  const coreArt=['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'];
+  const phase2Art=['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'];
+  const phase5Art=['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'];
+  const phase6Art=['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'];
+  const artCount=coreArt.length+phase2Art.length+phase5Art.length+phase6Art.length;
+  let artLoaded=0;
+  const loadArt=async(folder,path)=>{
+    const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
+    const percent=Math.round(++artLoaded/artCount*100);
+    $('art-progress-fill').style.width=`${percent}%`;
+    $('art-progress').setAttribute('aria-valuenow',String(percent));
+    $('art-progress-label').textContent=`${percent}%`;
+    return art;
+  };
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.ticker.maxFPS=60;
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
   const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
-    ...['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','death-blue-frames.png','death-red-frames.png','rock-barrier.png','dodge-blue.png?v=20261026','dodge-red.png?v=20261026','healing-syringe.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`)),
-    ...['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase2/${src}`)),
+    ...coreArt.map(path=>loadArt('',path)),
+    ...phase2Art.map(path=>loadArt('phase2/',path)),
   ]);
   const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt]=await Promise.all(
-    ['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/${src}`))
+    phase5Art.map(path=>loadArt('',path))
   );
   const [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt]=await Promise.all(
-    ['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'].map(src=>Assets.load(`${import.meta.env.BASE_URL}art/phase6/${src}`))
+    phase6Art.map(path=>loadArt('phase6/',path))
   );
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,blueDeath,redDeath,rockArt,dodgeBlueArt,dodgeRedArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
@@ -1402,10 +1449,20 @@ async function boot(){
   for(let i=0;i<12;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
   app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw);
   buildWeaponChoices();
+  $('art-loading').hidden=true;
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
   let accumulator=0,hudTime=0;
   app.ticker.add(ticker=>{
     const dt=Math.min(ticker.deltaMS/1000,.05);
+    if(starting&&!countdownSuspended){
+      countdownElapsed+=dt;
+      if(countdownStage==='ready'&&countdownElapsed>=.85){
+        countdownStage='fight';$('countdown-word').textContent='FIGHT!';$('match-countdown').classList.add('fight');
+        $('countdown-word').animate([{opacity:0,transform:'scale(.72)'},{opacity:1,transform:'scale(1)'}],{duration:300,easing:'ease-out'});
+        sound.play('fight');
+      }
+      if(countdownElapsed>=1.5)finishCountdown();
+    }
     if(started&&!paused&&!game.finished){
       input.x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);
       input.y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0);
@@ -1442,7 +1499,7 @@ async function boot(){
       const omen=drawn?'The Tower spared neither of you.':won?'The Tower took the other. You remain.':'The Tower took you. The other remains.';
       showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?'YOU<br><em>ADAPTED.</em>':'YOU<br><em>FELL.</em>',`${outcome} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} tower drops`,'PLAY AGAIN',omen);
     }
-    const animating=started&&!paused&&!game.finished;
+    const animating=starting||started&&!paused&&!game.finished;
     if(animating||sceneDirty){render();if(!animating)updateHud();sceneDirty=false;}
     hudTime+=dt;if(animating&&hudTime>.05){updateHud();hudTime=0;}
     if(performance.now()>toastUntil&&$('toast').style.opacity!=='0')$('toast').style.opacity=0;

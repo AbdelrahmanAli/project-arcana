@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_VOLLEY, TOWER_BASE_Y, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_VOLLEY, TOWER_BASE_Y, TOWER_HEAL_CHANCE, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, towerBodyBounds, towerArmExtension, segmentTowerHit, segmentRectHit, segmentDistance } from '../src/model.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -97,12 +97,32 @@ test('holding the special button launches only one grenade until the next press'
 
 test('each launch creates a pair with independent rolls and valid bank positions',()=>{
   let i=0;const values=[.01,.1,.2,.99,.8,.9];const m=new Match();m.obstacles.forEach(o=>o.destroyed=true);m.random=()=>values[i++%values.length];m.launch();
-  assert.equal(m.pickups.length,2);assert.equal(m.pickups[0].type,'rifle');assert.equal(m.pickups[1].type,'nuclear');
-  assert.ok(m.pickups[0].y>RIVER.bottom);assert.ok(m.pickups[1].y<RIVER.top);
+  const weapons=m.pickups.filter(item=>item.type!=='syringe');
+  assert.equal(weapons.length,2);assert.equal(weapons[0].type,'rifle');assert.equal(weapons[1].type,'nuclear');
+  assert.ok(weapons[0].y>RIVER.bottom);assert.ok(weapons[1].y<RIVER.top);
   for(const item of m.pickups)assert.ok(item.y>=BANK_BOUNDS[item.owner].minY+20&&item.y<=BANK_BOUNDS[item.owner].maxY-20);
-  assert.equal(m.pickups[0].sx,RIVER.x-51);assert.equal(m.pickups[1].sx,RIVER.x+51);
-  assert.equal(m.pickups[0].sy,RIVER.y-78);assert.equal(m.pickups[1].sy,RIVER.y-78);
-  assert.equal(m.pickups[0].flight,m.pickups[1].flight);
+  assert.equal(weapons[0].sx,RIVER.x-51);assert.equal(weapons[1].sx,RIVER.x+51);
+  assert.equal(weapons[0].sy,RIVER.y-78);assert.equal(weapons[1].sy,RIVER.y-78);
+  assert.equal(weapons[0].flight,weapons[1].flight);
+});
+
+test('rare Tower syringes are extra independent drops on each bank',()=>{
+  assert.ok(TOWER_HEAL_CHANCE>0&&TOWER_HEAL_CHANCE<.15);
+  for(const map of MAP_TYPES){
+    const m=new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'laser',map});
+    m.obstacles.forEach(o=>o.destroyed=true);
+    const rolls=[.2,.3,.8,.7,.01,.9,.2,.01,.1,.8];let index=0;
+    m.random=()=>rolls[index++];m.launch();
+    assert.deepEqual(m.pickups.map(item=>item.type),['laser','laser','syringe','syringe'],map);
+    for(const owner of [0,1]){
+      const weapon=m.pickups.find(item=>item.owner===owner&&item.type==='laser');
+      const heal=m.pickups.find(item=>item.owner===owner&&item.type==='syringe');
+      assert.ok(weapon&&heal);
+      assert.ok(Math.hypot(heal.x-weapon.x,heal.y-weapon.y)>38);
+      assert.ok(heal.y>=BANK_BOUNDS[owner].minY+20&&heal.y<=BANK_BOUNDS[owner].maxY-20);
+      assert.equal(heal.flightDuration,heal.flight);
+    }
+  }
 });
 
 test('fixed modes deal one weapon to both banks while random mode remains independent',()=>{

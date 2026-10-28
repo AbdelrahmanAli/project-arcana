@@ -18,4 +18,6 @@ On Riverside, each Tower cycle locks one firing lane across each bank during the
 
 Fully broken crates independently yield nothing 55% of the time, a weapon 30% of the time, or a syringe 15% of the time. Syringes restore up to 20 health, capped at 100, and do not use the weapon slot. Random Weapons mode selects crate weapon types independently; both fixed weapon modes use their match weapon. The Nuclear Launcher remains eligible in fixed matches, and its waste stays permanently on the banks for the round.
 
+Every Tower launch still sends one weapon to each bank. Each bank independently has an 8% chance of receiving an extra syringe at a separate random location on that bank; this applies to every map and weapon mode.
+
 The rifle has more potential direct damage than a missile because it requires repeated hits. The shotgun rewards advancing toward the river. The laser offers one strong, precise opportunity. Stun trades damage for control, while nuclear grenades trade immediate damage for permanent space denial. These numbers remain open to tuning after phone playtests.
