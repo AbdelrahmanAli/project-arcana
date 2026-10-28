@@ -36,12 +36,12 @@ These working names are approved as Phase 7 art direction. Lock final names when
 
 | Character | Identity | Main palette | Visual read at game scale |
 | --- | --- | --- | --- |
-| **Elias Vale** | Existing blue soldier; man | Cobalt blue and cyan | Blue armor plates, dark undersuit, cyan visor |
-| **Dorian Rook** | Existing red soldier; man | Scarlet red | Red helmet and chest plates, dark charcoal gear |
-| **Tomas Calder** | New; man | Amber and black | Amber shoulder armor, heavy utility rig |
-| **Nadia Voss** | New; woman | Violet and charcoal | Violet upper armor, compact field pack |
-| **Imani Cross** | New; woman | Emerald and black | Green vest, bright lime identification tabs |
-| **Mara Solis** | New; woman | Magenta and dark navy | Magenta helmet and sleeve accents, narrow backpack |
+| **Elias** | Existing blue soldier; man | Cobalt blue and cyan | Blue armor plates, dark undersuit, cyan visor |
+| **Dorian** | Existing red soldier; man | Scarlet red | Red helmet and chest plates, dark charcoal gear |
+| **Tomas** | New; man | Amber and black | Amber shoulder armor, heavy utility rig |
+| **Nadia** | New; woman | Violet and charcoal | Violet upper armor, compact field pack |
+| **Imani** | New; woman | Emerald and black | Green vest, bright lime identification tabs |
+| **Mara** | New; woman | Magenta and dark navy | Magenta helmet and sleeve accents, narrow backpack |
 
 Faces, proportions, hair or helmet shapes, gear silhouettes, and portraits should help identify characters even when color is obscured by snow, ash, sand, fire, or a charging laser. Female characters must read as distinct human fighters with practical combat gear, not as recolors or exaggerated anatomy. Team membership is shown by HUD labels and outlines; uniform color identifies the character, not the team.
 
