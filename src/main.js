@@ -375,7 +375,7 @@ function showNumber(playerId,amount,healing=false){
 }
 $('start').addEventListener('click',()=>{if(paused)pause();else reset();});
 $('pause').addEventListener('click',pause);
-function openMenu(){started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused');document.querySelector('.game-unit').classList.add('menu-open');$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
 $('menu-play').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('mode-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
@@ -476,8 +476,12 @@ window.addEventListener('keydown',e=>{
   }
 });
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space'){pistolCancelKeyUntilRelease=false;releaseFire('pistol');}if(e.code==='KeyE')releaseFire('special');});
-window.addEventListener('blur',()=>{clearInput();if(started&&!paused&&!game.finished)pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(started&&!paused&&!game.finished)pause();}});
+function pauseOnFocusLoss(){
+  if(started&&!paused&&!game.finished)pause();
+  else clearInput(paused);
+}
+window.addEventListener('blur',pauseOnFocusLoss);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseOnFocusLoss();});
 window.addEventListener('resize',()=>{
   sceneDirty=true;
   // The ticker sleeps on menu, pause, and result screens; redraw their HUD once

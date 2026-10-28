@@ -27,8 +27,6 @@
 .menu-card .audio-credit { margin:0 0 15px; font-size:8px; line-height:1.5; color:#a8b8aa; }
 .audio-credit a { color:#e9c878; }
 .opponent-toast { position:absolute; z-index:4; pointer-events:none; transform:translate(-50%,-50%); white-space:nowrap; opacity:0; transition:opacity .2s; color:#ffe5a6; background:#182022d9; border:1px solid #a98b4b; font:bold clamp(6px,1.5vw,9px) 'IBM Plex Mono',monospace; letter-spacing:.4px; padding:3px 5px; text-shadow:1px 1px #000; }
-.console { position:relative; isolation:isolate; background:#192725; border-top:0; }
-.console::before { content:""; position:absolute; z-index:-1; inset:0; background:linear-gradient(#0713134d,#081516cc),url('/art/arena.png') center 95%/100% auto no-repeat; opacity:.85; }
 .weapon-picture.atlas-icon { transform:none; }
 .laser-icon { background-image:url('/art/laser-gun.png') !important; background-size:contain !important; background-position:center !important; }
 .weapon-picture.laser-icon { transform:scale(1.03) rotate(-3deg); }
@@ -40,12 +38,9 @@
 .weapon-picture.nuclear-icon { transform:scale(.98) rotate(-3deg); }
 #charge { z-index:0; background:linear-gradient(#ff8b8b99,#ff2137c4); }
 @keyframes laserReadyPulse { from { filter:brightness(.9); } to { filter:brightness(1.35) drop-shadow(0 0 7px #ff354d); } }
-.player-health { margin-top:3px; padding:8px 4px 2px; background:#101b1bc7; }
 .opponent-hud { z-index:4; }
 .overlay.result { animation:resultFade .9s ease both; }
 .overlay.result .overlay-card { animation:resultRise .9s .25s ease both; }
-.game-unit:is(.ended,.paused,.menu-open) .console { pointer-events:none; }
-.game-unit:is(.ended,.paused,.menu-open) .console::after { content:""; position:absolute; z-index:8; inset:0; background:#0d171ac7; }
 @keyframes resultFade { from { opacity:0; } to { opacity:1; } }
 @keyframes resultRise { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 @media(max-width:700px){ .menu-card { padding:14px; } .menu-card h2 { font-size:56px; } .game-top #menu-open { font-size:8px; } }

@@ -2,7 +2,7 @@
 
 A single-round, browser-based riverbank duel. Built with PixiJS 8, Howler.js, and Vite. The game currently runs against a computer opponent; it does not need a gameplay server.
 
-“When certainty falls, adapt.” The Tower of Major Arcana XVI has dealt its card to two fighters on opposite banks. Across the river stands the life each must take to keep their own. Its paired but independently random weapon drops can overturn either fighter's plan, and striking it can set both banks on fire. The player starts on an assigned bank; bank selection is not a game mechanic.
+“When certainty falls, adapt.” The Tower of Major Arcana XVI has dealt its card to two fighters on opposite banks. Across the river stands the life each must take to keep their own. Its weapon drops can overturn either fighter's plan, and on the Riverside map it attacks both banks as it rises and descends. The player starts on an assigned bank; bank selection is not a game mechanic.
 
 ## Run
 
@@ -18,9 +18,9 @@ The `/project-arcana/` base path is set in `vite.config.js`; if the repository n
 
 ## Controls
 
-- Phone / mouse: drag anywhere in the arena to create a floating joystick. Three transparent buttons on the right dodge, fire the held Tower weapon, and fire the unlimited pistol. Another finger can dodge or fire while moving. Hold and release the middle button for the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
-- Desktop: WASD or arrows to move; Shift dive rolls in the movement direction; Space fires the pistol; E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
-- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 2.2-second cooldown. Its button ring fills as it recharges; the Tower weapon ring drains with its ammo. Tapping an unavailable dodge or empty Tower weapon button plays a short feedback sound. Solid cover and bank edges stop roll movement.
+- Phone / mouse: drag anywhere in the arena to create a floating joystick. The right-side buttons are pistol, dodge, and held Tower weapon, from top to bottom. Another finger can dodge or fire while moving. Pistol auto fire starts on; tap to stop it and hold for half a second to restart it. Hold and release the bottom button to fire the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
+- Desktop: WASD or arrows to move; Shift dive rolls in the movement direction; Space toggles automatic pistol fire (hold to restart it); E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
+- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 1-second cooldown. Its button ring fills as it recharges; the Tower weapon ring drains with its ammo. Tapping an unavailable dodge or empty Tower weapon button plays a short feedback sound. Solid cover and bank edges stop roll movement.
 - Walk over a landed pickup to collect it. Each fighter can carry one Tower weapon. A matching pickup adds its full ammo with no cap; a different weapon cannot be collected until the current one is spent. There is no discard or swap action. A healing syringe from a broken crate restores up to 20 health without using the weapon slot.
 
 ## Implemented
@@ -31,7 +31,7 @@ Both fighters have eight-direction dive-roll animations. The computer opponent c
 
 Each round places two mirrored T, L, or square crate formations near the river on each bank and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Fully broken crates have a 30% chance to release a weapon, a 15% chance to release a 20-health syringe, and a 55% chance to release nothing. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
 
-The player's health is below the expanded arena. The opponent's health and held Tower weapon float above their head; their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar. Both banks now have equal playable depth.
+Both fighters' health bars float above their heads; the opponent's held Tower weapon appears below their bar, and their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar. Both banks have equal playable depth.
 
 Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.md).
 

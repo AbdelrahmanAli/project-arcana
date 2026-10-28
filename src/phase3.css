@@ -1,4 +1,4 @@
-/* The controls float over the expanded arena; the footer only holds health. */
+/* The controls float over the expanded arena. */
 #arena { aspect-ratio: 24 / 47; }
 .damage-number {
   position: absolute;
@@ -20,8 +20,6 @@
   60% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%, -50%) translateY(36px); }
 }
-.console { padding: 5px 10px max(7px, env(safe-area-inset-bottom)); }
-.player-health { margin: 0; padding: 3px 2px; }
 .fire-controls {
   position: absolute;
   z-index: 4;
@@ -153,15 +151,12 @@
 }
 @media (max-width: 700px) {
   .game-unit { max-width: min(100vw, calc((100dvh - 78px) * .51064)); }
-  .console { padding: 4px 9px max(6px, env(safe-area-inset-bottom)); }
-  .player-health { padding: 3px 0; }
 }
 @media (max-width: 700px) and (orientation: portrait) {
   .shell { height: 100dvh; min-height: 0; }
   .game-unit { width: 100%; max-width: none; height: 100dvh; margin: 0; display: flex; flex-direction: column; }
   .game-top { flex: 0 0 32px; }
   #arena { flex: 1 1 auto; min-height: 0; aspect-ratio: auto; }
-  .console { flex: 0 0 auto; }
 }
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
   .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .51064)); }
