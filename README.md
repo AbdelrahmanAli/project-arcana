@@ -52,6 +52,7 @@ Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.
 - `docs/PHASE_4_PRD.md`: crate loot, healing, and three computer-opponent mode requirements.
 - `docs/PHASE_4_ART.md`: healing syringe source prompt and asset notes.
 - `docs/PHASE_6_PRD.md` and `docs/PHASE_6_ART.md`: new map requirements and art preparation.
+- `docs/PHASE_7_PRD.md`: planned character roster, map-aware AI, and playable 2v2.
 
 ## Current limits
 
