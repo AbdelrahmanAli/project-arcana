@@ -26,7 +26,7 @@
   position: absolute;
   z-index: 4;
   right: clamp(8px, 3%, 16px);
-  bottom: clamp(18px, 4%, 34px);
+  bottom: clamp(32px, 5.5%, 52px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -83,6 +83,8 @@
   border-color: #fff1be;
   box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ffe4af55, 0 0 17px #ffda7e99;
 }
+.pistol-fire.auto { border-color: #fff1b1; box-shadow: 0 0 19px #f4c454bb, inset 0 0 10px #f4c45477; }
+.pistol-fire.auto::before { border-style: solid; border-color: #ffeaa0; }
 .dodge-fire { margin-bottom: 16px; border-color: #a7dbe0c9; color: #d5fbff; }
 .dodge-fire > svg:not(.meter-ring) { position: relative; width: 28px; height: 28px; margin-bottom: 1px; filter: drop-shadow(1px 1px 1px #000b); }
 .dodge-fire strong { position: absolute; top: 5px; right: 6px; font: 800 10px 'IBM Plex Mono', monospace; }
@@ -160,7 +162,7 @@
 }
 @media (orientation: landscape) and (max-height: 520px) and (max-width: 950px) {
   .game-unit { max-width: min(100vw, calc((100dvh - 56px) * .51064)); }
-  .fire-controls { gap: 6px; bottom: 9px; right: 6px; }
+  .fire-controls { gap: 6px; bottom: 18px; right: 6px; }
   .fire-control { width: 44px; height: 44px; padding: 2px; }
   .fire-control::before { inset: 3px; }
   .fire-control b { font-size: 6px; }

@@ -17,6 +17,8 @@ let game=new Match(),started=false,paused=false,finishedShown=false;
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 const input={x:0,y:0,pistol:false,special:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
+const PISTOL_AUTO_HOLD_MS=500;
+let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let textures=[],rollFrames=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,deathFrames=[],deathFrameSizes=[],app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
@@ -151,18 +153,47 @@ function drawScorchMark(g,mark){
   }
 }
 function point(e){const r=$('arena').getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
+function syncPistolButton(){
+  const button=$('pistol-fire'),held=firePointers.pistol!==null||keys.has('Space');
+  button.classList.toggle('auto',pistolAuto);
+  button.classList.toggle('pressed',held||pistolAuto);
+  button.setAttribute('aria-pressed',String(pistolAuto));
+  button.setAttribute('aria-label',pistolAuto?'Stop automatic pistol fire':'Fire pistol; hold to enable automatic fire');
+  $('pistol-label').textContent=pistolAuto?'AUTO':'PISTOL';
+}
+function cancelPistolHoldTimer(){if(pistolHoldTimer!==null)clearTimeout(pistolHoldTimer);pistolHoldTimer=null;}
+function armPistolAuto(){
+  if(pistolHoldStart)return;
+  pistolHoldStart=performance.now();
+  pistolHoldTimer=setTimeout(()=>{
+    pistolHoldTimer=null;
+    if(!started||paused||game.finished||game.ending>0||!(firePointers.pistol!==null||keys.has('Space')))return;
+    pistolAuto=true;input.pistol=true;syncPistolButton();
+  },PISTOL_AUTO_HOLD_MS);
+}
+function stopPistolAuto(){pistolAuto=false;input.pistol=firePointers.pistol!==null||keys.has('Space');syncPistolButton();}
 function releaseFire(mode,cancel=false){
   const held=firePointers[mode]!==null||keys.has(mode==='pistol'?'Space':'KeyE');
   const player=game.players[0];
   if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&player.slot?.type==='laser')game.fire(player,player.charge,'special');
+  if(mode==='pistol'){
+    if(!held){
+      cancelPistolHoldTimer();
+      if(cancel)pistolAuto=false;
+      else if(!pistolAuto&&pistolHoldStart&&performance.now()-pistolHoldStart>=PISTOL_AUTO_HOLD_MS)pistolAuto=true;
+      pistolHoldStart=0;
+    }
+    input.pistol=held||pistolAuto;syncPistolButton();return;
+  }
   input[mode]=held;
   if(mode==='special'&&!held)player.charge=0;
   $(`${mode}-fire`).classList.toggle('pressed',held);
 }
 function clearInput(){
+  cancelPistolHoldTimer();pistolAuto=false;pistolHoldStart=0;pistolCancelKeyUntilRelease=false;
   keys.clear();stick=null;firePointers.pistol=null;firePointers.special=null;
   input.x=0;input.y=0;input.pistol=false;input.special=false;input.dodge=false;game.players[0].charge=0;
-  $('pistol-fire').classList.remove('pressed');$('special-fire').classList.remove('pressed');
+  syncPistolButton();$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
 const menuPanels=['menu-home','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','settings-panel'];
@@ -393,10 +424,12 @@ for(const mode of ['pistol','special']){
   button.addEventListener('pointerdown',e=>{
     if(e.button!==0||!started||paused||game.finished||game.ending>0||firePointers[mode]!==null)return;
     e.preventDefault();e.stopPropagation();
+    if(mode==='pistol'&&pistolAuto){stopPistolAuto();return;}
     if(mode==='special'&&!game.players[0].slot){sound.play('empty');return;}
     const wasFiring=input[mode];firePointers[mode]=e.pointerId;button.setPointerCapture(e.pointerId);input[mode]=true;
+    if(mode==='pistol')armPistolAuto();
     if(!wasFiring&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
-    button.classList.add('pressed');
+    if(mode==='pistol')syncPistolButton();else button.classList.add('pressed');
   });
   button.addEventListener('pointerup',e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode);}});
   for(const name of ['pointercancel','lostpointercapture'])button.addEventListener(name,e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode,true);}});
@@ -419,15 +452,18 @@ window.addEventListener('keydown',e=>{
   if(!started||paused||game.finished||game.ending>0)return;
   if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)queueDodge();
   const mode=e.code==='Space'?'pistol':e.code==='KeyE'?'special':null;
+  if(mode==='pistol'&&pistolCancelKeyUntilRelease)return;
+  if(mode==='pistol'&&pistolAuto){if(!e.repeat){pistolCancelKeyUntilRelease=true;stopPistolAuto();}return;}
   if(mode==='special'&&!game.players[0].slot){if(!e.repeat)sound.play('empty');return;}
   const wasFiring=mode&&input[mode];keys.add(e.code);
   if(mode&&(mode==='pistol'||game.players[0].slot)){
     input[mode]=true;
+    if(mode==='pistol')armPistolAuto();
     if(!wasFiring&&!e.repeat&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
-    $(`${mode}-fire`).classList.add('pressed');
+    if(mode==='pistol')syncPistolButton();else $(`${mode}-fire`).classList.add('pressed');
   }
 });
-window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space')releaseFire('pistol');if(e.code==='KeyE')releaseFire('special');});
+window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space'){pistolCancelKeyUntilRelease=false;releaseFire('pistol');}if(e.code==='KeyE')releaseFire('special');});
 window.addEventListener('blur',()=>{clearInput();if(started&&!paused&&!game.finished)pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(started&&!paused&&!game.finished)pause();}});
 window.addEventListener('resize',()=>{
@@ -1065,8 +1101,8 @@ function render(){
         circle(draw,p.x,p.y-6,7+power*4,white?0xffe9e4:0xff1631,ready?.28:.2);
         circle(draw,p.x,p.y-6,2.5+power*1.5,white?0xffffff:0xff263d,1);
         if(p.id===0){
-          draw.roundRect(p.x-19,p.y-50,38,6,2).fill({color:0x220c10,alpha:.9});
-          draw.roundRect(p.x-18,p.y-49,36*power,4,1).fill({color:white?0xffffff:ready?0xff5262:0xff263d,alpha:1});
+          draw.roundRect(p.x-19,p.y-36,38,6,2).fill({color:0x220c10,alpha:.9});
+          draw.roundRect(p.x-18,p.y-35,36*power,4,1).fill({color:white?0xffffff:ready?0xff5262:0xff263d,alpha:1});
         }
       }
     }else{
