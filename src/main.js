@@ -1070,7 +1070,7 @@ function render(){
     const isStun=item.type==='grenade',isMissile=item.type==='missile',isLaser=item.type==='laser',isNuclear=item.type==='nuclear',isHeal=item.type==='syringe';
     active.add(item.id);let s=dropSprites.get(item.id);
     if(!s){const art=isHeal?syringeTexture:isLaser?laserTexture:isStun?stunLauncherTexture:isMissile?missileLauncherTexture:isNuclear?nuclearLauncherTexture:textures[WEAPONS[item.type].frame];s=new Sprite(art);s.anchor.set(.5);s.width=isHeal?68:isLaser?66:isMissile?58:isStun?56:isNuclear?60:62;s.height=isHeal?47:isLaser?27:isMissile?29:isStun?37:isNuclear?40:62;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
-    // Airborne drops cross above fighters; landed drops share their ground-depth
+    // Airborne drops cross above the Tower and fighters; landed drops share their ground-depth
     // order with soldiers and cover. They stay visible at the landing point.
     const layer=item.flight>0?pickupFlightLayer:obstacleLayer;
     if(s.parent!==layer)layer.addChild(s);
@@ -1345,7 +1345,7 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer,pickupFlightLayer);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
@@ -1382,6 +1382,9 @@ async function boot(){
   // The lower wall covers only a fighter's feet at the back edge.
   nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
+  // Tower and wall art must sit behind a weapon while it is being thrown.
+  // On landing, its sprite moves back to obstacleLayer for ground depth sorting.
+  world.addChild(pickupFlightLayer);
   environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();ashWarningDraw=new Graphics();
   world.addChild(environmentSky,lightningLayer,ashWarningDraw);
   for(let i=0;i<6;i++){
