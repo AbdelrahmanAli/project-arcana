@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#131c1c" />
   <meta name="description" content="Division is a fast 2D arena fight across two banks. Take the platform's supply drops, dodge its attacks, and outlast the opposing side." />
-  <title>Division — Hold your side.</title>
+  <title>Division</title>
 </head>
 <body>
   <main class="shell">
     <aside class="briefing">
-      <div class="eyebrow"><span class="status-dot"></span> TWO SIDES / ONE FIGHT</div>
+      <div class="eyebrow"><span class="status-dot"></span> ARENA COMBAT</div>
       <h1><span>DIVISION</span></h1>
-      <p class="tagline">Hold your side. Break theirs.</p>
+      <p class="tagline">When certainty falls, adapt.</p>
       <div class="rule"><span>01</span><p><strong>MOVE TO AIM</strong>Line up your shot. Keep moving to stay alive.</p></div>
       <div class="rule"><span>02</span><p><strong>TAKE WHAT DROPS</strong>Carry one special weapon. Matching drops add ammo.</p></div>
       <div class="rule"><span>03</span><p><strong>WATCH THE PLATFORM</strong>On Riverside, its vents fire across both banks.</p></div>
@@ -40,7 +40,7 @@
           <div class="overlay-card"><h2 id="overlay-title">WHEN CERTAINTY<br><em>FALLS.</em></h2><p id="overlay-omen" class="overlay-omen" hidden></p><p id="overlay-copy">Drag anywhere in the arena to move.<br>Collect weapons. Line up. Open fire.</p><button id="start" class="primary" disabled>LOADING ART…</button><button id="result-menu" class="secondary">MAIN MENU</button></div>
         </div>
         <div id="menu" class="main-menu">
-          <div class="menu-card" id="menu-home"><span class="eyebrow">TWO SIDES / ONE FIGHT</span><h2>DIVISION</h2><p class="menu-tagline">Hold your side. Break theirs.</p><p>The platform supplies both banks. Adapt to what lands.</p><button id="menu-play" class="primary" disabled>LOADING ART…</button><div id="art-loading" class="art-loading" role="status"><div id="art-progress" class="art-progress" role="progressbar" aria-label="Loading game art" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="art-progress-fill"></i></div><span id="art-progress-label">0%</span></div><button id="menu-settings" class="secondary">SETTINGS</button></div>
+          <div class="menu-card" id="menu-home"><span class="eyebrow">ARENA COMBAT</span><h2>DIVISION</h2><p class="menu-tagline">When certainty falls, adapt.</p><p>The platform launches supplies to both banks.</p><button id="menu-play" class="primary" disabled>LOADING ART…</button><div id="art-loading" class="art-loading" role="status"><div id="art-progress" class="art-progress" role="progressbar" aria-label="Loading game art" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="art-progress-fill"></i></div><span id="art-progress-label">0%</span></div><button id="menu-settings" class="secondary">SETTINGS</button></div>
           <div class="menu-card phase4-panel hidden" id="format-panel"><span class="eyebrow">VS COMPUTER</span><h2>CHOOSE<br><em>THE FIGHT.</em></h2><button class="format-choice mode-choice" data-format="1v1"><strong>1 VS 1</strong><small>You against one computer fighter.</small></button><button class="format-choice mode-choice" data-format="2v2"><strong>2 VS 2</strong><small>You and a computer teammate against two opponents.</small></button><button id="format-back" class="secondary">BACK</button></div>
           <div class="menu-card phase4-panel hidden" id="mode-panel"><span class="eyebrow">VS COMPUTER</span><h2>CHOOSE<br><em>THE DEAL.</em></h2><button class="mode-choice" data-mode="random"><strong>RANDOM WEAPONS</strong><small>Every drop gets an independent weapon.</small></button><button class="mode-choice" data-mode="random-same"><strong>RANDOM SAME WEAPON</strong><small>Each launch deals one random weapon type to both banks.</small></button><button class="mode-choice" data-mode="random-fixed"><strong>RANDOM FIXED WEAPON</strong><small>One surprise weapon type for the whole round.</small></button><button class="mode-choice" data-mode="choose-fixed"><strong>CHOOSE FIXED WEAPON</strong><small>Choose the weapon type dealt throughout the round.</small></button><button id="mode-back" class="secondary">BACK</button></div>
           <div class="menu-card phase4-panel hidden" id="weapon-panel"><span class="eyebrow">CHOOSE FIXED WEAPON</span><h2>YOUR<br><em>DEAL.</em></h2><div id="weapon-choices" class="weapon-choices" role="group" aria-label="Choose the match weapon"></div><button id="weapon-start" class="primary" disabled>CHOOSE MAP</button><button id="weapon-back" class="secondary">BACK</button></div>
@@ -52,7 +52,7 @@
         </div>
       </div>
     </section>
-    <aside class="field-notes"><span class="eyebrow">THE DIVIDING LINE</span><h3>Two sides.<br>One survives.</h3><p>Each platform launch sends supplies to both banks. Watch its vents on Riverside: they fire twice each cycle.</p><div class="weapon-list"><span>01 / ASSAULT RIFLE</span><span>02 / SHOTGUN</span><span>03 / STUN LAUNCHER</span><span>04 / SMART MISSILE</span><span>05 / LASER GUN</span><span>06 / NUCLEAR LAUNCHER</span></div><p class="hint">Hold the Laser Gun for up to 1.1 seconds; release for 16–46 damage.<br>Two direct shots break a crate; explosions break it instantly. Barrels can be walked past but explode when hit.<br>Nuclear waste stays for the round and harms anyone standing in it.<br>Pickups disappear after 12 seconds.</p><a href="%BASE_URL%art/visual-target.png" target="_blank" rel="noreferrer">VIEW ORIGINAL ART STUDY ↗</a></aside>
+    <aside class="field-notes"><span class="eyebrow">FIELD NOTES</span><h3>Weapons<br>&amp; rules</h3><p>Each platform launch sends supplies to both banks. On Riverside, its vents fire twice per cycle.</p><div class="weapon-list"><span>01 / ASSAULT RIFLE</span><span>02 / SHOTGUN</span><span>03 / STUN LAUNCHER</span><span>04 / SMART MISSILE</span><span>05 / LASER GUN</span><span>06 / NUCLEAR LAUNCHER</span></div><p class="hint">Hold the Laser Gun for up to 1.1 seconds; release for 16–46 damage.<br>Two direct shots break a crate; explosions break it instantly. Barrels can be walked past but explode when hit.<br>Nuclear waste stays for the round and harms anyone standing in it.<br>Pickups disappear after 12 seconds.</p><a href="%BASE_URL%art/visual-target.png" target="_blank" rel="noreferrer">VIEW ORIGINAL ART STUDY ↗</a></aside>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

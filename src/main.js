@@ -1189,7 +1189,7 @@ function render(){
       const actionFrames=p.bank===0?frames.specialNorth:frames.specialSouth;
       const sideArt=characterSideFrames.get(p.characterId);
       const pose=motion.pose==='stun'?actionFrames[3]:motion.pose==='hurt'?actionFrames[2]:motion.pose==='fire'?(p.lastShotSpecial?actionFrames[0]:frames[facing][3]):sideways?sideArt.frames[motion.step]:motion.pose==='charge'&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
-      s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y-(walking&&frame!==0?1:0));s.width=rolling?68:sideways?sideArt.width:78;s.height=rolling?68:78;s.scale.x=Math.abs(s.scale.x)*(sideways&&p.lastMoveX<0?-1:1);s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
+      s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y-(walking&&frame!==0?1:0));s.width=rolling?68:sideways?sideArt.width:78;s.height=rolling?68:78;s.scale.x=Math.abs(s.scale.x)*(sideways&&p.lastMoveX<0?-1:1);s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:p.laserHit>0?(Math.sin(game.time*42)>0?0xff3038:0xffffff):hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
       if(!rolling)groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
@@ -1556,6 +1556,7 @@ async function boot(){
       for(const event of game.events){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
+        else if(event.type==='fighterDeath')sound.play(`death-${event.characterId}`,event.x);
         else if(event.type!=='sandstorm'&&event.type!=='hail')sound.play(event.type,event.x);
         if(event.type==='heal'){
           showNumber(event.player,event.amount,true);

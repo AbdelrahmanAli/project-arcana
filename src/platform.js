@@ -10,19 +10,23 @@ export const PLATFORM_TIMING = Object.freeze({
   secondAttackAt: .55,
 });
 
+// The painted deck sits slightly below the middle of each transparent frame.
+// Offset the sprite anchor so the visible hull, not the empty cell, is centered.
+const PLATFORM_CENTER_Y = RIVER.y - 5;
+
 export const PLATFORM_GEOMETRY = Object.freeze({
   x: RIVER.x,
-  y: RIVER.y + 19,
+  y: PLATFORM_CENTER_Y,
   width: 190,
   height: 150,
   // Frame art has paired hatch bays on both bank-facing rims.
   supplyPorts: [
-    [{x:RIVER.x-24,y:RIVER.y+46},{x:RIVER.x+24,y:RIVER.y+46}],
-    [{x:RIVER.x-24,y:RIVER.y-7},{x:RIVER.x+24,y:RIVER.y-7}],
+    [{x:RIVER.x-24,y:PLATFORM_CENTER_Y+27},{x:RIVER.x+24,y:PLATFORM_CENTER_Y+27}],
+    [{x:RIVER.x-24,y:PLATFORM_CENTER_Y-26},{x:RIVER.x+24,y:PLATFORM_CENTER_Y-26}],
   ],
   attackVents: [
-    {x:RIVER.x-68,y:RIVER.y+19},
-    {x:RIVER.x+68,y:RIVER.y+19},
+    {x:RIVER.x-68,y:PLATFORM_CENTER_Y},
+    {x:RIVER.x+68,y:PLATFORM_CENTER_Y},
   ],
 });
 

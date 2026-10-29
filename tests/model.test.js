@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, segmentRectHit, segmentDistance } from '../src/model.js';
 import {attackVent, supplyPort, platformPose} from '../src/platform.js';
+import {CHARACTERS} from '../src/characters.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
   const m=new Match(()=>.5),p=m.players[0];
@@ -357,6 +358,8 @@ test('platform hatches and vents stay paired with their bank',()=>{
   assert.equal(supplyPort(0,0).y>supplyPort(1,0).y,true);
   assert.equal(attackVent(0).y,attackVent(1).y);
   assert.equal(PLATFORM_GEOMETRY.x,RIVER.x);
+  assert.ok(Math.abs(PLATFORM_GEOMETRY.y-RIVER.y)<10,'the visible hull stays centered in the channel');
+  assert.equal((supplyPort(0,0).y+supplyPort(1,0).y)/2,PLATFORM_GEOMETRY.y+.5);
   for(const phase of ['prime','launch','secondAttack','settle']){
     const start=platformPose(phase,0),end=platformPose(phase,PLATFORM_TIMING[phase]);
     assert.ok(start.from>=0&&end.to<8);
@@ -573,6 +576,23 @@ test('laser reaches full charge in 1.1 seconds and visibly stronger beams deal m
   assert.equal(target.hp,100-WEAPONS.laser.damage-LASER_BONUS_DAMAGE*.5);
 });
 
+test('laser damage gives either fighter a brief red flash, while pistol damage does not',()=>{
+  for(const shooterId of [0,1]){
+    const m=new Match(()=>.5),shooter=m.players[shooterId],target=m.players[1-shooterId];
+    m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+    shooter.x=target.x=RIVER.x;shooter.slot={type:'laser',ammo:1};
+    m.fire(shooter,1);
+    assert.equal(target.laserHit,.55);
+    m.update(.25);
+    assert.ok(target.laserHit>0&&target.laserHit<.55);
+    for(let i=0;i<80;i++)m.update(1/120);
+    assert.equal(target.laserHit,0);
+  }
+  const pistol=new Match(()=>.5);pistol.obstacles.forEach(o=>o.destroyed=true);
+  pistol.damage(pistol.players[0],WEAPONS.pistol.damage);
+  assert.equal(pistol.players[0].laserHit,0);
+});
+
 test('shotgun rewards moving to the river while remaining weak from the back of the bank',()=>{
   const fireAtRange=(playerY,enemyY)=>{
     const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;
@@ -739,6 +759,19 @@ test('one-round death ends simulation and fresh Match resets all inventory and h
   for(let i=0;i<Math.ceil((DEATH_DURATION+.1)*120);i++)m.update(1/120);
   assert.equal(m.finished,true);const time=m.time;m.update(1/120);assert.equal(m.time,time);
   const next=new Match();assert.equal(next.finished,false);assert.equal(next.players[0].slot,null);assert.equal(next.flames.length,0);assert.equal(next.players[0].hp,100);
+});
+
+test('each fighter death emits its character identity once for the voice cue',()=>{
+  for(const character of CHARACTERS){
+    const m=new Match(()=>.5);m.players[0].characterId=character.id;m.players[0].hp=0;
+    m.update(1/120);
+    const deaths=m.events.filter(event=>event.type==='fighterDeath');
+    assert.equal(deaths.length,1);
+    assert.equal(deaths[0].characterId,character.id);
+    assert.equal(deaths[0].x,m.players[0].x);
+    m.events=[];m.update(1/120);
+    assert.equal(m.events.filter(event=>event.type==='fighterDeath').length,0);
+  }
 });
 
 test('death clears live rounds and fades fire before the result appears',()=>{

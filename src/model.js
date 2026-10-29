@@ -67,7 +67,7 @@ export function segmentRectHit(a,b,r) {
   return {x:a.x+dx*enter,y:a.y+dy*enter};
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -687,7 +687,9 @@ export class Match {
       const hits=[obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit.hit,target:victimHit.target}].filter(Boolean);
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='obstacle')this.hitObstacle(first.obstacle,shotId);
-      else if(first?.kind==='player'){this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE));p.hits++;}
+      else if(first?.kind==='player'){
+        if(this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE))>0){first.target.laserHit=.55;p.hits++;}
+      }
       this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,power:charge,age:0,life:.34});
     } else if(type==='grenade'||type==='nuclear') {
       this.bullets.push({id:this.id++,owner:p.id,type,x:origin.x,y:origin.y,sx:origin.x,sy:origin.y,tx:enemy.x,ty:enemy.y,t:0,duration:type==='nuclear'?1:.9,damage:def.damage,color:def.color,life:1.4});
@@ -1007,7 +1009,7 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.laserHit=Math.max(0,p.laserHit-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     const specialPressed=!!input.special&&!this.specialHeld;
     this.specialHeld=!!input.special;
@@ -1110,7 +1112,7 @@ export class Match {
       p.deathRecorded=true;
       this.effects.push({id:this.id++,type:'death',x:p.x,y:p.y,age:0,life:DEATH_DURATION+1,seed:this.random()});
       this.mark('blood',p.x,p.y+20,1.5);
-      this.emit('fighterDeath',{player:p.id});
+      this.emit('fighterDeath',{player:p.id,characterId:p.characterId,x:p.x});
     }
     const southAlive=this.fightersOnBank(0).length,northAlive=this.fightersOnBank(1).length;
     if(!southAlive||!northAlive){

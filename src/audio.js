@@ -53,6 +53,28 @@ function platformCueWav(){
     return note(0,620)*.18+note(.17,880)*.15;
   });
 }
+const DEATH_VOICES=Object.freeze({
+  elias:{pitch:126,fall:.38,rasp:.28,duration:.78,seed:211},
+  dorian:{pitch:148,fall:.45,rasp:.34,duration:.71,seed:337},
+  tomas:{pitch:106,fall:.32,rasp:.43,duration:.91,seed:419},
+  nadia:{pitch:204,fall:.42,rasp:.19,duration:.72,seed:553},
+  imani:{pitch:182,fall:.35,rasp:.24,duration:.81,seed:677},
+  mara:{pitch:226,fall:.48,rasp:.31,duration:.67,seed:811},
+});
+function deathGruntWav({pitch,fall,rasp,duration,seed}){
+  let phase=0,breath=0;
+  return pcmWav(duration,(t)=>{
+    seed=(seed*1664525+1013904223)>>>0;
+    breath=breath*.72+(seed/2147483648-1)*.28;
+    const progress=t/duration;
+    const frequency=pitch*(1-fall*progress)*(1+.023*Math.sin(2*Math.PI*7*t));
+    phase+=2*Math.PI*frequency/22050;
+    const voice=Math.tanh((Math.sin(phase)+.34*Math.sin(phase*2)+.14*Math.sin(phase*3))*1.35);
+    const envelope=Math.min(1,t/.018)*Math.max(0,1-progress)**1.2;
+    const exhale=breath*(rasp+.12*progress);
+    return (voice*(.43-rasp*.3)+exhale*.42)*envelope;
+  });
+}
 function fireWhooshWav() {
   let seed=7829,low=0,mid=0;
   return pcmWav(.72,(t)=>{
@@ -214,8 +236,9 @@ export class Sound {
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
     this.ready=true;
-    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65],death:[.9,60,.9]};
+    const defs={pistol:[.12,130,.8],rifle:[.1,150,.85],shotgun:[.3,70,.95],laser:[.48,760,.16],pickup:[.19,850,.05],landing:[.13,105,.8],hit:[.12,70,.9],explosion:[.7,45,.98],launch:[.24,180,.65]};
     for(const [name,args]of Object.entries(defs))this.clips[name]=new Howl({src:[wav(...args)],format:['wav'],volume:name==='rifle'?.15:name==='landing'?.11:.22,preload:true,pool:8});
+    for(const [character,voice] of Object.entries(DEATH_VOICES))this.clips[`death-${character}`]=new Howl({src:[deathGruntWav({...voice})],format:['wav'],volume:.28,preload:true,pool:3});
     this.clips.menuClick=new Howl({src:[wav(.095,680,.14,15)],format:['wav'],volume:.14,preload:true,pool:6});
     this.clips.dealTick=new Howl({src:[wav(.07,610,.2,16)],format:['wav'],volume:.11,preload:true,pool:8});
     this.clips.dealSettle=new Howl({src:[wav(.27,410,.28,8)],format:['wav'],volume:.24,preload:true,pool:3});
