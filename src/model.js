@@ -67,7 +67,7 @@ export function segmentRectHit(a,b,r) {
   return {x:a.x+dx*enter,y:a.y+dy*enter};
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,criticalLaserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -669,6 +669,7 @@ export class Match {
   fire(p,power=0,mode='auto',aim=null) {
     if(this.finished || this.ending>0 || p.hp<=0 || p.stun>0 || p.dodgeTime>0) return false;
     if(mode==='special'&&!p.slot)return false;
+    if(mode==='pistol'&&p.slot?.type==='laser'&&p.charge>0)return false;
     const special=mode==='special'||(mode==='auto'&&!!p.slot),cooldownKey=special?'specialCooldown':'pistolCooldown';
     if(p[cooldownKey]>0)return false;
     const type=special?p.slot.type:'pistol', def=WEAPONS[type], enemy=aim||this.targetFor(p);
@@ -688,7 +689,11 @@ export class Match {
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='obstacle')this.hitObstacle(first.obstacle,shotId);
       else if(first?.kind==='player'){
-        if(this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE))>0){first.target.laserHit=.55;p.hits++;}
+        if(this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE))>0){
+          first.target.laserHit=.55;
+          if(charge===1)first.target.criticalLaserHit=.55;
+          p.hits++;
+        }
       }
       this.beams.push({id:this.id++,x:origin.x,y:origin.y,endY:first?.hit.y??end.y,owner:p.id,power:charge,age:0,life:.34});
     } else if(type==='grenade'||type==='nuclear') {
@@ -987,10 +992,11 @@ export class Match {
     this.move(p,state.steerX,state.steerY,dt);
     if(l<=4&&state.target&&distance(p,state.target)>10)state.clock=0;
     if(p.dodgeTime>0){p.charge=0;return;}
+    const chargingLaser=p.slot?.type==='laser'&&(state.fire||p.charge>0);
     if(p.slot?.type==='laser') {
       if(state.fire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1&&state.aim)this.fire(p,1,'auto',state.aim);}
     } else if(p.slot&&state.fire) this.fire(p,0,'auto',state.aim);
-    if(sighted&&Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol',state.aim);
+    if(sighted&&!chargingLaser&&Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol',state.aim);
   }
   update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;
@@ -999,7 +1005,11 @@ export class Match {
       this.ending-=dt;
       for(const attack of this.platformAttacks)attack.age+=dt;
       this.platformAttacks=this.platformAttacks.filter(attack=>attack.hit&&attack.age<attack.life);
-      for(const p of this.players)if(p.hp<=0)p.deathAge+=dt;
+      for(const p of this.players){
+        p.laserHit=Math.max(0,p.laserHit-dt);
+        p.criticalLaserHit=Math.max(0,p.criticalLaserHit-dt);
+        if(p.hp<=0)p.deathAge+=dt;
+      }
       for(const f of this.flames){f.age+=dt;f.life-=dt;}
       this.flames=this.flames.filter(f=>f.life>0);
       for(const e of this.effects)e.age+=dt;
@@ -1009,14 +1019,14 @@ export class Match {
       if(this.ending<=0){this.finished=true;this.emit('end');}
       return;
     }
-    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.laserHit=Math.max(0,p.laserHit-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
+    for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.laserHit=Math.max(0,p.laserHit-dt);p.criticalLaserHit=Math.max(0,p.criticalLaserHit-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
     const specialPressed=!!input.special&&!this.specialHeld;
     this.specialHeld=!!input.special;
     this.updatePlatform(dt);if(input.dodge)this.dodge(this.players[0],input.x||0,input.y||0);this.move(this.players[0],input.x||0,input.y||0,dt);
     const p=this.players[0];
-    if(input.pistol)this.fire(p,0,'pistol');
     if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);}
+    if(input.pistol)this.fire(p,0,'pistol');
     this.think(dt);
     this.updatePlatformAttacks(dt);
     this.updateEnvironment(dt);

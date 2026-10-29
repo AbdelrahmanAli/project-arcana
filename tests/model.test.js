@@ -593,6 +593,34 @@ test('laser damage gives either fighter a brief red flash, while pistol damage d
   assert.equal(pistol.players[0].laserHit,0);
 });
 
+test('charging a laser suppresses pistol fire from the first charge frame',()=>{
+  for(const shooterId of [0,1]){
+    const m=new Match(()=>.5),shooter=m.players[shooterId],target=m.players[1-shooterId];
+    m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+    shooter.x=target.x=RIVER.x;shooter.slot={type:'laser',ammo:1};
+    if(shooterId===0)m.update(1/120,{pistol:true,special:true});
+    else shooter.charge=.2;
+    assert.ok(shooter.charge>0);
+    assert.equal(m.fire(shooter,0,'pistol'),false);
+    assert.equal(m.events.some(event=>event.type==='shot'&&event.player===shooterId&&event.weapon==='pistol'),false);
+  }
+});
+
+test('only a fully charged laser hit triggers the player screen flash',()=>{
+  const hit=charge=>{
+    const m=new Match(()=>.5),shooter=m.players[1],player=m.players[0];
+    m.think=()=>{};m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
+    shooter.x=player.x=RIVER.x;shooter.slot={type:'laser',ammo:1};
+    m.fire(shooter,charge);
+    return {m,player};
+  };
+  assert.equal(hit(.9).player.criticalLaserHit,0);
+  const {m,player}=hit(1);
+  assert.equal(player.criticalLaserHit,.55);
+  for(let i=0;i<70;i++)m.update(1/120);
+  assert.equal(player.criticalLaserHit,0);
+});
+
 test('shotgun rewards moving to the river while remaining weak from the back of the bank',()=>{
   const fireAtRange=(playerY,enemyY)=>{
     const m=new Match(()=>.5),p=m.players[0],enemy=m.players[1];m.think=()=>{};m.nextDrop=Infinity;

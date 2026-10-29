@@ -31,7 +31,7 @@ try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAut
 catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
-let textures=[],flameFrames=[],blastFrames=[],platformFrames=[],launchFxFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,pickupFlightLayer,joystickDraw,platformSprite,platformBlendSprite,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),platformAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map(),launchFxSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],platformFrames=[],launchFxFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,platformContactDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,pickupFlightLayer,joystickDraw,screenHitDraw,platformSprite,platformBlendSprite,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),platformAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map(),launchFxSprites=new Map();
 const characterFrames=new Map();
 const characterSideFrames=new Map();
 const characterRollFrames=new Map();
@@ -1037,8 +1037,37 @@ function renderEnvironment(){
     }
   }
 }
+function renderPlatformContact(){
+  const wet=game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM;
+  if(!wet)return;
+  const x=PLATFORM_GEOMETRY.x,y=BASE_Y,time=game.time;
+  // The near rim is partly submerged. A moving wash crosses its lowest pixels
+  // while short foam crests break against the hull instead of circling it.
+  platformContactDraw.moveTo(x-88,y+25);
+  for(let offset=-80;offset<=80;offset+=16){
+    const shore=40-16*(Math.abs(offset)/88)**2;
+    platformContactDraw.lineTo(x+offset,y+shore+Math.sin(time*3+offset*.11)*1.7);
+  }
+  platformContactDraw.lineTo(x+88,y+25).lineTo(x+102,y+70).lineTo(x-102,y+70).closePath()
+    .fill({color:0x086071,alpha:.58});
+  for(const side of [-1,1]){
+    const sway=Math.sin(time*2.5+side)*1.6;
+    platformContactDraw.moveTo(x+side*77,y+15+sway)
+      .quadraticCurveTo(x+side*101,y+27+sway,x+side*84,y+38+sway)
+      .stroke({color:0x7bd8dd,width:3,alpha:.67});
+    platformContactDraw.moveTo(x+side*92,y+30+sway).lineTo(x+side*108,y+34+sway)
+      .stroke({color:0xd5f8ee,width:1.5,alpha:.32});
+  }
+  for(let index=0;index<10;index++){
+    const offset=-76+index*17,phase=time*3.2+index*2.1;
+    const edgeY=y+40-16*(Math.abs(offset)/88)**2+Math.sin(phase)*1.4;
+    const crest=5+index%3*3;
+    platformContactDraw.moveTo(x+offset,edgeY).lineTo(x+offset+crest,edgeY+Math.sin(phase+.8))
+      .stroke({color:index%3===0?0xe0fbf0:0x92e3df,width:index%3===0?2:1,alpha:.48+.25*Math.sin(phase)**2});
+  }
+}
 function render(){
-  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();
+  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();platformContactDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();screenHitDraw.clear();
   if(game.map===MAPS.DESERT){
     groundDraw.moveTo(RIVER.x-34,BASE_Y+17).lineTo(RIVER.x+34,BASE_Y+17).lineTo(RIVER.x+29,RIVER.bottom-3).lineTo(RIVER.x-29,RIVER.bottom-3).closePath().fill({color:0x292d2c,alpha:.97}).stroke({color:0x8d7251,width:2,alpha:.8});
     for(const dx of [-24,-10,10,24])groundDraw.moveTo(RIVER.x+dx,BASE_Y+31).lineTo(RIVER.x+dx,RIVER.bottom-5).stroke({color:0x9b7547,width:3,alpha:.7});
@@ -1099,16 +1128,15 @@ function render(){
   platformBlendSprite.texture=platformFrames[platformArt.to];
   platformBlendSprite.alpha=platformArt.blend;
   if(game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM){
+    waterDraw.ellipse(PLATFORM_GEOMETRY.x,BASE_Y+27,98,40).fill({color:0x073c48,alpha:.28});
     const strength=platformState.phase==='idle'?.25:.48;
-    for(let ring=0;ring<3;ring++){
-      const progress=(game.time*.65+ring/3)%1;
-      waterDraw.ellipse(PLATFORM_GEOMETRY.x,BASE_Y+24,78+progress*23,23+progress*7)
-        .stroke({color:0xb8f3ed,width:1.5,alpha:(1-progress)*strength});
-    }
     for(const side of [-1,1]){
-      const x=RIVER.x+side*82,sway=Math.sin(game.time*2.2+side)*2;
-      waterDraw.moveTo(x-side*8,BASE_Y+19+sway).lineTo(x+side*8,BASE_Y+21-sway)
-        .stroke({color:0xc7f7ef,width:2,alpha:.36});
+      for(let wake=0;wake<3;wake++){
+        const progress=(game.time*.55+wake/3)%1;
+        const x=RIVER.x+side*(83+progress*30),sway=Math.sin(game.time*2.2+side+wake)*2;
+        waterDraw.moveTo(x-side*9,BASE_Y+21+sway+wake*8).lineTo(x+side*8,BASE_Y+22+sway+wake*8)
+          .stroke({color:0xc7f7ef,width:1.5,alpha:(1-progress)*strength});
+      }
     }
   }else if(game.map===MAPS.SNOW){
     waterDraw.ellipse(RIVER.x,BASE_Y+20,92,28).stroke({color:0xe1f7ff,width:2,alpha:.38});
@@ -1116,6 +1144,7 @@ function render(){
     waterDraw.ellipse(RIVER.x,BASE_Y+22,88,27)
       .stroke({color:0xff8e31,width:3,alpha:.25+.09*Math.sin(game.time*3)});
   }
+  renderPlatformContact();
   const activeLane=game.platformAttacks.find(attack=>!attack.hit&&attack.age>=0);
   const indicatorColor=activeLane?AREA_COLORS[activeLane.type].edge:0xffb553;
   const indicatorAlpha=platformState.phase==='idle'?.08+.07*Math.sin(game.time*2.5)**2:.12+.2*Math.sin(game.time*10)**2;
@@ -1394,6 +1423,12 @@ function render(){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
     joystickDraw.circle(stick.x+stick.dx,stick.y+stick.dy,17).fill({color:0xf0d58f,alpha:.25}).stroke({color:0xffe6ae,alpha:.6,width:1});
   }
+  const flash=game.players[0].criticalLaserHit;
+  if(flash>0&&Math.sin((.55-flash)*42)>-.15){
+    const fade=Math.min(1,flash/.15);
+    rect(screenHitDraw,0,0,W,H,0xb90724,.13*fade);
+    screenHitDraw.rect(8,8,W-16,H-16).stroke({color:0xff3040,width:16,alpha:.36*fade});
+  }
 }
 async function boot(){
   const coreArt=['arena.png','sprites.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','rock-barrier.png','healing-syringe.png'];
@@ -1498,7 +1533,7 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();
+  waterDraw=new Graphics();platformContactDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();
   platformSprite=new Sprite(platformFrames[0]);platformBlendSprite=new Sprite(platformFrames[0]);
   for(const part of [platformSprite,platformBlendSprite]){
     part.anchor.set(.5);part.position.set(PLATFORM_GEOMETRY.x,PLATFORM_GEOMETRY.y);
@@ -1506,7 +1541,7 @@ async function boot(){
   }
   platformBlendSprite.alpha=0;
   // The deck sits below every projectile pass; it never occludes a crossing shot.
-  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,fireSmoke,platformSprite,platformBlendSprite,jetLayer,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
+  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,fireSmoke,platformSprite,platformBlendSprite,platformContactDraw,jetLayer,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
   frontProjectileDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();
   world.addChild(frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer);
   for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);s.visible=false;soldiers.push(s);obstacleLayer.addChild(s);}
@@ -1528,9 +1563,9 @@ async function boot(){
   for(let i=0;i<2;i++){
     const puff=new Sprite(ashCloudTexture);puff.anchor.set(.5);puff.visible=false;ashVentPuffs.push(puff);ashCloudLayer.addChildAt(puff,0);
   }
-  draw=new Graphics();joystickDraw=new Graphics();phase6WeatherLayer=new Container();phase6WeatherDraw=new Graphics();phase6WeatherLayer.addChild(phase6WeatherDraw);
+  draw=new Graphics();joystickDraw=new Graphics();screenHitDraw=new Graphics();phase6WeatherLayer=new Container();phase6WeatherDraw=new Graphics();phase6WeatherLayer.addChild(phase6WeatherDraw);
   for(let i=0;i<12;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
-  app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw);
+  app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw,screenHitDraw);
   buildWeaponChoices();
   $('art-loading').hidden=true;
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
