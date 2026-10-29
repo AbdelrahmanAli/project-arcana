@@ -3,6 +3,7 @@ import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, B
 import { Sound } from './audio.js';
 import { CHARACTERS, CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { isolatedRollFrames } from './roll-sprites.js';
+import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import './style.css';
 import './hud.css';
@@ -1240,21 +1241,18 @@ function render(){
   }
   for(const [id,s] of dropSprites)if(!active.has(id)){s.destroy();dropSprites.delete(id);}
   for(const p of game.players){
-    const s=soldiers[p.id],frames=characterFrames.get(p.characterId),facing=p.bank===0?'north':'south';
+    const s=soldiers[p.id],frames=characterFrames.get(p.characterId),facing=fighterFacing(p.bank);
     const corpse=corpses[p.id];
     if(p.hp>0){
-      const rolling=p.dodgeTime>0;
-      const walking=p.moving&&!rolling;
-      const sideways=walking&&p.stun<=0&&p.hurt<=0&&Math.abs(p.lastMoveX)>.62;
+      const motion=fighterMotion(p),rolling=motion.pose==='roll',walking=motion.walking,sideways=motion.pose==='side';
       // Two planted poses between alternating steps stop the feet from skating.
-      const step=Math.floor(p.walk/12)%4;
-      const frame=walking?[1,0,2,0][step]:p.flash>0?3:0;
+      const frame=walking?WALK_SEQUENCE[motion.step]:motion.pose==='fire'?3:0;
       const hazardTint=p.burning>0?0xff5750:p.radiated>0?0x80ff68:null;
       const hazardBlink=Math.sin(game.time*21+p.id*.4)>0;
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
       const actionFrames=p.bank===0?frames.specialNorth:frames.specialSouth;
       const sideArt=characterSideFrames.get(p.characterId);
-      const pose=p.stun>0?actionFrames[3]:p.hurt>0?actionFrames[2]:sideways?sideArt.frames[step]:walking?frames[facing][frame]:p.flash>0&&p.lastShotSpecial?actionFrames[0]:p.charge>0&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
+      const pose=motion.pose==='stun'?actionFrames[3]:motion.pose==='hurt'?actionFrames[2]:motion.pose==='fire'?(p.lastShotSpecial?actionFrames[0]:frames[facing][3]):sideways?sideArt.frames[motion.step]:motion.pose==='charge'&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
       s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y-(walking&&frame!==0?1:0));s.width=rolling?68:sideways?sideArt.width:78;s.height=rolling?68:78;s.scale.x=Math.abs(s.scale.x)*(sideways&&p.lastMoveX<0?-1:1);s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
