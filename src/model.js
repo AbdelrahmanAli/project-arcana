@@ -199,7 +199,7 @@ export class Match {
     if(this.map===MAPS.SNOW)this.addIcePatches();
     this.tower={ phase:'rest', progress:0, height:0, riseAttack:false, lowerAttack:false };
     this.nextDrop=2.5;
-    this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,pickupId:null,focusId:null,fire:false,lastSeen:null,lastSeenAt:-Infinity}]));
+    this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,pickupId:null,focusId:null,fire:false,lastSeen:null,lastSeenAt:-Infinity,steerX:0,steerY:0}]));
     this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
@@ -672,7 +672,8 @@ export class Match {
     if(p.moving){
       const travel=Math.hypot(p.x-oldX,p.y-oldY);
       p.lastMoveX=(p.x-oldX)/travel;p.lastMoveY=(p.y-oldY)/travel;
-      p.walk+=dt;
+      // Keep the gait tied to ground covered, including when hazards slow movement.
+      p.walk+=travel;
     }
   }
   dodge(p,x=0,y=0){
@@ -945,7 +946,7 @@ export class Match {
     const enemy=sighted||remembered||p;
     state.aim=sighted?{x:sighted.x,y:sighted.y}:remembered?{x:remembered.x,y:remembered.y}:null;
     if(!sighted)state.fire=false;
-    if(p.stun>0){p.moving=false;p.charge=0;return;}
+    if(p.stun>0){p.moving=false;p.charge=0;state.steerX=0;state.steerY=0;return;}
     if(p.dodgeTime<=0&&p.dodgeCooldown<=0){
       const scorpion=this.mirages.find(lure=>lure.owner===p.bank&&lure.state==='strike'&&distance(p,lure)<48);
       if(scorpion&&this.random()<.55)this.dodge(p,p.x-scorpion.x,p.y-scorpion.y);
@@ -1019,7 +1020,11 @@ export class Match {
       state.fire=!!sighted&&(['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29));
     }
     const waypoint=state.waypoint||p,l=distance(p,waypoint),movement=this.aiMoveVector(p,waypoint);
-    this.move(p,movement.x,movement.y,dt);
+    // A short turn-in keeps rapid waypoint changes from making the gait skate sideways.
+    const turn=1-Math.exp(-dt*12);
+    state.steerX+=(movement.x-state.steerX)*turn;
+    state.steerY+=(movement.y-state.steerY)*turn;
+    this.move(p,state.steerX,state.steerY,dt);
     if(l<=4&&state.target&&distance(p,state.target)>10)state.clock=0;
     if(p.dodgeTime>0){p.charge=0;return;}
     if(p.slot?.type==='laser') {

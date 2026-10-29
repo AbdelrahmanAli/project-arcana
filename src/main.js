@@ -30,6 +30,7 @@ let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntil
 let pistolHintTimer=null;
 let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const characterFrames=new Map();
+const characterSideFrames=new Map();
 const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
@@ -1242,14 +1243,19 @@ function render(){
     const s=soldiers[p.id],frames=characterFrames.get(p.characterId),facing=p.bank===0?'north':'south';
     const corpse=corpses[p.id];
     if(p.hp>0){
-      let frame=0;if(p.flash>0)frame=3;else if(p.moving)frame=1+Math.floor(p.walk*9)%2;
+      const rolling=p.dodgeTime>0;
+      const walking=p.moving&&!rolling;
+      const sideways=walking&&p.stun<=0&&p.hurt<=0&&Math.abs(p.lastMoveX)>.62;
+      // Two planted poses between alternating steps stop the feet from skating.
+      const step=Math.floor(p.walk/12)%4;
+      const frame=walking?[1,0,2,0][step]:p.flash>0?3:0;
       const hazardTint=p.burning>0?0xff5750:p.radiated>0?0x80ff68:null;
       const hazardBlink=Math.sin(game.time*21+p.id*.4)>0;
-      const rolling=p.dodgeTime>0;
       const rollFrame=rolling?Math.min(3,Math.floor((1-p.dodgeTime/DODGE_DURATION)*4)):0;
       const actionFrames=p.bank===0?frames.specialNorth:frames.specialSouth;
-      const pose=p.stun>0?actionFrames[3]:p.hurt>0?actionFrames[2]:p.flash>0&&p.lastShotSpecial?actionFrames[0]:p.charge>0&&!p.moving&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
-      s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y);s.width=rolling?68:78;s.height=rolling?68:78;s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
+      const sideArt=characterSideFrames.get(p.characterId);
+      const pose=p.stun>0?actionFrames[3]:p.hurt>0?actionFrames[2]:sideways?sideArt.frames[step]:walking?frames[facing][frame]:p.flash>0&&p.lastShotSpecial?actionFrames[0]:p.charge>0&&p.characterId!=='tomas'?actionFrames[1]:frames[facing][frame];
+      s.visible=true;s.texture=rolling?characterRollFrames.get(p.characterId)[p.dodgeDir][rollFrame]:pose;s.position.set(p.x,p.y-(walking&&frame!==0?1:0));s.width=rolling?68:sideways?sideArt.width:78;s.height=rolling?68:78;s.scale.x=Math.abs(s.scale.x)*(sideways&&p.lastMoveX<0?-1:1);s.rotation=0;s.alpha=1;s.tint=rolling?0xffffff:hazardTint?(hazardBlink?hazardTint:0xffffff):p.hurt>0?0xffaaa0:0xffffff;s.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
       corpse.visible=false;
       // Roll poses touch the ground directly; the standing oval looks detached beside them.
       if(!rolling)groundDraw.ellipse(p.x,p.y+25,17,5).fill({color:0x17221b,alpha:.4});
@@ -1455,7 +1461,8 @@ async function boot(){
   const phase6Art=['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'];
   const fighterIds=CHARACTERS.map(character=>character.id);
   const phase7Art=[...fighterIds.map(id=>`${id}-frontfire.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
-  const artCount=coreArt.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length;
+  const phase7SideArt=fighterIds.map(id=>`${id}-sidewalk.webp`);
+  const artCount=coreArt.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{
     const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
@@ -1479,10 +1486,12 @@ async function boot(){
     phase6Art.map(path=>loadArt('phase6/',path))
   );
   const phase7Sheets=await Promise.all(phase7Art.map(path=>loadArt('phase7/',path)));
+  const sideSheets=await Promise.all(phase7SideArt.map(path=>loadArt('phase7/',path)));
   for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
   for(const art of phase7Sheets)art.source.scaleMode='nearest';
+  for(const art of sideSheets)art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
@@ -1492,6 +1501,11 @@ async function boot(){
     const art=phase7Sheets[index],width=art.width/4,height=art.height/4;
     const frames=Array.from({length:16},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%4*width,Math.floor(i/4)*height,width,height)}));
     characterFrames.set(id,{south:frames.slice(0,4),north:frames.slice(4,8),specialSouth:frames.slice(8,12),specialNorth:frames.slice(12,16)});
+  }
+  for(const [index,id] of fighterIds.entries()){
+    const art=sideSheets[index],width=art.width/4;
+    const frames=Array.from({length:4},(_,frame)=>new Texture({source:art.source,frame:new Rectangle(frame*width,0,width,art.height)}));
+    characterSideFrames.set(id,{frames,width:78*width/art.height});
   }
   for(const [index,id] of fighterIds.entries())characterRollFrames.set(id,isolatedRollFrames(phase7Sheets[index+fighterIds.length]));
   for(const [index,id] of fighterIds.entries()){

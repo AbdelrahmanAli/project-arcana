@@ -161,10 +161,11 @@ test('maps preserve equal banks and mud slows walking without shortening a roll'
   assert.throws(()=>new Match(()=>.5,{map:'unknown'}),RangeError);
   const m=new Match(()=>.5,{map:MAPS.STORM});m.obstacles.forEach(o=>o.destroyed=true);
   const patch=m.mud.find(o=>o.owner===0),p=m.players[0];p.x=patch.x;p.y=patch.y;
-  m.move(p,1,0,.1);const wetDistance=p.x-patch.x;
-  p.x=240;p.y=760;m.move(p,1,0,.1);const dryDistance=p.x-240;
+  m.move(p,1,0,.1);const wetDistance=p.x-patch.x,wetStride=p.walk;
+  p.x=240;p.y=760;p.walk=0;m.move(p,1,0,.1);const dryDistance=p.x-240,dryStride=p.walk;
   assert.ok(Math.abs(wetDistance/dryDistance-HAZARD_RULES.mudSlow)<.01);
   assert.ok(wetDistance/dryDistance<=.6,'mud should slow walking by at least forty percent');
+  assert.ok(Math.abs(wetStride-wetDistance)<.01&&Math.abs(dryStride-dryDistance)<.01,'footfalls track distance traveled at either speed');
   p.x=patch.x;p.y=patch.y;assert.equal(m.dodge(p,1,0),true);
   m.move(p,1,0,.1);assert.ok(Math.abs(p.x-patch.x-DODGE_DISTANCE/DODGE_DURATION*.1)<.01);
 });
