@@ -1267,7 +1267,6 @@ function render(){
           groundDraw.circle(x,y,1.2+(i%2)*.6+burst*.6).fill({color:i%2?0x7bb3cd:0xffffff,alpha:.32+burst*.42});
         }
       }
-      if(p.flash>0)rect(draw,p.x+10,p.y,3,2,0xffdb7f);
       if(game.weapon(p)==='laser'&&p.charge>0){
         const power=p.charge,ready=power>=1,white=laserWhitePhase(game.time,ready);
         const dotX=p.x+(p.bank===0?5:-5),dotY=p.y-10;
@@ -1450,7 +1449,7 @@ async function boot(){
   const phase5Art=['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'];
   const phase6Art=['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'];
   const fighterIds=CHARACTERS.map(character=>character.id);
-  const phase7Art=[...fighterIds.map(id=>`${id}.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
+  const phase7Art=[...fighterIds.map(id=>`${id}-frontfire.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
   const artCount=coreArt.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{

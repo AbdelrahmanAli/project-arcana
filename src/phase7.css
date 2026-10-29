@@ -3,12 +3,12 @@
 .character-choice[aria-pressed="true"]{border-color:var(--character-color);box-shadow:inset 0 0 0 1px var(--character-color),0 0 13px var(--character-color)}
 .character-choice strong{font:700 10px/1.2 monospace;letter-spacing:.07em;text-transform:uppercase}
 .character-portrait{width:75px;height:75px;display:block;background-position:0 0;background-repeat:no-repeat;background-size:300px 300px;border-bottom:2px solid var(--character-color);image-rendering:pixelated}
-.character-portrait.tomas{background-image:url('/art/phase7/tomas.webp')}
-.character-portrait.nadia{background-image:url('/art/phase7/nadia.webp')}
-.character-portrait.imani{background-image:url('/art/phase7/imani.webp')}
-.character-portrait.mara{background-image:url('/art/phase7/mara.webp')}
-.character-portrait.elias{background-image:url('/art/phase7/elias.webp')}
-.character-portrait.dorian{background-image:url('/art/phase7/dorian.webp')}
+.character-portrait.tomas{background-image:url('/art/phase7/tomas-frontfire.webp')}
+.character-portrait.nadia{background-image:url('/art/phase7/nadia-frontfire.webp')}
+.character-portrait.imani{background-image:url('/art/phase7/imani-frontfire.webp')}
+.character-portrait.mara{background-image:url('/art/phase7/mara-frontfire.webp')}
+.character-portrait.elias{background-image:url('/art/phase7/elias-frontfire.webp')}
+.character-portrait.dorian{background-image:url('/art/phase7/dorian-frontfire.webp')}
 #lineup-panel{width:min(92%,390px);touch-action:auto}
 #lineup-panel h2{margin:8px 0 10px}
 .lineup-map{font:700 10px/1.4 monospace;color:#e9bb70;letter-spacing:.08em}

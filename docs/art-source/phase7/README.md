@@ -9,3 +9,5 @@ The six fighters are Elias, Dorian, Tomas, Nadia, Imani, and Mara. Each has an o
 - Animation uses simulation time, so pause freezes it. The death sequence advances at 0.18 seconds per frame, with a short crossfade between poses.
 
 `mara-pink-hair-source.png` replaces `mara-source.png` as Mara’s standing/action source. It restores her pink ponytail in both bank-facing rows. The roll and death sources also include her pink hair.
+
+The `*-frontfire-source.png` sheets contain corrected pistol and special firing poses for every fighter. The front-facing gun points down-screen and the back-facing gun points up-screen, matching the game's straight projectile path. Image generation supplied the four new firing poses per fighter; the game atlas preserves the existing idle, walk, hit, and stun poses. Adjacent charge cells were also refreshed where the old horizontal muzzle effect crossed a cell boundary. The game loads `*-frontfire.webp`.
