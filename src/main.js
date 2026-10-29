@@ -1,9 +1,10 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_ACTIVE_HEIGHT, TOWER_GEOMETRY, TOWER_VOLLEY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_GEOMETRY, TOWER_VOLLEY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension } from './model.js';
 import { Sound } from './audio.js';
 import { CHARACTERS, CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation.js';
+import { directShotDepth, laserDepthSegments } from './projectile-depth.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import './style.css';
 import './hud.css';
@@ -29,7 +30,7 @@ try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAut
 catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const characterFrames=new Map();
 const characterSideFrames=new Map();
 const characterRollFrames=new Map();
@@ -75,6 +76,7 @@ function updateHealth(id,hp){
 const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
+function shotGraphics(depth){return depth==='rear'?projectileDraw:depth==='between'?fighterFrontProjectileDraw:frontProjectileDraw;}
 const laserWhitePhase=(time,ready)=>Math.sin(time*(ready?28:16))>0;
 // Source-pixel centers of the painted ground burst in each 543 x 724 frame.
 const MUSHROOM_IMPACT_POINTS=[[254,593],[260,594],[269,595],[285,594]];
@@ -1045,7 +1047,7 @@ function renderEnvironment(){
   }
 }
 function render(){
-  draw.clear();projectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();
+  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();
   if(game.map===MAPS.DESERT){
     groundDraw.moveTo(RIVER.x-34,BASE_Y+17).lineTo(RIVER.x+34,BASE_Y+17).lineTo(RIVER.x+29,RIVER.bottom-3).lineTo(RIVER.x-29,RIVER.bottom-3).closePath().fill({color:0x292d2c,alpha:.97}).stroke({color:0x8d7251,width:2,alpha:.8});
     for(const dx of [-24,-10,10,24])groundDraw.moveTo(RIVER.x+dx,BASE_Y+31).lineTo(RIVER.x+dx,RIVER.bottom-5).stroke({color:0x9b7547,width:3,alpha:.7});
@@ -1325,11 +1327,14 @@ function render(){
       activeAerialProjectiles.add(b.id);
       let sprite=aerialSprites.get(b.id);
       if(!sprite){sprite=new Sprite(b.type==='nuclear'?nuclearGrenadeTexture:stunGrenadeTexture);sprite.anchor.set(.5);sprite.width=b.type==='nuclear'?28:25;sprite.height=b.type==='nuclear'?22:23;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+      const layer=game.players[b.owner].bank===0&&b.t<.055?rearAerialSpriteLayer:aerialSpriteLayer;
+      if(sprite.parent!==layer)layer.addChild(sprite);
       sprite.position.set(b.x,b.y-arc);
       sprite.rotation=Math.sin(b.t*9)*.16;
     }
     else{const v=Math.hypot(b.vx,b.vy),ux=b.vx/v,uy=b.vy/v;
-      const shotDraw=b.type==='missile'?aerialProjectileDraw:t.height<TOWER_ACTIVE_HEIGHT||b.y>BASE_Y-39?frontProjectileDraw:projectileDraw;
+      const missileBehindShooter=b.type==='missile'&&game.players[b.owner].bank===0&&b.travel<40;
+      const shotDraw=b.type==='missile'?(missileBehindShooter?projectileDraw:aerialProjectileDraw):shotGraphics(directShotDepth(b,game.players[b.owner].bank,t.height));
       if(b.type==='missile'){
         const flight=Math.min(1,b.travel/b.targetDistance),altitude=Math.sin(flight*Math.PI)*105;
         const a=Math.atan2(uy,ux),cos=Math.cos(a),sin=Math.sin(a);
@@ -1337,6 +1342,8 @@ function render(){
         activeAerialProjectiles.add(b.id);
         let sprite=aerialSprites.get(b.id);
         if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=34;sprite.height=13;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+        const layer=missileBehindShooter?rearAerialSpriteLayer:aerialSpriteLayer;
+        if(sprite.parent!==layer)layer.addChild(sprite);
         sprite.position.set(b.x,b.y-altitude);sprite.rotation=a;
         circle(shotDraw,pt(-18,0).x,pt(-18,0).y,5,0xff992e,.85);
         for(let n=0;n<3;n++)circle(shotDraw,pt(-20-n*7,Math.sin(game.time*16+n)*3).x,pt(-20-n*7,Math.sin(game.time*16+n)*3).y,4+n,0xb8ad95,.35-n*.08);
@@ -1345,11 +1352,13 @@ function render(){
   }
   for(const [id,sprite] of aerialSprites)if(!activeAerialProjectiles.has(id)){sprite.destroy();aerialSprites.delete(id);}
   for(const b of game.beams){
-    const alpha=1-b.age/b.life,power=b.power??0,shotDraw=t.height<TOWER_ACTIVE_HEIGHT?frontProjectileDraw:projectileDraw;
-    const start={x:b.x,y:b.y},end={x:b.x,y:b.endY};
-    line(shotDraw,start,end,8+16*power,0xa70f22,alpha*(.24+.18*power));
-    line(shotDraw,start,end,4+8*power,0xff283d,alpha);
-    line(shotDraw,start,end,1.5+3*power,0xffffff,alpha);
+    const alpha=1-b.age/b.life,power=b.power??0;
+    for(const segment of laserDepthSegments(b.y,b.endY,t.height)){
+      const shotDraw=shotGraphics(segment.depth),start={x:b.x,y:segment.from},end={x:b.x,y:segment.to};
+      line(shotDraw,start,end,8+16*power,0xa70f22,alpha*(.24+.18*power));
+      line(shotDraw,start,end,4+8*power,0xff283d,alpha);
+      line(shotDraw,start,end,1.5+3*power,0xffffff,alpha);
+    }
     circle(draw,b.x,b.endY,3+8*power,0xff3647,alpha*.7);
     if(power>.8)circle(draw,b.x,b.endY,2+4*power,0xfff3e9,alpha);
   }
@@ -1552,7 +1561,7 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,obstacleLayer);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
