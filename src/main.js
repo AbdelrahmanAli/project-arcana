@@ -1042,8 +1042,8 @@ function renderPlatformContact(){
   const wet=game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM;
   if(!wet)return;
   const x=PLATFORM_GEOMETRY.x,y=BASE_Y,time=game.time;
-  // The near rim is partly submerged. A moving wash crosses its lowest pixels
-  // while short foam crests break against the hull instead of circling it.
+  // The near rim is partly submerged. The wash covers only its lowest pixels;
+  // side wakes stay in waterDraw behind the armor.
   platformContactDraw.moveTo(x-88,y+25);
   for(let offset=-80;offset<=80;offset+=16){
     platformContactDraw.lineTo(x+offset,y+platformContactEdgeY(time,offset));
@@ -1052,15 +1052,15 @@ function renderPlatformContact(){
     .fill({color:0x086071,alpha:.58});
   const sway=platformContactSway(time);
   for(const side of [-1,1]){
-    platformContactDraw.moveTo(x+side*80,y+24-PLATFORM_SIDE_FOAM_RISE+sway)
+    waterDraw.moveTo(x+side*80,y+24-PLATFORM_SIDE_FOAM_RISE+sway)
       .quadraticCurveTo(x+side*97,y+31-PLATFORM_SIDE_FOAM_RISE+sway,x+side*85,y+39-PLATFORM_SIDE_FOAM_RISE+sway)
       .stroke({color:0x7bd8dd,width:3,alpha:.67});
-    platformContactDraw.moveTo(x+side*92,y+30-PLATFORM_SIDE_FOAM_RISE+sway).lineTo(x+side*108,y+34-PLATFORM_SIDE_FOAM_RISE+sway)
+    waterDraw.moveTo(x+side*92,y+30-PLATFORM_SIDE_FOAM_RISE+sway).lineTo(x+side*108,y+34-PLATFORM_SIDE_FOAM_RISE+sway)
       .stroke({color:0xd5f8ee,width:1.5,alpha:.32});
   }
-  for(let index=0;index<5;index++){
+  for(let index=0;index<4;index++){
     const offset=8+index*17,phase=time*3.2+index*2.1;
-    const edgeY=y+platformContactEdgeY(time,offset)+Math.sin(phase)*.5;
+    const edgeY=y+platformContactEdgeY(time,offset)+4+Math.sin(phase)*.5;
     const crest=5+index%3*3;
     for(const side of [-1,1]){
       platformContactDraw.moveTo(x+side*offset,edgeY).lineTo(x+side*(offset+crest),edgeY+Math.sin(phase+.8))
