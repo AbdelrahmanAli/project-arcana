@@ -46,6 +46,13 @@ export const PLATFORM_HEAL_CHANCE = .08;
 export function supplyPort(bank, slot=0){return PLATFORM_GEOMETRY.supplyPorts[bank][slot%2];}
 export function attackVent(bank){return PLATFORM_GEOMETRY.attackVents[bank];}
 
+// The waterline uses mirrored offsets so the two hull shoulders move together.
+export function platformContactEdgeY(time, offset){
+  const distance=Math.abs(offset);
+  return 40-16*(distance/88)**2+Math.sin(time*3+distance*.11)*1.7;
+}
+export function platformContactSway(time){return Math.sin(time*2.5)*1.6;}
+
 // Frame order matches public/art/phase8/platform-frames.webp (4 columns, 2 rows).
 // Crossfade only between adjacent mechanical poses, keeping the deck aligned.
 export function platformPose(phase, progress){

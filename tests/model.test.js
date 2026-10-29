@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, HAZARD_RULES, LIGHTNING_WAVE_DELAY, H, RIVER, BANK_BOUNDS, PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, DEATH_DURATION, FLAME_SPEED, FLAME_DAMAGE_PER_SECOND, BLAST_RADIUS, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, LASER_BONUS_DAMAGE, DODGE_DURATION, DODGE_DISTANCE, DODGE_COOLDOWN, WASTE_RADIUS, WASTE_DAMAGE_PER_SECOND, BARREL_BLAST_RADIUS, obstacleBounds, segmentRectHit, segmentDistance } from '../src/model.js';
-import {attackVent, supplyPort, platformPose} from '../src/platform.js';
+import {attackVent, supplyPort, platformPose, platformContactEdgeY, platformContactSway} from '../src/platform.js';
 import {CHARACTERS} from '../src/characters.js';
 
 test('pickups respect ownership, landing, and one-weapon capacity',()=>{
@@ -364,6 +364,14 @@ test('platform hatches and vents stay paired with their bank',()=>{
     const start=platformPose(phase,0),end=platformPose(phase,PLATFORM_TIMING[phase]);
     assert.ok(start.from>=0&&end.to<8);
     assert.equal(end.blend,1);
+  }
+});
+
+test('platform water contact stays level on both hull shoulders throughout its loop',()=>{
+  for(const time of [0,.31,1,2.75,8.4,15]){
+    assert.equal(platformContactEdgeY(time,-80),platformContactEdgeY(time,80));
+    assert.equal(platformContactEdgeY(time,-24),platformContactEdgeY(time,24));
+    assert.ok(Math.abs(platformContactSway(time))<=1.6);
   }
 });
 

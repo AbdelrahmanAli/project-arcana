@@ -1,7 +1,7 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
 import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers } from './model.js';
 import { Sound } from './audio.js';
-import {PLATFORM_GEOMETRY,platformPose} from './platform.js';
+import {PLATFORM_GEOMETRY,platformPose,platformContactEdgeY,platformContactSway} from './platform.js';
 import { CHARACTERS, CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation.js';
@@ -1045,25 +1045,26 @@ function renderPlatformContact(){
   // while short foam crests break against the hull instead of circling it.
   platformContactDraw.moveTo(x-88,y+25);
   for(let offset=-80;offset<=80;offset+=16){
-    const shore=40-16*(Math.abs(offset)/88)**2;
-    platformContactDraw.lineTo(x+offset,y+shore+Math.sin(time*3+offset*.11)*1.7);
+    platformContactDraw.lineTo(x+offset,y+platformContactEdgeY(time,offset));
   }
   platformContactDraw.lineTo(x+88,y+25).lineTo(x+102,y+70).lineTo(x-102,y+70).closePath()
     .fill({color:0x086071,alpha:.58});
+  const sway=platformContactSway(time);
   for(const side of [-1,1]){
-    const sway=Math.sin(time*2.5+side)*1.6;
-    platformContactDraw.moveTo(x+side*77,y+15+sway)
-      .quadraticCurveTo(x+side*101,y+27+sway,x+side*84,y+38+sway)
+    platformContactDraw.moveTo(x+side*80,y+24+sway)
+      .quadraticCurveTo(x+side*97,y+31+sway,x+side*85,y+39+sway)
       .stroke({color:0x7bd8dd,width:3,alpha:.67});
     platformContactDraw.moveTo(x+side*92,y+30+sway).lineTo(x+side*108,y+34+sway)
       .stroke({color:0xd5f8ee,width:1.5,alpha:.32});
   }
-  for(let index=0;index<10;index++){
-    const offset=-76+index*17,phase=time*3.2+index*2.1;
-    const edgeY=y+40-16*(Math.abs(offset)/88)**2+Math.sin(phase)*1.4;
+  for(let index=0;index<5;index++){
+    const offset=8+index*17,phase=time*3.2+index*2.1;
+    const edgeY=y+platformContactEdgeY(time,offset)+Math.sin(phase)*.5;
     const crest=5+index%3*3;
-    platformContactDraw.moveTo(x+offset,edgeY).lineTo(x+offset+crest,edgeY+Math.sin(phase+.8))
-      .stroke({color:index%3===0?0xe0fbf0:0x92e3df,width:index%3===0?2:1,alpha:.48+.25*Math.sin(phase)**2});
+    for(const side of [-1,1]){
+      platformContactDraw.moveTo(x+side*offset,edgeY).lineTo(x+side*(offset+crest),edgeY+Math.sin(phase+.8))
+        .stroke({color:index%3===0?0xe0fbf0:0x92e3df,width:index%3===0?2:1,alpha:.48+.25*Math.sin(phase)**2});
+    }
   }
 }
 function render(){
@@ -1133,7 +1134,7 @@ function render(){
     for(const side of [-1,1]){
       for(let wake=0;wake<3;wake++){
         const progress=(game.time*.55+wake/3)%1;
-        const x=RIVER.x+side*(83+progress*30),sway=Math.sin(game.time*2.2+side+wake)*2;
+        const x=RIVER.x+side*(83+progress*30),sway=Math.sin(game.time*2.2+wake)*2;
         waterDraw.moveTo(x-side*9,BASE_Y+21+sway+wake*8).lineTo(x+side*8,BASE_Y+22+sway+wake*8)
           .stroke({color:0xc7f7ef,width:1.5,alpha:(1-progress)*strength});
       }
