@@ -30,12 +30,12 @@ try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAut
 catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,towerBlastLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
 const characterFrames=new Map();
 const characterSideFrames=new Map();
 const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
-let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashWarningDraw,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
+let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
 let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
 const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
@@ -913,7 +913,7 @@ function renderTowerAttacks(){
   for(const [id,sprite] of towerAttackSprites)if(!live.has(id)){sprite.destroy();towerAttackSprites.delete(id);}
 }
 function renderEnvironment(){
-  environmentGround.clear();environmentSky.clear();ashWarningDraw.clear();
+  environmentGround.clear();environmentSky.clear();
   for(const puff of [...ashPuffs,...ashVentPuffs])puff.visible=false;
   if(game.map!==MAPS.DESERT&&game.map!==MAPS.SNOW){phase6WeatherDraw.clear();for(const cloud of sandstormSprites)cloud.visible=false;}
   if(game.map===MAPS.RIVERSIDE){renderTowerAttacks();return;}
@@ -1011,7 +1011,8 @@ function renderEnvironment(){
       circle(aerialProjectileDraw,fx,fy-12,8,0xff6a20,.29);
       circle(aerialProjectileDraw,fx,fy-12,3,0xffed9a,.8);
     }else{
-      if(sprite.parent!==hazardLayer)hazardLayer.addChild(sprite);
+      // Burning lava covers broken debris while staying behind live fighters.
+      if(sprite.parent!==flameLayer)flameLayer.addChild(sprite);
       sprite.texture=lavaPoolFrames[Math.floor((fire.age-fire.warning)*9)%lavaPoolFrames.length];sprite.rotation=0;sprite.position.set(fire.x,fire.y+3);
       sprite.width=91+Math.sin(game.time*8+fire.id)*3;sprite.height=49;
       const fade=Math.min(1,(fire.life-fire.age)*1.4);
@@ -1040,9 +1041,6 @@ function renderEnvironment(){
       front.visible=true;front.position.set(cloud.x+sway,cloud.y);
       front.width=cloud.width;front.height=cloud.height;front.alpha=cloud.alpha;
       back.rotation=front.rotation=Math.sin(game.time*.6+i)*.025;
-    }
-    for(const item of [...game.rocksInFlight,...game.volcanicFire])if(!item.hit){
-      ashWarningDraw.ellipse(item.x,item.y,38,26).stroke({color:game.rocksInFlight.includes(item)?0xffc473:0xff6840,width:2.5,alpha:.9});
     }
   }
 }
@@ -1374,7 +1372,7 @@ function render(){
       groundDraw.ellipse(e.x,e.y+4,radius,radius*.38).stroke({color:0x9dff48,width:3,alpha:(1-k)*.9});
       groundDraw.ellipse(e.x,e.y+3,radius*.58,radius*.22).fill({color:0x6bd822,alpha:(1-k)*.34});
       let cloud=blastSprites.get(e.id);
-      if(!cloud){cloud=new Sprite(mushroomFrames[0]);world.addChild(cloud);blastSprites.set(e.id,cloud);}
+      if(!cloud){cloud=new Sprite(mushroomFrames[0]);groundBlastLayer.addChild(cloud);blastSprites.set(e.id,cloud);}
       const frame=k<.11?0:k<.29?1:k<.64?2:3;
       cloud.texture=mushroomFrames[frame];
       cloud.anchor.set(MUSHROOM_IMPACT_POINTS[frame][0]/543,MUSHROOM_IMPACT_POINTS[frame][1]/724);
@@ -1394,7 +1392,7 @@ function render(){
         rect(draw,e.x+Math.cos(a)*radius*.82,e.y-8+Math.sin(a)*radius*.48,3,3,n%2?0x59bbff:0xb6f4ff,1-k);
       }
     }else if(e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast'){
-      let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);world.addChild(s);blastSprites.set(e.id,s);}
+      let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);(e.type==='towerImpact'?towerBlastLayer:groundBlastLayer).addChild(s);blastSprites.set(e.id,s);}
       const towerHit=e.type==='towerImpact';
       const barrelHit=e.type==='barrelBlast';
       s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?126:112;s.height=towerHit?52:barrelHit?126:112;s.alpha=1-k*.28;
@@ -1561,7 +1559,9 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();towerBlastLayer=new Container();
+  // Bank blasts cover fighters, but the Tower and bank walls still occlude them.
+  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
   tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
   towerMask=new Graphics();
   cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
@@ -1584,7 +1584,7 @@ async function boot(){
   hatchContainer.mask=hatchSpriteMask;
   frontProjectileDraw=new Graphics();
   world.addChild(cap,openCap,hatchMask,hatchContainer,hatchSpriteMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
-  towerWater=new Graphics();baseWaterDraw=new Graphics();baseVentDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();world.addChild(towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,aerialProjectileDraw,aerialSpriteLayer);
+  towerWater=new Graphics();baseWaterDraw=new Graphics();baseVentDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();world.addChild(towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,aerialProjectileDraw,aerialSpriteLayer,towerBlastLayer);
   for(const side of [-1,1]){
     const x=RIVER.x+side*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
     baseVentDraw.ellipse(x-side*3,y+2,17,11).fill({color:0x121d20,alpha:.96});
@@ -1601,8 +1601,8 @@ async function boot(){
   // Tower and wall art must sit behind a weapon while it is being thrown.
   // On landing, its sprite moves back to obstacleLayer for ground depth sorting.
   world.addChild(pickupFlightLayer);
-  environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();ashWarningDraw=new Graphics();
-  world.addChild(environmentSky,lightningLayer,ashWarningDraw);
+  environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();
+  world.addChild(environmentSky,lightningLayer);
   for(let i=0;i<6;i++){
     const back=new Sprite(ashCloudTexture);back.anchor.set(.5);back.tint=0x202528;back.visible=false;ashPuffs.push(back);ashCloudLayer.addChild(back);
     const front=new Sprite(ashCloudTexture);front.anchor.set(.5);front.visible=false;ashPuffs.push(front);ashCloudLayer.addChild(front);
