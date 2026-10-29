@@ -1,4 +1,6 @@
-# The Tower Deal combat design
+# Historical Tower combat design
+
+This document records the earlier prototype direction. The current Division design replaces the rising Tower with a submerged platform; see [Phase 8](PHASE_8_PRD.md) and the [README](../README.md) for current rules.
 
 The Tower of Major Arcana XVI deals its card to two fighters on opposite banks. Each must bring about the other's fall to survive. “When certainty falls, adapt.”
 

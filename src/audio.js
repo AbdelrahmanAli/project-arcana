@@ -6,7 +6,7 @@ function loadAudioPrefs(){
   catch { return {}; }
 }
 function saveAudioPrefs(sound){
-  try { localStorage.setItem(AUDIO_PREFS_KEY,JSON.stringify({muted:sound.muted,alarmMuted:sound.alarmMuted,alarmVolume:sound.alarmVolume})); }
+  try { localStorage.setItem(AUDIO_PREFS_KEY,JSON.stringify({muted:sound.muted})); }
   catch { /* Storage may be unavailable in a private browser. */ }
 }
 
@@ -42,6 +42,15 @@ function healWav(){
     const rise=Math.sin(2*Math.PI*(480*t+360*t*t))*Math.exp(-t*7);
     const chime=Math.sin(2*Math.PI*840*t)*Math.exp(-Math.max(0,t-.13)*11)*(t>.13?.55:0);
     return (rise*.27+chime*.2)*Math.min(1,t/.015);
+  });
+}
+function platformCueWav(){
+  return pcmWav(.42,t=>{
+    const note=(start,freq)=>{
+      const age=t-start;
+      return age<0?0:Math.sin(2*Math.PI*freq*age)*Math.min(1,age/.014)*Math.exp(-age*12);
+    };
+    return note(0,620)*.18+note(.17,880)*.15;
   });
 }
 function fireWhooshWav() {
@@ -200,9 +209,7 @@ export class Sound {
   constructor(){
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
-    this.alarmMuted=prefs.alarmMuted===true;
-    this.alarmVolume=Number.isFinite(prefs.alarmVolume)?Math.max(0,Math.min(100,prefs.alarmVolume)):25;
-    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.towerPhase=null;this.ambientMap=null;
+    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.platformPhase=null;this.ambientMap=null;
   }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
@@ -227,10 +234,9 @@ export class Sound {
     this.clips.crateHit=new Howl({src:[wav(.11,225,.72,18)],format:['wav'],volume:.19,preload:true,pool:8});
     this.clips.barrelBlast=new Howl({src:[wav(.64,62,.9,5)],format:['wav'],volume:.3,preload:true,pool:8});
     this.clips.burning=new Howl({src:[wav(1.7,48,.97,.35)],format:['wav'],volume:.14,loop:true,preload:true});
-    this.clips.towerImpact=new Howl({src:[wav(.36,85,.88,8)],format:['wav'],volume:.27,preload:true});
-    this.clips.towerFire=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
-    this.clips.towerAim=new Howl({src:[wav(.24,470,.28,8)],format:['wav'],volume:.13,preload:true});
-    this.clips.riseAlarm=new Howl({src:[`${import.meta.env.BASE_URL}audio/red-alert-nuclear-buzzer.mp3`],format:['mp3'],sprite:{alert:[0,3700]},volume:this.alarmMuted?0:.23*this.alarmVolume/100,preload:true});
+    this.clips.platformCue=new Howl({src:[platformCueWav()],format:['wav'],volume:.12,preload:true});
+    this.clips.platformFire=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
+    this.clips.platformAim=new Howl({src:[wav(.24,470,.28,8)],format:['wav'],volume:.13,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});
     this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});
@@ -276,33 +282,13 @@ export class Sound {
       else this.clips.sandstorm.stop();
     }
   }
-  tower(phase,height,progress,map){
+  platform(phase,map){
     if(!this.ready)return;
-    if(phase!==this.towerPhase){
-      this.towerPhase=phase;
-      if(phase==='rise'&&progress<.15&&!this.muted&&!this.alarmMuted&&this.alarmVolume>0)this.clips.riseAlarm.play('alert');
-    }
-    const wet=(map==='riverside'||map==='storm')&&phase!=='rest'&&height>.015;
+    this.platformPhase=phase;
+    const wet=(map==='riverside'||map==='storm')&&phase!=='idle';
     if(wet!==this.watering){this.watering=wet;if(wet)this.clips.water.play();else this.clips.water.stop();}
-    if(wet)this.clips.water.volume(.025+.06*Math.min(1,height*2));
-  }
-  setAlarmVolume(volume){
-    this.alarmVolume=Math.max(0,Math.min(100,Number(volume)||0));
-    this.alarmMuted=this.alarmVolume===0;
-    if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
-    saveAudioPrefs(this);
-  }
-  toggleAlarmMute(){
-    if(this.alarmMuted&&this.alarmVolume===0)this.alarmVolume=25;
-    this.alarmMuted=!this.alarmMuted;
-    if(this.ready){this.clips.riseAlarm.volume(this.alarmMuted?0:.23*this.alarmVolume/100);if(this.alarmMuted)this.clips.riseAlarm.stop();}
-    saveAudioPrefs(this);
-    return this.alarmMuted;
-  }
-  previewAlarm(){
-    if(this.muted||this.alarmMuted||this.alarmVolume===0)return;
-    this.init();this.clips.riseAlarm.stop();this.clips.riseAlarm.play('alert');
+    if(wet)this.clips.water.volume(.018);
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.storming=false;this.towerPhase=null;this.ambientMap=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.storming=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
 }

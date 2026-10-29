@@ -1,7 +1,7 @@
 # Phase 8 PRD: Submerged platform and identity refresh
 
-- **Product:** Working title to be chosen; the published repository remains `project-arcana` during the redesign.
-- **Status:** Planning draft
+- **Product:** Division (provisional in-game title); the published repository remains `project-arcana`.
+- **Status:** Implemented prototype; pending physical phone playtest
 - **Platform:** Desktop and phone browsers
 - **Scope:** Existing 1v1 and 2v2 formats, four weapon modes, and five maps
 
@@ -9,7 +9,7 @@
 
 Replace the rising Tower, its shaft, cap, launchers, and alarm with a low submerged military platform centered in the dividing channel. It deals weapons and occasional syringes from dedicated item ports and fires Riverside attacks from separate, visibly distinct vents. Its silhouette stays near the water or channel surface. Fighters' shots pass across it without collision, obstruction, reflection, or a Tower impact event.
 
-This is also a chance to move the game's language away from tarot. The combat identity should be the two separated sides, fair but unpredictable supply, and the need to adapt during a single-round fight. Final game name and copy remain open while the new visual direction is tested.
+The combat identity is two separated sides, fair but unpredictable supply, and the need to adapt during a single-round fight. The provisional title is Division.
 
 ## Agreed decisions
 
@@ -58,7 +58,7 @@ All direct fighter shots, beams, missiles, and grenades cross the center accordi
 
 - Replace Tower, tarot, Major Arcana, fate/card, rise/descent, and Tower-weapon language in the menu, HUD labels, controls, settings, results, help text, accessibility labels, README, and current design documentation. Use a neutral working term such as **the platform** or **supply deck** until the name is chosen.
 - Keep the two-bank fight and adaptation theme. The existing line “When certainty falls, adapt.” may be retained if it still fits the final identity; it is not a naming constraint.
-- The user's proposed **Division** captures the two sides and can guide the naming exercise. Do not use it as the final title without a separate review: Ubisoft already publishes the military shooter franchise *Tom Clancy's The Division* ([official franchise page](https://www.ubisoft.com/en-us/company/about-us/our-brands/tom-clancy-s-the-division)). Other working directions are **The Divide**, **Crossline**, and **Splitfire**. These are creative candidates, not availability-checked final names.
+- **Division** is the provisional on-screen title selected for Phase 8. Final naming and availability review remain separate from the gameplay implementation.
 - Do not change the GitHub repository slug or published URL merely because the on-screen title changes. Decide on any URL migration separately, after the name is final.
 
 ## Code migration plan

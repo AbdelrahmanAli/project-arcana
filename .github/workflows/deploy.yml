@@ -1,4 +1,4 @@
-name: Deploy The Tower Deal
+name: Deploy Division
 
 on:
   push:

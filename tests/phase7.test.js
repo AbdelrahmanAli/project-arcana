@@ -73,17 +73,17 @@ test('a computer teammate can stack two Tower lasers and fire both rounds', () =
   assert.equal(ally.slot,null);
 });
 
-test('Riverside 2v2 Tower volleys lock one line to each living fighter', () => {
+test('Riverside 2v2 platform volleys lock one line to each living fighter', () => {
   const match = new Match(() => .5, { format: '2v2', map: MAPS.RIVERSIDE });
-  match.startTowerVolley('rise');
-  assert.deepEqual(match.towerAttacks.map(attack=>attack.targetId),[0,2,1,3]);
-  assert.deepEqual(match.towerAttacks.map(attack=>attack.owner),[0,0,1,1]);
-  assert.ok(match.towerAttacks[1].age<0);
-  assert.ok(match.towerAttacks[3].age<0);
+  match.startPlatformVolley('first');
+  assert.deepEqual(match.platformAttacks.map(attack=>attack.targetId),[0,2,1,3]);
+  assert.deepEqual(match.platformAttacks.map(attack=>attack.owner),[0,0,1,1]);
+  assert.ok(match.platformAttacks[1].age<0);
+  assert.ok(match.platformAttacks[3].age<0);
   match.players[2].hp=0;
-  match.towerAttacks=[];
-  match.startTowerVolley('lower');
-  assert.deepEqual(match.towerAttacks.map(attack=>attack.targetId),[0,1,3]);
+  match.platformAttacks=[];
+  match.startPlatformVolley('second');
+  assert.deepEqual(match.platformAttacks.map(attack=>attack.targetId),[0,1,3]);
 });
 
 test('friendly weapon blasts are harmless but the hostile team takes damage', () => {

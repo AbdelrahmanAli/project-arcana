@@ -1,61 +1,37 @@
-# The Tower Deal — playable combat prototype
+# Division
 
-A single-round, browser-based riverbank duel. Built with PixiJS 8, Howler.js, and Vite. The game currently runs against a computer opponent; it does not need a gameplay server.
+A single-round browser arena game for phones and desktop. Fight across two equal banks in 1v1 or 2v2 against computer-controlled fighters. A low military platform in the channel supplies both sides; on Riverside, its vents also fire two aimed waves per supply cycle.
 
-“When certainty falls, adapt.” The Tower of Major Arcana XVI has dealt its card to two fighters on opposite banks. Across the river stands the life each must take to keep their own. Its weapon drops can overturn either fighter's plan, and on the Riverside map it attacks both banks as it rises and descends. The player starts on an assigned bank; bank selection is not a game mechanic.
+Built with PixiJS 8, Howler.js, and Vite. Online multiplayer is not implemented.
 
-## Run
+## Run locally
 
-Node 22.12+ recommended. Install dependencies with `pnpm install`, then `pnpm dev`. Open the printed local URL. `pnpm build` creates a static deployment in `dist/`. `pnpm preview` serves that build. `pnpm test` runs the combat-rule tests.
+Use Node 22.12 or newer. Run `pnpm install`, `pnpm dev`, and open the printed URL. `pnpm test` runs the combat tests; `pnpm build` creates the static site in `dist/`.
 
-The dev server binds to the local network for phone testing. A phone on the same Wi-Fi can open the printed Network URL if the computer firewall allows it. The GitHub Pages deployment is configured below; multiplayer is not yet implemented.
+## Publish
 
-## Publish on GitHub Pages
-
-The live game is configured for `https://<username>.github.io/project-arcana/`. The existing repository slug remains `project-arcana` so its published URL keeps working. Push to `main` to run the included workflow, which tests, builds, and deploys `dist/`. In the repository's **Actions** tab, you can also run **Deploy The Tower Deal** manually.
-
-The `/project-arcana/` base path is set in `vite.config.js`; if the repository name changes, update it there too. Use `pnpm preview` to check the production build locally. GitHub Pages hosts the current computer-opponent game as static files; online multiplayer will need a separate real-time service later.
+The GitHub Pages base path remains `/project-arcana/`, so the site stays at [abdelrahmanali.github.io/project-arcana](https://abdelrahmanali.github.io/project-arcana/). Pushing to `main` runs the [Deploy Division](.github/workflows/deploy.yml) workflow. The public URL can be renamed separately if the title becomes final.
 
 ## Controls
 
-- Phone / mouse: drag anywhere in the arena to create a floating joystick. The right-side buttons are pistol, dodge, and held Tower weapon, from top to bottom. Another finger can dodge or fire while moving. Pistol auto fire starts on by default; Settings can change that match default. Tap to stop auto fire and hold for half a second to restart it. Hold and release the bottom button to fire the Laser Gun; full charge takes 1.1 seconds and raises its damage from 16 to 46.
-- Desktop: WASD or arrows to move; Shift dive rolls in the movement direction; Space toggles automatic pistol fire (hold to restart it); E fires the Tower weapon; Escape pauses. Hold and release E to charge the Laser Gun.
-- A dive roll moves in one of eight directions (forward when standing still), avoids damage and stun for its 0.46-second animation, and has a 1-second cooldown. Its button ring fills as it recharges; the Tower weapon ring drains with its ammo. Tapping an unavailable dodge or empty Tower weapon button plays a short feedback sound. Solid cover and bank edges stop roll movement.
-- Walk over a landed pickup to collect it. Each fighter can carry one Tower weapon. A matching pickup adds its full ammo with no cap; a different weapon cannot be collected until the current one is spent. There is no discard or swap action. A healing syringe from a broken crate or a rare Tower launch restores up to 20 health without using the weapon slot.
+- On a phone, drag anywhere in the arena to move. The right-side buttons fire the pistol, dodge, and fire the carried special weapon. Separate fingers can move and fire together.
+- On desktop, use WASD or arrows to move, Space for pistol, Shift to dodge, E for the special weapon, and Escape to pause.
+- The pistol starts in auto-fire mode unless changed in Settings. Tap once to stop auto-fire; hold for half a second to restore it. Hold E or the special button for up to 1.1 seconds to charge the Laser Gun.
+- Walk over supplies to collect them. Each fighter carries one special weapon. A matching pickup adds its ammo without a cap; another type remains on the ground until the held weapon is spent. Syringes heal up to 20 HP.
 
-## Implemented
+## Match rules
 
-Main menu with settings and four computer-opponent modes: independently random weapons, a new shared random weapon on each Tower launch, one randomly fixed weapon, or one player-chosen fixed weapon for the match. Random Fixed Weapon cycles through the weapon art, pauses on its match selection for a three-count, then starts automatically. A short READY/FIGHT countdown holds both fighters before each round. Players can choose Riverside, Storm, Magma, Desert, Snow, or a random map. Storm adds moonlit rain, growing mud patches, paired lightning, and rare tornadoes. Magma adds volcanic rocks that become temporary solid cover, burning ground, and passing ash that obscures distant fighters. Desert adds a traveling sandstorm, eagle swoops, quicksand, and sunlight-signaled scorpion mirages. Snow adds drifting snowfall, sliding ice, side-sweeping avalanches, and paired hail clusters. Both fixed modes deal the same type to both banks and include the Nuclear Launcher. The game has one health-based round, an unlimited weak pistol, six pickup weapons, one carried Tower weapon, paired launches, twelve-second pickup expiry (blinking in the final three), tower rise/delivery/descent, two aimed Riverside Tower volleys per cycle, fire, lightning and icicle attacks, moving flame jets and temporary ground fire, projectile cancellation, Laser Gun beam, smart missile ground target with a dedicated launch sound, stun grenades that deal light damage and immobilize a fighter for 2.2 seconds, nuclear grenades that leave damaging waste, longer death sequence, game over, restart, sound toggle, pause, and automatic pause on focus loss.
+Choose 1v1 or 2v2, one of four weapon modes, and Riverside, Storm, Magma, Desert, Snow, or a random map. The game has six fighters, six special weapons, destructible crates, explosive barrels, and map-specific hazards. Each platform launch supplies one weapon per bank in 1v1 or two per bank in 2v2, with an independent small chance of an extra syringe on each side. Pickups last 12 seconds after landing. The platform never blocks fighter shots.
 
-Both fighters have eight-direction dive-roll animations. The computer opponent can use a roll to evade an incoming explosive.
+The platform cycles through idle, prime, launch, second attack, and settle poses. Only Riverside uses its two attack waves; the other maps use their own hazards. Direct shots and beams can cross the center. Missile and grenade arcs keep their overhead trajectory.
 
-Each round places two mirrored T, L, or square crate formations near the river on each bank and one or two barrels at independent positions across each bank. Intact crates block movement and shots, crack on the first direct shot, and break on the second; explosions destroy them immediately. Fully broken crates have a 30% chance to release a weapon, a 15% chance to release a 20-health syringe, and a 55% chance to release nothing. Broken crates leave passable debris. Barrels do not block movement, but they block shots and explode when hit, damaging either fighter in a wide radius and potentially setting off other barrels. A nuclear impact rises into a mushroom cloud, then leaves permanent waste that damages either fighter who stands in it. Fighters blink green while taking waste damage and red while burning.
+## Project structure
 
-Both fighters' health bars float above their heads; the opponent's held Tower weapon appears below their bar, and their weapon badge fills a charge meter while they wind up a laser shot. Missiles and grenades mark their captured landing area in the weapon's color. A charging laser alternates red and white on its wielder and charge bar. Both banks have equal playable depth.
+- [Match simulation](src/model.js) owns combat, hazards, AI, pickups, and platform timing.
+- [Platform geometry and animation](src/platform.js) defines port locations, vent locations, cycle timing, and eight-frame poses.
+- [Pixi rendering and controls](src/main.js) loads sprite sheets and draws the game.
+- [Howler audio](src/audio.js) contains the calm platform cue and combat sounds.
+- [Phase 8 art sources](docs/art-source/phase8/) and [optimized sprite sheets](public/art/phase8/) contain the original platform art and launch effect.
+- [Phase 8 PRD](docs/PHASE_8_PRD.md) records the design and acceptance criteria. Earlier phase documents remain in `docs/` as history.
 
-Current weapon and hazard values are listed in [`docs/BALANCE.md`](docs/BALANCE.md).
-
-## Structure
-
-- `src/model.js`: rendering-independent match simulation, also used by the tests.
-- `src/main.js`: Pixi scene, pointer/keyboard controls and HUD.
-- `src/phase3.css`: transparent dual-fire controls and expanded arena layout.
-- `src/phase4.css`: mode selection and healing feedback styles.
-- `src/audio.js`: Howler playback for the game's effects, including a CC0 smart missile sound and synthesized prototype effects.
-- `public/art/`: generated environment, sprite atlas and visual target.
-- `docs/art-archive/`: unused source art retained for reference without adding it to the published game.
-- `docs/DESIGN.md`: decisions, tuning proposals, and future scope.
-- `docs/ART_PROMPTS.md` and `docs/ART_PROMPTS_V2.md`: original asset-generation prompts.
-- `docs/DEATH_SPRITES.md`: death-frame art and generation prompts.
-- `docs/PHASE_2.md`: implemented nuclear launcher and destructible-arena rules, plus sprite details.
-- `docs/PHASE_3.md`: one-weapon rules, dual-fire controls, and larger symmetric arena.
-- `docs/PHASE_4_PRD.md`: crate loot, healing, and three computer-opponent mode requirements.
-- `docs/PHASE_4_ART.md`: healing syringe source prompt and asset notes.
-- `docs/PHASE_6_PRD.md` and `docs/PHASE_6_ART.md`: new map requirements and art preparation.
-- `docs/PHASE_7_PRD.md`: planned character roster, map-aware AI, and playable 2v2.
-
-## Current limits
-
-This is a playable prototype, not a finished release. Animation frames need pixel cleanup and foot-position alignment. Soldiers currently share a generic equipped-gun pose; pickup icons and projectiles vary by held weapon. Death now has four sprite poses per soldier, while some blood effects remain procedural. Most sound is synthesized prototype audio; no soundtrack yet. Third-party sound sources are recorded in [`docs/AUDIO_SOURCES.md`](docs/AUDIO_SOURCES.md). AI and weapon balance are initial tuning. No multiplayer, character selector, save progression, or controller support. Touch controls and the new maps have browser-sized checks but still need physical iOS and Android playtesting.
-
-The original visual-target image contains the earlier HUD concept; the live game implements the revised health-bar layout. Artwork is original generated imagery inspired by detailed arcade military pixel art, not extracted game assets.
+The platform artwork, maps, and fighter sprites are project assets. The hawk call is credited in the in-game Settings panel.

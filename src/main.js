@@ -1,6 +1,7 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, TOWER_TIMING, TOWER_GEOMETRY, TOWER_VOLLEY, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, TOWER_BASE_Y, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, towerArmExtension } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers } from './model.js';
 import { Sound } from './audio.js';
+import {PLATFORM_GEOMETRY,platformPose} from './platform.js';
 import { CHARACTERS, CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { isolatedRollFrames } from './roll-sprites.js';
 import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation.js';
@@ -30,15 +31,15 @@ try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAut
 catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
-let textures=[],flameFrames=[],blastFrames=[],hatchFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,towerBlastLayer,pickupFlightLayer,joystickDraw,tower,towerMask,cap,capFront,openCap,hatchContainer,hatchCurrent,hatchNext,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),towerAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],platformFrames=[],launchFxFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,pickupFlightLayer,joystickDraw,platformSprite,platformBlendSprite,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),platformAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map(),launchFxSprites=new Map();
 const characterFrames=new Map();
 const characterSideFrames=new Map();
 const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
-let sceneDirty=true,lastTowerMaskHalfWidth=NaN;
-const BASE_Y=TOWER_BASE_Y, BASE_WIDTH=175, BASE_HEIGHT=126;
+let sceneDirty=true;
+const BASE_Y=PLATFORM_GEOMETRY.y;
 // Fighters are tall sprites anchored at their center; sort by their boots, not their torso.
 const FIGHTER_DEPTH_OFFSET=36;
 const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12;
@@ -341,7 +342,7 @@ function prepareMatch(mapOverride=null){
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,towerAttackSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,launchFxSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,platformAttackSprites])clearSpriteMap(map);
   for(const sprite of sandstormSprites)sprite.visible=false;
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;
@@ -433,7 +434,7 @@ function startPreparedMatch(map){
     animateDeal();
   }else beginMatch();
 }
-function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput(true);document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The Tower will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
+function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput(true);document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The fight will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
 function fighterToast(playerId,text,duration=1600){
@@ -520,17 +521,9 @@ document.addEventListener('click',event=>{
 function syncSoundSettings(){
   for(const id of ['sound','settings-sound'])$(id).textContent=sound.muted?'SOUND OFF':'SOUND ON';
   $('sound').setAttribute('aria-label',sound.muted?'Enable sound':'Mute sound');
-  $('alarm-volume').value=String(sound.alarmVolume);
-  $('alarm-volume-value').textContent=sound.alarmMuted?'MUTED':`${sound.alarmVolume}%`;
-  $('alarm-mute').textContent=sound.alarmMuted?'UNMUTE ALARM':'MUTE ALARM';
-  $('alarm-mute').setAttribute('aria-pressed',String(sound.alarmMuted));
-  $('alarm-preview').disabled=sound.muted||sound.alarmMuted||sound.alarmVolume===0;
 }
 function toggleSound(){sound.toggle();syncSoundSettings();}
 $('sound').addEventListener('click',toggleSound);$('settings-sound').addEventListener('click',toggleSound);
-$('alarm-volume').addEventListener('input',e=>{sound.setAlarmVolume(e.target.value);syncSoundSettings();});
-$('alarm-mute').addEventListener('click',()=>{sound.toggleAlarmMute();syncSoundSettings();});
-$('alarm-preview').addEventListener('click',()=>sound.previewAlarm());
 $('auto-pistol').checked=pistolAutoOnStart;
 $('auto-pistol').addEventListener('change',event=>{
   pistolAutoOnStart=event.target.checked;
@@ -618,7 +611,7 @@ function updateHud(){
   special.classList.toggle('laser-ready',slot?.type==='laser'&&p.charge>=1);
   special.dataset.weapon=slot?.type||'';
   special.setAttribute('aria-disabled',slot?'false':'true');
-  special.setAttribute('aria-label',slot?`Fire ${WEAPONS[slot.type].name}, ${slot.ammo} shots remaining`:'No Tower weapon');
+  special.setAttribute('aria-label',slot?`Fire ${WEAPONS[slot.type].name}, ${slot.ammo} shots remaining`:'No special weapon');
   special.style.setProperty('--meter-color',slot?`#${WEAPONS[slot.type].color.toString(16).padStart(6,'0')}`:'#e9bb70');
   $('special-meter').style.strokeDasharray=`${slot?Math.max(0,Math.min(100,slot.ammo/(slot.ammoReceived??WEAPONS[slot.type].ammo)*100)):0} 100`;
   $('special-ammo').textContent=slot?slot.ammo:'';
@@ -865,15 +858,15 @@ function renderPhase6Environment(){
   }
   for(const [key,item] of phase6Sprites)if(!active.has(key)){item.destroy();phase6Sprites.delete(key);}
 }
-function renderTowerAttacks(){
+function renderPlatformAttacks(){
   const live=new Set();
   const attackSprite=(key,frames,anchorY)=>{
     live.add(key);
-    let sprite=towerAttackSprites.get(key);
-    if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,anchorY);jetLayer.addChild(sprite);towerAttackSprites.set(key,sprite);}
+    let sprite=platformAttackSprites.get(key);
+    if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,anchorY);jetLayer.addChild(sprite);platformAttackSprites.set(key,sprite);}
     return sprite;
   };
-  for(const attack of game.towerAttacks){
+  for(const attack of game.platformAttacks){
     if(attack.age<0)continue;
     const progress=Math.min(1,attack.age/attack.warning);
     const endX=attack.sourceX+attack.dx*attack.maxReach,endY=attack.sourceY+attack.dy*attack.maxReach;
@@ -910,13 +903,13 @@ function renderTowerAttacks(){
       }
     }
   }
-  for(const [id,sprite] of towerAttackSprites)if(!live.has(id)){sprite.destroy();towerAttackSprites.delete(id);}
+  for(const [id,sprite] of platformAttackSprites)if(!live.has(id)){sprite.destroy();platformAttackSprites.delete(id);}
 }
 function renderEnvironment(){
   environmentGround.clear();environmentSky.clear();
   for(const puff of [...ashPuffs,...ashVentPuffs])puff.visible=false;
   if(game.map!==MAPS.DESERT&&game.map!==MAPS.SNOW){phase6WeatherDraw.clear();for(const cloud of sandstormSprites)cloud.visible=false;}
-  if(game.map===MAPS.RIVERSIDE){renderTowerAttacks();return;}
+  if(game.map===MAPS.RIVERSIDE){renderPlatformAttacks();return;}
   if(game.map===MAPS.DESERT||game.map===MAPS.SNOW){renderPhase6Environment();return;}
   if(game.map===MAPS.STORM){
     const liveMud=new Set();
@@ -1045,7 +1038,7 @@ function renderEnvironment(){
   }
 }
 function render(){
-  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();towerWater.clear();baseWaterDraw.clear();baseLightDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();
+  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();
   if(game.map===MAPS.DESERT){
     groundDraw.moveTo(RIVER.x-34,BASE_Y+17).lineTo(RIVER.x+34,BASE_Y+17).lineTo(RIVER.x+29,RIVER.bottom-3).lineTo(RIVER.x-29,RIVER.bottom-3).closePath().fill({color:0x292d2c,alpha:.97}).stroke({color:0x8d7251,width:2,alpha:.8});
     for(const dx of [-24,-10,10,24])groundDraw.moveTo(RIVER.x+dx,BASE_Y+31).lineTo(RIVER.x+dx,RIVER.bottom-5).stroke({color:0x9b7547,width:3,alpha:.7});
@@ -1063,12 +1056,11 @@ function render(){
     const pulse=.22+.08*Math.sin(game.time*3);
     waterDraw.ellipse(RIVER.x,BASE_Y+20,82,27).stroke({color:0xff7327,width:4,alpha:pulse});
     waterDraw.ellipse(RIVER.x,BASE_Y+22,91,31).stroke({color:0xffbd56,width:1.5,alpha:pulse*.8});
-    if(game.tower.height>.05)for(let i=0;i<7;i++){
-      const side=i%2?1:-1,x=RIVER.x+side*(32+i*3),y=BASE_Y-10-(game.time*25+i*37)%Math.max(25,game.tower.height*115);
-      circle(waterDraw,x,y,1+i%2,0xff8e37,.3+game.tower.height*.2);
+    if(game.platform.phase!=='idle')for(let i=0;i<7;i++){
+      const side=i%2?1:-1,x=RIVER.x+side*(32+i*3),y=BASE_Y-10-(game.time*25+i*37)%45;
+      circle(waterDraw,x,y,1+i%2,0xff8e37,.3+.16);
     }
   }
-  towerWater.alpha=baseWaterDraw.alpha=game.map===MAPS.MAGMA||game.map===MAPS.DESERT||game.map===MAPS.SNOW?0:1;
   if(marksDrawnRevision!==game.marksRevision){
     marksDrawnRevision=game.marksRevision;scarsDraw.clear();
     for(const mark of game.marks){
@@ -1101,96 +1093,40 @@ function render(){
     sprite.alpha=rock&&obstacle.destroyed ? .55 : !obstacle.destroyed&&game.players.some(player=>player.hp>0&&player.y+FIGHTER_DEPTH_OFFSET<obstacleDepth&&player.y>obstacle.y-(crate?30:38)&&Math.abs(player.x-obstacle.x)<(crate?22:20)) ? .68 : 1;
   }
   for(const [id,sprite] of obstacleSprites)if(!liveObstacles.has(id)){sprite.destroy();obstacleSprites.delete(id);}
-  const t=game.tower;
-  // Open the hatch as the shaft starts moving and close it at the end of descent.
-  const hatchOpen=t.phase==='rise'?Math.min(1,t.progress/1.05):t.phase==='lower'?Math.min(1,Math.max(0,TOWER_TIMING.lower-t.progress)/1.05):t.phase==='rest'?0:1;
-  openCap.alpha=hatchOpen;
-  const hatchFrame=hatchOpen*3,frame=Math.min(3,Math.floor(hatchFrame));
-  hatchCurrent.texture=hatchFrames[frame];
-  hatchNext.texture=hatchFrames[Math.min(3,frame+1)];
-  hatchNext.alpha=hatchFrame-frame;
-  hatchContainer.alpha=Math.min(1,hatchOpen*5);
-  // The central column clears the hatch before its launcher arms extend. After
-  // firing, the arms fold away during delivery, before descent begins.
-  const armEase=towerArmExtension(t);
-  const {apertureTop,apertureBottom}=TOWER_GEOMETRY;
-  const halfWidth=29+61*armEase;
-  if(halfWidth!==lastTowerMaskHalfWidth){
-    lastTowerMaskHalfWidth=halfWidth;
-    towerMask.clear()
-      .rect(RIVER.x-halfWidth,RIVER.y-165,halfWidth*2,apertureTop-(RIVER.y-165)).fill(0xffffff)
-      .rect(RIVER.x-28,apertureTop,56,apertureBottom-apertureTop).fill(0xffffff);
-  }
-  // The stationary rear footing and foreground lip make the shaft emerge through the base.
-  const waterline=BASE_Y+27,baseY=TOWER_GEOMETRY.shaftBaseY+(1-t.height)*TOWER_GEOMETRY.shaftHeight;
-  tower.position.set(RIVER.x,baseY);
-  const waterStrength=Math.min(1,t.height*5);
-  for(let n=0;n<(game.map===MAPS.DESERT||game.map===MAPS.SNOW?0:3);n++){
-    const phase=(game.time*.42+n/3)%1;
-    waterDraw.ellipse(RIVER.x,BASE_Y+27,72+phase*24,16+phase*7).stroke({color:0x94dcd7,width:1.5,alpha:(1-phase)*(.2+.12*t.height)});
-  }
-  if(waterStrength>0&&game.map!==MAPS.DESERT&&game.map!==MAPS.SNOW){
-    // Rings behind the tower keep the base embedded in the river.
-    for(let n=0;n<3;n++){
-      const phase=(game.time*.7+n/3)%1;
-      waterDraw.ellipse(RIVER.x,waterline-8,47+phase*24,11+phase*10).stroke({color:0xa9e8de,width:1.5,alpha:(1-phase)*.55*waterStrength});
+  const platformState=game.platform;
+  const platformArt=platformPose(platformState.phase,platformState.progress);
+  platformSprite.texture=platformFrames[platformArt.from];
+  platformBlendSprite.texture=platformFrames[platformArt.to];
+  platformBlendSprite.alpha=platformArt.blend;
+  if(game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM){
+    const strength=platformState.phase==='idle'?.25:.48;
+    for(let ring=0;ring<3;ring++){
+      const progress=(game.time*.65+ring/3)%1;
+      waterDraw.ellipse(PLATFORM_GEOMETRY.x,BASE_Y+24,78+progress*23,23+progress*7)
+        .stroke({color:0xb8f3ed,width:1.5,alpha:(1-progress)*strength});
     }
-    // Each visible launcher has one drain directly beneath its outlet. A single
-    // shaft drain remains after the launchers retract.
-    const streams=[
-      {side:-1,offset:63,ledge:105,width:4,launcher:true},
-      {side:1,offset:63,ledge:105,width:4,launcher:true},
-      {dx:15,ledge:110,width:3,launcher:false}
-    ];
-    for(let n=0;n<streams.length;n++){
-      const stream=streams[n];
-      const dx=stream.launcher?stream.side*(28+(stream.offset-28)*armEase):stream.dx;
-      const sourceY=baseY-stream.ledge,endY=waterline-3+Math.abs(dx)*.08;
-      const opacity=waterStrength*(t.phase==='deliver'?.78:.95)*(stream.launcher?armEase:1);
-      if(sourceY>=endY||opacity<=.04)continue;
-      const x=RIVER.x+dx,length=endY-sourceY,flow=game.time*160+(stream.launcher?0:17),width=stream.width;
-      const drift=(stream.side||1)*Math.sin(game.time*3.1)*2;
-      const pathX=f=>x+drift*(f*f*(3-2*f));
-      towerWater.moveTo(x,sourceY).bezierCurveTo(x,sourceY+length*.3,x+drift,sourceY+length*.7,x+drift,endY).stroke({color:0x247d95,width:width+2,alpha:opacity*.58});
-      towerWater.moveTo(x+1,sourceY).bezierCurveTo(x+1,sourceY+length*.3,x+drift+1,sourceY+length*.7,x+drift+1,endY).stroke({color:0x9aebea,width:Math.max(1,width-2),alpha:opacity*.52});
-      for(let j=0;j<3;j++){
-        const offset=(flow+j*23)%(length+10);
-        if(offset<length)rect(towerWater,pathX(offset/length),sourceY+offset,2,Math.min(7,length-offset),0xe3ffed,opacity*.8);
-      }
-      const landingX=x+drift,splashPhase=(game.time*3+(stream.launcher?0:.27))%1;
-      towerWater.ellipse(landingX,endY+1,3+splashPhase*5,1+splashPhase*2).stroke({color:0xc7f5e9,width:1.3,alpha:(1-splashPhase)*opacity});
-      for(let j=0;j<2;j++){
-        const k=(game.time*2.1+(stream.launcher?0:.19)+j/3)%1;
-        rect(towerWater,landingX+(j-1)*k*9,endY-Math.sin(k*Math.PI)*(4+j),2,2,0xcff7ed,(1-k)*opacity);
-      }
+    for(const side of [-1,1]){
+      const x=RIVER.x+side*82,sway=Math.sin(game.time*2.2+side)*2;
+      waterDraw.moveTo(x-side*8,BASE_Y+19+sway).lineTo(x+side*8,BASE_Y+21-sway)
+        .stroke({color:0xc7f7ef,width:2,alpha:.36});
     }
+  }else if(game.map===MAPS.SNOW){
+    waterDraw.ellipse(RIVER.x,BASE_Y+20,92,28).stroke({color:0xe1f7ff,width:2,alpha:.38});
+  }else if(game.map===MAPS.MAGMA){
+    waterDraw.ellipse(RIVER.x,BASE_Y+22,88,27)
+      .stroke({color:0xff8e31,width:3,alpha:.25+.09*Math.sin(game.time*3)});
   }
-  const sway=Math.sin(game.time*2.8)*1.5, foam=.43+.18*t.height;
-  if(game.map!==MAPS.DESERT&&game.map!==MAPS.SNOW){
-  baseWaterDraw.moveTo(RIVER.x-79,BASE_Y+23+sway).bezierCurveTo(RIVER.x-57,BASE_Y+49+sway,RIVER.x+57,BASE_Y+49-sway,RIVER.x+79,BASE_Y+23-sway).stroke({color:0x195b69,width:5,alpha:.38});
-  baseWaterDraw.moveTo(RIVER.x-80,BASE_Y+23+sway).bezierCurveTo(RIVER.x-57,BASE_Y+45+sway,RIVER.x+57,BASE_Y+45-sway,RIVER.x+80,BASE_Y+23-sway).stroke({color:0xc5f6e9,width:2,alpha:foam});
-  for(const side of [-1,1]){
-    if(armEase<=.08)continue;
-    const x=RIVER.x+side*82,phase=(game.time*.85+(side+1)/4)%1;
-    baseWaterDraw.ellipse(x,BASE_Y+27,6+phase*8,2+phase*3).stroke({color:0xb8eee7,width:1.5,alpha:(1-phase)*foam*armEase});
-    circle(baseWaterDraw,x+side*5,BASE_Y+19-Math.sin(phase*Math.PI)*7,1.5,0xd6fff1,(1-phase)*foam*armEase);
-  }
-  }
-  if(t.phase==='rise'){
-    const blink=(Math.sin(game.time*10)>0?1:.06)*Math.min(1,t.progress/.25);
-    for(const [dx,dy] of [[-32,-13],[32,-13],[-34,10],[0,21],[34,10]]){
-      const x=RIVER.x+dx,y=BASE_Y+dy;
-      baseLightDraw.ellipse(x,y,15,7).fill({color:0xff1726,alpha:.32*blink});
-      baseLightDraw.ellipse(x,y,6,3.3).fill({color:0xe90019,alpha:.96*blink});
-      baseLightDraw.ellipse(x,y-1,2.4,1.2).fill({color:0xffd0c0,alpha:blink});
-    }
+  const activeLane=game.platformAttacks.find(attack=>!attack.hit&&attack.age>=0);
+  const indicatorColor=activeLane?AREA_COLORS[activeLane.type].edge:0xffb553;
+  const indicatorAlpha=platformState.phase==='idle'?.08+.07*Math.sin(game.time*2.5)**2:.12+.2*Math.sin(game.time*10)**2;
+  for(const vent of PLATFORM_GEOMETRY.attackVents){
+    muzzleDraw.ellipse(vent.x,vent.y,7,3).fill({color:indicatorColor,alpha:indicatorAlpha});
   }
   let jetCount=0;
   for(const f of game.flames){
     const alpha=f.endAge===null?1:Math.max(0,1-(f.age-f.endAge)/.34);
     if(alpha<=0)continue;
-    // The fixed side vents belong to the base, so the rising shaft never drags
-    // the ignition point or leaves a barrel floating in front of it.
+    // Fixed vents keep the ignition point attached to the platform.
     muzzleDraw.ellipse(f.x,f.y,8,5).fill({color:0xe36522,alpha:.96*alpha});
     const tip=19+Math.sin(game.time*24)*4,nx=-f.dy,ny=f.dx;
     muzzleDraw.moveTo(f.x+nx*7,f.y+ny*7).lineTo(f.x+f.dx*tip,f.y+f.dy*tip).lineTo(f.x-nx*7,f.y-ny*7).closePath().fill({color:0xff9c32,alpha:.8*alpha});
@@ -1230,7 +1166,7 @@ function render(){
     const look=pickupLook(item.type);
     active.add(item.id);let s=dropSprites.get(item.id);
     if(!s){s=new Sprite(look.art);s.anchor.set(.5);s.width=look.width;s.height=look.height;pickupFlightLayer.addChild(s);dropSprites.set(item.id,s);}
-    // Airborne drops cross above the Tower and fighters; landed drops share their ground-depth
+    // Airborne drops cross above the platform and fighters; landed drops share their ground-depth
     // order with soldiers and cover. They stay visible at the landing point.
     const layer=item.flight>0?pickupFlightLayer:obstacleLayer;
     if(s.parent!==layer)layer.addChild(s);
@@ -1332,7 +1268,7 @@ function render(){
     }
     else{const v=Math.hypot(b.vx,b.vy),ux=b.vx/v,uy=b.vy/v;
       const missileBehindShooter=b.type==='missile'&&game.players[b.owner].bank===0&&b.travel<40;
-      const shotDraw=b.type==='missile'?(missileBehindShooter?projectileDraw:aerialProjectileDraw):shotGraphics(directShotDepth(b,game.players[b.owner].bank,t.height));
+      const shotDraw=b.type==='missile'?(missileBehindShooter?projectileDraw:aerialProjectileDraw):shotGraphics(directShotDepth(b,game.players[b.owner].bank));
       if(b.type==='missile'){
         const flight=Math.min(1,b.travel/b.targetDistance),altitude=Math.sin(flight*Math.PI)*105;
         const a=Math.atan2(uy,ux),cos=Math.cos(a),sin=Math.sin(a);
@@ -1351,7 +1287,7 @@ function render(){
   for(const [id,sprite] of aerialSprites)if(!activeAerialProjectiles.has(id)){sprite.destroy();aerialSprites.delete(id);}
   for(const b of game.beams){
     const alpha=1-b.age/b.life,power=b.power??0;
-    for(const segment of laserDepthSegments(b.y,b.endY,t.height)){
+    for(const segment of laserDepthSegments(b.y,b.endY)){
       const shotDraw=shotGraphics(segment.depth),start={x:b.x,y:segment.from},end={x:b.x,y:segment.to};
       line(shotDraw,start,end,8+16*power,0xa70f22,alpha*(.24+.18*power));
       line(shotDraw,start,end,4+8*power,0xff283d,alpha);
@@ -1391,20 +1327,17 @@ function render(){
         const a=n*Math.PI/5+e.seed;
         rect(draw,e.x+Math.cos(a)*radius*.82,e.y-8+Math.sin(a)*radius*.48,3,3,n%2?0x59bbff:0xb6f4ff,1-k);
       }
-    }else if(e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast'){
-      let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);(e.type==='towerImpact'?towerBlastLayer:groundBlastLayer).addChild(s);blastSprites.set(e.id,s);}
-      const towerHit=e.type==='towerImpact';
+    }else if(e.type==='explosion'||e.type==='barrelBlast'){
+      let s=blastSprites.get(e.id);if(!s){s=new Sprite(blastFrames[0]);s.anchor.set(.5);groundBlastLayer.addChild(s);blastSprites.set(e.id,s);}
       const barrelHit=e.type==='barrelBlast';
-      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-(towerHit?2:11)*k);s.width=towerHit?52:barrelHit?126:112;s.height=towerHit?52:barrelHit?126:112;s.alpha=1-k*.28;
-      if(!towerHit){
-        const radius=8+k*(barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile);
-        drawBlastZone(groundDraw,e.x,e.y,barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile,k,'missile');
-        if(barrelHit){
-          groundDraw.ellipse(e.x,e.y+4,radius*.64,radius*.28).fill({color:0xff612e,alpha:(1-k)*.22});
-        }else{
-          groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
-          groundDraw.ellipse(e.x,e.y+4,radius*.65,radius*.17).fill({color:0x6b3d24,alpha:(1-k)*.15});
-        }
+      s.texture=blastFrames[Math.min(7,Math.floor(k*8))];s.position.set(e.x,e.y-11*k);s.width=barrelHit?126:112;s.height=barrelHit?126:112;s.alpha=1-k*.28;
+      const radius=8+k*(barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile);
+      drawBlastZone(groundDraw,e.x,e.y,barrelHit?BARREL_BLAST_RADIUS:BLAST_RADIUS.missile,k,'missile');
+      if(barrelHit){
+        groundDraw.ellipse(e.x,e.y+4,radius*.64,radius*.28).fill({color:0xff612e,alpha:(1-k)*.22});
+      }else{
+        groundDraw.ellipse(e.x,e.y+4,radius,radius*.27).stroke({color:0xf3c477,width:2,alpha:(1-k)*.65});
+        groundDraw.ellipse(e.x,e.y+4,radius*.65,radius*.17).fill({color:0x6b3d24,alpha:(1-k)*.15});
       }
       for(let n=0;n<7;n++){const a=n*2.4+e.seed;rect(draw,e.x+Math.cos(a)*k*43,e.y+Math.sin(a)*k*43,3,3,0xffb65c,1-k);}
     }else if(e.type==='crateHit'){
@@ -1427,9 +1360,10 @@ function render(){
         circle(groundDraw,e.x+Math.cos(a)*radius*.8,e.y+10+Math.sin(a)*radius*.2,2+k*2,0x9e9576,(1-k)*.38);
       }
     }else if(e.type==='launch'){
-      circle(draw,e.x,e.y,4+13*k,0xffb45a,(1-k)*.55);
-      circle(draw,e.x,e.y,3+5*k,0xfff0bb,1-k);
-      for(let n=0;n<5;n++){const a=n*Math.PI*2/5+e.seed;rect(draw,e.x+Math.cos(a)*k*17,e.y+Math.sin(a)*k*17,3,3,0xffc06e,1-k);}
+      let fx=launchFxSprites.get(e.id);
+      if(!fx){fx=new Sprite(launchFxFrames[0]);fx.anchor.set(.5,.8);pickupFlightLayer.addChild(fx);launchFxSprites.set(e.id,fx);}
+      fx.texture=launchFxFrames[Math.min(7,Math.floor(k*8))];
+      fx.position.set(e.x,e.y);fx.width=43;fx.height=50;fx.alpha=1-k*.25;
     }else if(e.type==='iceBurst'){
       groundDraw.ellipse(e.x,e.y+3,8+k*26,4+k*12).stroke({color:0x9ce5ff,width:2,alpha:1-k});
       for(let n=0;n<11;n++){
@@ -1451,8 +1385,10 @@ function render(){
       for(let i=0;i<10;i++){const a=i*2.4+e.seed,spread=23*Math.min(1,k*3)*(1+effectNoise(e.seed,i)*.4);const x=e.x+Math.cos(a)*spread,y=e.y+Math.sin(a)*spread;rect(groundDraw,x,y,3+i%4,2+i%3,i%3?0x8c0c17:0xd12730,1-k*.35);}
     }else{for(let n=0;n<6;n++){const a=n*1.05;rect(draw,e.x+Math.cos(a)*k*30,e.y+Math.sin(a)*k*30,3,3,0xffdf92,1-k);}}
   }
-  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='towerImpact'||e.type==='barrelBlast'||e.type==='nuclearBlast').map(e=>e.id));
+  const activeBlast=new Set(game.effects.filter(e=>e.type==='explosion'||e.type==='barrelBlast'||e.type==='nuclearBlast').map(e=>e.id));
   for(const [id,s]of blastSprites)if(!activeBlast.has(id)){s.destroy();blastSprites.delete(id);}
+  const activeLaunch=new Set(game.effects.filter(e=>e.type==='launch').map(e=>e.id));
+  for(const [id,s]of launchFxSprites)if(!activeLaunch.has(id)){s.destroy();launchFxSprites.delete(id);}
   renderEnvironment();
   if(stick){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
@@ -1460,14 +1396,15 @@ function render(){
   }
 }
 async function boot(){
-  const coreArt=['arena.png','sprites.png','tower-v2.png','tower-cap.png','tower-base-open.png','tower-hatch-frames.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','rock-barrier.png','healing-syringe.png'];
+  const coreArt=['arena.png','sprites.png','flames.png','explosions.png','laser-gun.png','stun-launcher-blue.png','stun-grenade-blue.png','smart-missile-launcher.png','smart-missile.png','rock-barrier.png','healing-syringe.png'];
+  const phase8Art=['platform-frames.webp','platform-launch-fx-frames.webp'];
   const phase2Art=['nuclear-launcher.png','nuclear-grenade.png','nuclear-waste-frames.png','nuclear-mushroom-frames.png','breakable-crate-depth-frames.png','oil-barrel-frames.png'];
   const phase5Art=['arena-storm.webp','arena-magma.webp','phase5-volcanic-rock.png','phase5-tornado-frames.png','phase5-volcano-vent.png','phase5-mud.png','phase5-lightning-frames.png','phase5-ash-cloud.png','phase5-lava-projectile-frames.png','phase5-lava-pool-frames.png','phase5-burning-rock-frames.png','phase5-burning-rock-ground-frames.png','phase5-rock-cooling-frames.png'];
   const phase6Art=['arena-desert.webp','arena-snow.webp','rock-barrier-snow.png','eagle-frames.png','scorpion-frames.png','quicksand-frames.png','avalanche-river-frames.png','hail-cloud-frames.png','hail-icicle-frames.png','ice-patch-frames.png','sandstorm-frames.png','mirage-frames.png'];
   const fighterIds=CHARACTERS.map(character=>character.id);
   const phase7Art=[...fighterIds.map(id=>`${id}-frontfire.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
   const phase7SideArt=fighterIds.map(id=>`${id}-sidewalk.webp`);
-  const artCount=coreArt.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length;
+  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{
     const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
@@ -1480,10 +1417,11 @@ async function boot(){
   app=new Application();await app.init({width:W,height:H,background:'#394e45',antialias:false,resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,preference:'webgl'});
   app.ticker.maxFPS=60;
   app.canvas.style.width='100%';app.canvas.style.height='100%';$('arena').prepend(app.canvas);
-  const [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
+  const [bg,atlas,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt]=await Promise.all([
     ...coreArt.map(path=>loadArt('',path)),
     ...phase2Art.map(path=>loadArt('phase2/',path)),
   ]);
+  const [platformArt,launchFxArt]=await Promise.all(phase8Art.map(path=>loadArt('phase8/',path)));
   const [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt]=await Promise.all(
     phase5Art.map(path=>loadArt('',path))
   );
@@ -1492,9 +1430,10 @@ async function boot(){
   );
   const phase7Sheets=await Promise.all(phase7Art.map(path=>loadArt('phase7/',path)));
   const sideSheets=await Promise.all(phase7SideArt.map(path=>loadArt('phase7/',path)));
-  for(const art of [bg,atlas,towerArt,capArt,openCapArt,hatchArt,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
+  for(const art of [bg,atlas,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
+  for(const art of [platformArt,launchFxArt])art.source.scaleMode='nearest';
   for(const art of phase7Sheets)art.source.scaleMode='nearest';
   for(const art of sideSheets)art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
@@ -1531,11 +1470,11 @@ async function boot(){
   burningRockFlightFrames=cut(burningRockFlightArt,6,1);burningRockGroundFrames=cut(burningRockGroundArt,6,1);
   rockCoolingFrames=cut(rockCoolingArt,6,1);
   phase6Frames={eagle:cut(eagleArt,6,1),scorpion:cut(scorpionArt,6,1),quicksand:cut(quicksandArt,4,1),avalanche:cut(avalancheArt,4,1),hailCloud:cut(hailCloudArt,4,1),hailIcicle:cut(hailIcicleArt,6,1),ice:cut(icePatchArt,4,1),sandstorm:cut(sandstormArt,6,1),mirage:cut(mirageArt,4,1)};
-  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);hatchFrames=cut(hatchArt,4,1);
+  flameFrames=cut(flameArt,4,2);blastFrames=cut(blastArt,4,2);platformFrames=cut(platformArt,4,2);launchFxFrames=cut(launchFxArt,4,2);
   wasteFrames=cut(wasteArt,4,1);mushroomFrames=cut(mushroomArt,4,1);crateFrames=cut(crateArt,3,1);barrelFrames=cut(barrelArt,3,1);
   laserTexture=new Texture({source:laserArt.source,frame:new Rectangle(33,418,1200,486)});stunLauncherTexture=stunLauncherArt;stunGrenadeTexture=stunGrenadeArt;missileLauncherTexture=missileLauncherArt;missileTexture=missileArt;nuclearLauncherTexture=nuclearLauncherArt;nuclearGrenadeTexture=nuclearGrenadeArt;syringeTexture=healArt;
   world=new Container();app.stage.addChild(world);
-  // Every map uses the same physical slices, so the banks and tower stay aligned.
+  // Every map uses the same physical slices, so the banks and platform stay aligned.
   for(const [map,art] of [[MAPS.RIVERSIDE,bg],[MAPS.STORM,stormBg],[MAPS.MAGMA,magmaBg],[MAPS.DESERT,desertBg],[MAPS.SNOW,snowBg]]){
     const group=new Container(),artTop=art.height*248/720,artBottom=art.height*410/720;
     for(const [sourceY,sourceHeight,destY,destHeight] of [
@@ -1559,38 +1498,17 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();towerBlastLayer=new Container();
-  // Bank blasts cover fighters, but the Tower and bank walls still occlude them.
-  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,jetLayer,fireSmoke,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
-  tower=new Sprite(new Texture({source:towerArt.source,frame:new Rectangle(0,0,towerArt.width,1120)}));tower.anchor.set(.5,1);tower.width=170;tower.height=TOWER_GEOMETRY.shaftHeight;
-  towerMask=new Graphics();
-  cap=new Sprite(capArt);cap.anchor.set(.5);cap.width=BASE_WIDTH;cap.height=BASE_HEIGHT;cap.position.set(RIVER.x,BASE_Y);
-  const capCut=Math.floor(capArt.height*.525);
-  capFront=new Sprite(new Texture({source:capArt.source,frame:new Rectangle(0,capCut,capArt.width,capArt.height-capCut)}));
-  capFront.anchor.set(.5,0);capFront.width=BASE_WIDTH;capFront.height=BASE_HEIGHT*(capArt.height-capCut)/capArt.height;
-  capFront.position.set(RIVER.x,BASE_Y-BASE_HEIGHT/2+BASE_HEIGHT*capCut/capArt.height);
-  // The open art has a slightly larger opaque silhouette; match its visible bounds
-  // to the closed art before revealing only the hatch inside the fixed outer shell.
-  openCap=new Sprite(openCapArt);openCap.anchor.set(.5);openCap.width=BASE_WIDTH*(1154/1198);openCap.height=BASE_HEIGHT*(711/733);openCap.position.set(RIVER.x,BASE_Y+1);openCap.alpha=0;
-  const hatchMask=new Graphics().ellipse(RIVER.x,BASE_Y-21,61,32).fill(0xffffff);
-  openCap.mask=hatchMask;
-  hatchContainer=new Container();
-  for(const sprite of [hatchCurrent=new Sprite(hatchFrames[0]),hatchNext=new Sprite(hatchFrames[1])]){
-    sprite.anchor.set(.5);sprite.width=BASE_WIDTH;sprite.height=BASE_HEIGHT;sprite.position.set(RIVER.x,BASE_Y);
-    hatchContainer.addChild(sprite);
+  waterDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();
+  platformSprite=new Sprite(platformFrames[0]);platformBlendSprite=new Sprite(platformFrames[0]);
+  for(const part of [platformSprite,platformBlendSprite]){
+    part.anchor.set(.5);part.position.set(PLATFORM_GEOMETRY.x,PLATFORM_GEOMETRY.y);
+    part.width=PLATFORM_GEOMETRY.width;part.height=PLATFORM_GEOMETRY.height;
   }
-  hatchContainer.alpha=0;
-  const hatchSpriteMask=new Graphics().ellipse(RIVER.x,BASE_Y-21,59,30).fill(0xffffff);
-  hatchContainer.mask=hatchSpriteMask;
-  frontProjectileDraw=new Graphics();
-  world.addChild(cap,openCap,hatchMask,hatchContainer,hatchSpriteMask,tower,towerMask,capFront,frontProjectileDraw);tower.mask=towerMask;
-  towerWater=new Graphics();baseWaterDraw=new Graphics();baseVentDraw=new Graphics();baseLightDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();world.addChild(towerWater,baseWaterDraw,baseVentDraw,baseLightDraw,aerialProjectileDraw,aerialSpriteLayer,towerBlastLayer);
-  for(const side of [-1,1]){
-    const x=RIVER.x+side*TOWER_GEOMETRY.fireVentOffsetX,y=TOWER_GEOMETRY.fireVentY;
-    baseVentDraw.ellipse(x-side*3,y+2,17,11).fill({color:0x121d20,alpha:.96});
-    baseVentDraw.ellipse(x-side*3,y,13,8).stroke({color:0xa5793e,width:2,alpha:.9});
-    baseVentDraw.ellipse(x,y,8,5).fill({color:0x45291f,alpha:.95});
-  }
+  platformBlendSprite.alpha=0;
+  // The deck sits below every projectile pass; it never occludes a crossing shot.
+  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,fireSmoke,platformSprite,platformBlendSprite,jetLayer,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
+  frontProjectileDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();
+  world.addChild(frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer);
   for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);s.visible=false;soldiers.push(s);obstacleLayer.addChild(s);}
   for(let i=0;i<4;i++){const s=new Sprite(characterDeathFrames.get(fighterIds[i]).south[0].texture);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
   stunDraw=new Graphics();world.addChild(stunDraw);
@@ -1598,7 +1516,7 @@ async function boot(){
   // The lower wall covers only a fighter's feet at the back edge.
   nearBarrier=new Sprite(rockArt);nearBarrier.width=W;nearBarrier.height=100;
   nearBarrier.position.set(W,H-78);nearBarrier.scale.x*=-1;world.addChild(nearBarrier);
-  // Tower and wall art must sit behind a weapon while it is being thrown.
+  // Platform and wall art sit behind a weapon while it is being thrown.
   // On landing, its sprite moves back to obstacleLayer for ground depth sorting.
   world.addChild(pickupFlightLayer);
   environmentSky=new Graphics();lightningLayer=new Container();ashCloudLayer=new Container();
@@ -1638,7 +1556,7 @@ async function boot(){
       for(const event of game.events){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
-        else if(event.type!=='rise'&&event.type!=='lower'&&event.type!=='sandstorm'&&event.type!=='hail')sound.play(event.type,event.x);
+        else if(event.type!=='sandstorm'&&event.type!=='hail')sound.play(event.type,event.x);
         if(event.type==='heal'){
           showNumber(event.player,event.amount,true);
           if(event.player===0)toast(`HEALED +${Math.ceil(event.amount)}`);
@@ -1654,7 +1572,7 @@ async function boot(){
       game.events=[];
       sound.burn(game.flames.length>0||game.volcanicFire.some(f=>f.hit)||game.obstacles.some(o=>o.type==='rock'&&!o.destroyed&&o.burning>0));
       sound.environment(game.map,!!game.sandstorm);
-      sound.tower(game.tower.phase,game.tower.height,game.tower.progress,game.map);
+      sound.platform(game.platform.phase,game.map);
     } else accumulator=0;
     for(const label of document.querySelectorAll('.opponent-toast'))if(performance.now()>Number(label.dataset.until||0))label.style.opacity=0;
     if(game.finished&&!finishedShown){
@@ -1663,8 +1581,8 @@ async function boot(){
       $('overlay').classList.add('result');document.querySelector('.game-unit').classList.add('ended');
       const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
       const survivors=game.players.filter(fighter=>fighter.hp>0).map(fighter=>CHARACTER_BY_ID[fighter.characterId]?.name).join(' & ');
-      const omen=drawn?'The Tower spared no team.':won?game.players[0].hp>0?'The Tower took the other side. You remain.':`Your ally ${survivors} survived the Tower's deal.`:'The Tower took your side. The other team remains.';
-      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?game.players[0].hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} tower drops`,'PLAY AGAIN',omen);
+      const omen=drawn?'Neither team survived.':won?game.players[0].hp>0?'The other side fell. You remain.':`Your ally ${survivors} survived the fight.`:'Your side fell. The other team remains.';
+      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?game.players[0].hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN',omen);
     }
     const animating=starting||started&&!paused&&!game.finished;
     if(animating||sceneDirty){render();if(animating)syncHudPositions();else updateHud();sceneDirty=false;}
@@ -1673,6 +1591,6 @@ async function boot(){
     if(!animating){app.renderer.render(app.stage);app.ticker.stop();}
   });
   // Read-only diagnostics for development and reproducible manual QA.
-  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,tower:game.tower,towerAttacks:game.towerAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
+  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,platform:game.platform,platformAttacks:game.platformAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
 }
 boot().catch(error=>{console.error(error);$('menu').classList.add('hidden');$('overlay').classList.remove('hidden');$('overlay-title').textContent='LOAD FAILED';$('overlay-copy').textContent=import.meta.env.DEV?String(error):'The game could not load its graphics. Please reload in a browser with WebGL enabled.';$('start').textContent='RELOAD';$('start').disabled=false;$('start').onclick=()=>location.reload();});
