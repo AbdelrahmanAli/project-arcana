@@ -40,6 +40,7 @@ let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowB
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
 let sceneDirty=true;
 const BASE_Y=PLATFORM_GEOMETRY.y;
+const PLATFORM_SIDE_FOAM_RISE=8;
 // Fighters are tall sprites anchored at their center; sort by their boots, not their torso.
 const FIGHTER_DEPTH_OFFSET=36;
 const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12;
@@ -1051,10 +1052,10 @@ function renderPlatformContact(){
     .fill({color:0x086071,alpha:.58});
   const sway=platformContactSway(time);
   for(const side of [-1,1]){
-    platformContactDraw.moveTo(x+side*80,y+24+sway)
-      .quadraticCurveTo(x+side*97,y+31+sway,x+side*85,y+39+sway)
+    platformContactDraw.moveTo(x+side*80,y+24-PLATFORM_SIDE_FOAM_RISE+sway)
+      .quadraticCurveTo(x+side*97,y+31-PLATFORM_SIDE_FOAM_RISE+sway,x+side*85,y+39-PLATFORM_SIDE_FOAM_RISE+sway)
       .stroke({color:0x7bd8dd,width:3,alpha:.67});
-    platformContactDraw.moveTo(x+side*92,y+30+sway).lineTo(x+side*108,y+34+sway)
+    platformContactDraw.moveTo(x+side*92,y+30-PLATFORM_SIDE_FOAM_RISE+sway).lineTo(x+side*108,y+34-PLATFORM_SIDE_FOAM_RISE+sway)
       .stroke({color:0xd5f8ee,width:1.5,alpha:.32});
   }
   for(let index=0;index<5;index++){
@@ -1135,7 +1136,7 @@ function render(){
       for(let wake=0;wake<3;wake++){
         const progress=(game.time*.55+wake/3)%1;
         const x=RIVER.x+side*(83+progress*30),sway=Math.sin(game.time*2.2+wake)*2;
-        waterDraw.moveTo(x-side*9,BASE_Y+21+sway+wake*8).lineTo(x+side*8,BASE_Y+22+sway+wake*8)
+        waterDraw.moveTo(x-side*9,BASE_Y+21-PLATFORM_SIDE_FOAM_RISE+sway+wake*8).lineTo(x+side*8,BASE_Y+22-PLATFORM_SIDE_FOAM_RISE+sway+wake*8)
           .stroke({color:0xc7f7ef,width:1.5,alpha:(1-progress)*strength});
       }
     }
