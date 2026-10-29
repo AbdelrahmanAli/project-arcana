@@ -1304,6 +1304,11 @@ function render(){
       }
     }
   }
+  // The pool always has four sprites, but 1v1 uses only the first two.
+  for(let i=game.players.length;i<soldiers.length;i++){
+    soldiers[i].visible=false;
+    corpses[i].visible=false;
+  }
   const activeAerialProjectiles=new Set();
   for(const b of game.bullets){
     if(b.type==='missile'||b.type==='grenade'||b.type==='nuclear')drawTargetLock(groundDraw,b.tx,b.ty,BLAST_RADIUS[b.type],game.time,b.type);
@@ -1565,7 +1570,7 @@ async function boot(){
     baseVentDraw.ellipse(x-side*3,y,13,8).stroke({color:0xa5793e,width:2,alpha:.9});
     baseVentDraw.ellipse(x,y,8,5).fill({color:0x45291f,alpha:.95});
   }
-  for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);soldiers.push(s);obstacleLayer.addChild(s);}
+  for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);s.visible=false;soldiers.push(s);obstacleLayer.addChild(s);}
   for(let i=0;i<4;i++){const s=new Sprite(characterDeathFrames.get(fighterIds[i]).south[0].texture);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
   stunDraw=new Graphics();world.addChild(stunDraw);
   world.addChild(muzzleDraw);
