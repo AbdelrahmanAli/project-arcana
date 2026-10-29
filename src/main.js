@@ -31,7 +31,7 @@ try {const saved=localStorage.getItem(PISTOL_PREF_KEY);if(saved!==null)pistolAut
 catch { /* Private browsing may deny storage. */ }
 let pistolAuto=false,pistolHoldStart=0,pistolHoldTimer=null,pistolCancelKeyUntilRelease=false;
 let pistolHintTimer=null;
-let textures=[],flameFrames=[],blastFrames=[],platformFrames=[],launchFxFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,platformContactDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,pickupFlightLayer,joystickDraw,screenHitDraw,platformSprite,platformBlendSprite,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),platformAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map(),launchFxSprites=new Map();
+let textures=[],flameFrames=[],blastFrames=[],platformFrames=[],launchFxFrames=[],wasteFrames=[],mushroomFrames=[],crateFrames=[],barrelFrames=[],laserTexture,stunLauncherTexture,stunGrenadeTexture,missileLauncherTexture,missileTexture,nuclearLauncherTexture,nuclearGrenadeTexture,syringeTexture,app,world,draw,projectileDraw,fighterFrontProjectileDraw,frontProjectileDraw,aerialProjectileDraw,rearAerialSpriteLayer,aerialSpriteLayer,groundDraw,scarsDraw,stunDraw,marksDrawnRevision=-1,waterDraw,waterTile,platformContactDraw,platformSignalDraw,muzzleDraw,fireSmoke,flameLayer,jetLayer,hazardLayer,debrisLayer,obstacleLayer,groundBlastLayer,pickupFlightLayer,joystickDraw,screenHitDraw,platformSprite,platformBlendSprite,soldiers=[],corpses=[],dropSprites=new Map(),aerialSprites=new Map(),wasteSprites=new Map(),obstacleSprites=new Map(),platformAttackSprites=new Map(),flameSprites=[],jetSprites=[],blastSprites=new Map(),launchFxSprites=new Map();
 const characterFrames=new Map();
 const characterSideFrames=new Map();
 const characterRollFrames=new Map();
@@ -1068,8 +1068,20 @@ function renderPlatformContact(){
     }
   }
 }
+function renderPlatformLaunchLights(state){
+  if(state.phase!=='launch')return;
+  const pulse=Math.max(0,Math.sin(state.progress*Math.PI*8));
+  if(pulse<=0)return;
+  const x=PLATFORM_GEOMETRY.x,y=BASE_Y;
+  // These positions follow the four lamps painted on the bank-facing armor.
+  for(const [dx,dy,rx,ry] of [[-54,-24,6,4],[54,-24,6,4],[-38,40,7,4],[38,40,7,4]]){
+    platformSignalDraw.ellipse(x+dx,y+dy,rx*2.4,ry*2.4).fill({color:0xc9000c,alpha:.42*pulse});
+    platformSignalDraw.ellipse(x+dx,y+dy,rx,ry).fill({color:0xff1018,alpha:.95*pulse});
+    platformSignalDraw.ellipse(x+dx,y+dy,rx*.38,ry*.4).fill({color:0xff9995,alpha:.75*pulse});
+  }
+}
 function render(){
-  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();platformContactDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();screenHitDraw.clear();
+  draw.clear();projectileDraw.clear();fighterFrontProjectileDraw.clear();frontProjectileDraw.clear();aerialProjectileDraw.clear();groundDraw.clear();stunDraw.clear();waterDraw.clear();platformContactDraw.clear();platformSignalDraw.clear();muzzleDraw.clear();fireSmoke.clear();joystickDraw.clear();screenHitDraw.clear();
   if(game.map===MAPS.DESERT){
     groundDraw.moveTo(RIVER.x-34,BASE_Y+17).lineTo(RIVER.x+34,BASE_Y+17).lineTo(RIVER.x+29,RIVER.bottom-3).lineTo(RIVER.x-29,RIVER.bottom-3).closePath().fill({color:0x292d2c,alpha:.97}).stroke({color:0x8d7251,width:2,alpha:.8});
     for(const dx of [-24,-10,10,24])groundDraw.moveTo(RIVER.x+dx,BASE_Y+31).lineTo(RIVER.x+dx,RIVER.bottom-5).stroke({color:0x9b7547,width:3,alpha:.7});
@@ -1129,6 +1141,7 @@ function render(){
   platformSprite.texture=platformFrames[platformArt.from];
   platformBlendSprite.texture=platformFrames[platformArt.to];
   platformBlendSprite.alpha=platformArt.blend;
+  renderPlatformLaunchLights(platformState);
   if(game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM){
     waterDraw.ellipse(PLATFORM_GEOMETRY.x,BASE_Y+27,98,40).fill({color:0x073c48,alpha:.28});
     const strength=platformState.phase==='idle'?.25:.48;
@@ -1535,7 +1548,7 @@ async function boot(){
     const vent=new Sprite(ventArt);vent.anchor.set(.5);vent.width=105;vent.height=84;
     vent.position.set(x,RIVER.y);vent.visible=false;volcanoVents.push(vent);world.addChild(vent);
   }
-  waterDraw=new Graphics();platformContactDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();
+  waterDraw=new Graphics();platformContactDraw=new Graphics();platformSignalDraw=new Graphics();scarsDraw=new Graphics();groundDraw=new Graphics();environmentGround=new Graphics();mudLayer=new Container();hazardLayer=new Container();debrisLayer=new Container();obstacleLayer=new Container();obstacleLayer.sortableChildren=true;pickupFlightLayer=new Container();flameLayer=new Container();jetLayer=new Container();fireSmoke=new Graphics();projectileDraw=new Graphics();fighterFrontProjectileDraw=new Graphics();rearAerialSpriteLayer=new Container();groundBlastLayer=new Container();
   platformSprite=new Sprite(platformFrames[0]);platformBlendSprite=new Sprite(platformFrames[0]);
   for(const part of [platformSprite,platformBlendSprite]){
     part.anchor.set(.5);part.position.set(PLATFORM_GEOMETRY.x,PLATFORM_GEOMETRY.y);
@@ -1543,7 +1556,7 @@ async function boot(){
   }
   platformBlendSprite.alpha=0;
   // The deck sits below every projectile pass; it never occludes a crossing shot.
-  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,fireSmoke,platformSprite,platformBlendSprite,platformContactDraw,jetLayer,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
+  world.addChild(waterDraw,scarsDraw,groundDraw,mudLayer,environmentGround,hazardLayer,debrisLayer,flameLayer,fireSmoke,platformSprite,platformBlendSprite,platformContactDraw,platformSignalDraw,jetLayer,projectileDraw,rearAerialSpriteLayer,obstacleLayer,fighterFrontProjectileDraw,groundBlastLayer);
   frontProjectileDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();
   world.addChild(frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer);
   for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);s.visible=false;soldiers.push(s);obstacleLayer.addChild(s);}
