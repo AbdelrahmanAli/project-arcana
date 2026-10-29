@@ -337,7 +337,7 @@ function prepareMatch(mapOverride=null){
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');$('pause').textContent='Ⅱ';
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,volcanicFireSprites,mudSprites,phase6Sprites,towerAttackSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,towerAttackSprites])clearSpriteMap(map);
   for(const sprite of sandstormSprites)sprite.visible=false;
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;
