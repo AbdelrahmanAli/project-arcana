@@ -13,6 +13,7 @@ test('six distinct characters contain three women and three men', () => {
 
 test('every death sheet has ordered pose cuts for both facing directions', () => {
   for(const character of CHARACTERS){
+    assert.ok(character.deathScale>=1&&character.deathScale<=1.3,character.id);
     assert.equal(character.deathCuts.length,2,character.id);
     for(const cuts of character.deathCuts){
       assert.equal(cuts.length,3,character.id);
@@ -41,20 +42,48 @@ test('2v2 spawns equal teams with independent fighter identities and two weapon 
   assert.equal(weapons.filter(item => item.owner === 1).length, 2);
 });
 
-test('one fighter cannot consume both Tower weapon drops from a 2v2 launch', () => {
+test('a surviving fighter can stack both matching Tower drops in 2v2', () => {
   const match = new Match(() => .5, { format: '2v2', mode: GAME_MODES.CHOOSE_FIXED, weapon: 'rifle' });
   match.launch();
   const [first, second] = match.pickups.filter(item => item.owner === 0 && item.type === 'rifle');
   const player = match.players[0], ally = match.players[2];
+  ally.hp = 0;
   first.flight = second.flight = 0;
   player.x = first.x; player.y = first.y;
   assert.equal(match.collect(player, first), true);
   player.x = second.x; player.y = second.y;
-  assert.equal(match.collect(player, second), false);
-  assert.ok(second.ttl > 0);
-  ally.x = second.x; ally.y = second.y;
-  assert.equal(match.collect(ally, second), true);
-  assert.equal(ally.slot.type, 'rifle');
+  assert.equal(match.collect(player, second), true);
+  assert.equal(player.slot.ammo, 20);
+  assert.equal(second.ttl, 0);
+});
+
+test('a computer teammate can stack two Tower lasers and fire both rounds', () => {
+  const match = new Match(() => .5, { format: '2v2', mode: GAME_MODES.CHOOSE_FIXED, weapon: 'laser' });
+  match.launch();
+  const drops = match.pickups.filter(item => item.owner === 0 && item.type === 'laser');
+  const ally = match.players[2], enemy = match.players[1];
+  for(const drop of drops){drop.flight=0;ally.x=drop.x;ally.y=drop.y;assert.equal(match.collect(ally,drop),true);}
+  assert.equal(ally.slot.ammo,2);
+  match.pickups=[];match.obstacles.forEach(obstacle=>obstacle.destroyed=true);
+  ally.x=enemy.x=200;ally.y=720;enemy.y=230;
+  match.move=()=>{};
+  match.nextDrop=Infinity;
+  for(let tick=0;tick<120;tick++)match.update(1/30,{});
+  assert.equal(match.events.filter(event=>event.type==='shot'&&event.player===ally.id&&event.weapon==='laser').length,2);
+  assert.equal(ally.slot,null);
+});
+
+test('Riverside 2v2 Tower volleys lock one line to each living fighter', () => {
+  const match = new Match(() => .5, { format: '2v2', map: MAPS.RIVERSIDE });
+  match.startTowerVolley('rise');
+  assert.deepEqual(match.towerAttacks.map(attack=>attack.targetId),[0,2,1,3]);
+  assert.deepEqual(match.towerAttacks.map(attack=>attack.owner),[0,0,1,1]);
+  assert.ok(match.towerAttacks[1].age<0);
+  assert.ok(match.towerAttacks[3].age<0);
+  match.players[2].hp=0;
+  match.towerAttacks=[];
+  match.startTowerVolley('lower');
+  assert.deepEqual(match.towerAttacks.map(attack=>attack.targetId),[0,1,3]);
 });
 
 test('friendly weapon blasts are harmless but the hostile team takes damage', () => {

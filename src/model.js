@@ -27,7 +27,7 @@ export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
-export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.5, lightningSpeed:620, lightningWidth:22, lightningDamage:14, icicleSpeed:440, icicleWidth:20, icicleDamage:10 };
+export const TOWER_VOLLEY = { riseAt:2.45, lowerAt:1.45, warning:.5, fighterStagger:.32, lightningSpeed:620, lightningWidth:22, lightningDamage:14, icicleSpeed:440, icicleWidth:20, icicleDamage:10 };
 export const DEATH_DURATION = 4.4;
 const easeLift = t => { const x=Math.max(0,Math.min(1,t)); return x*x*x*(x*(x*6-15)+10); };
 export const WEAPONS = {
@@ -107,7 +107,7 @@ export function segmentTowerHit(a,b,tower) {
   return hits.reduce((nearest,hit)=>distance(a,hit)<distance(a,nearest)?hit:nearest);
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,towerWeaponCycle:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -197,7 +197,7 @@ export class Match {
     this.obstacles=this.makeObstacles();
     this.placeFighters();
     if(this.map===MAPS.SNOW)this.addIcePatches();
-    this.tower={ phase:'rest', progress:0, height:0, riseAttack:false, lowerAttack:false, cycle:-1 };
+    this.tower={ phase:'rest', progress:0, height:0, riseAttack:false, lowerAttack:false };
     this.nextDrop=2.5;
     this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,pickupId:null,focusId:null,fire:false,lastSeen:null,lastSeenAt:-Infinity}]));
     this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
@@ -695,14 +695,12 @@ export class Match {
       this.emit('heal',{player:p.id,amount,x:p.x});
       return true;
     }
-    if(this.format==='2v2'&&item.source==='tower'&&p.towerWeaponCycle===item.cycle)return false;
     if(p.slot&&p.slot.type!==item.type)return false;
     const ammo=WEAPONS[item.type].ammo,stacked=!!p.slot;
     if(stacked){
       p.slot.ammoReceived=(p.slot.ammoReceived??p.slot.ammo)+ammo;
       p.slot.ammo+=ammo;
     }else p.slot={type:item.type,ammo,ammoReceived:ammo};
-    if(this.format==='2v2'&&item.source==='tower')p.towerWeaponCycle=item.cycle;
     item.ttl=0;
     this.emit('pickup',{player:p.id,weapon:item.type,...(stacked?{ammoAdded:ammo}:{})});
     return true;
@@ -803,13 +801,14 @@ export class Match {
     for(const owner of [0,1]){
       const fighters=this.fightersOnBank(owner);
       if(!fighters.length)continue;
-      const p=fighters[Math.floor(this.random()*fighters.length)];
-      const bank=BANK_BOUNDS[owner];
-      const x=clamp(p.x,35,W-35),y=clamp(p.y,bank.minY+24,bank.maxY-24);
-      const sourceX=RIVER.x+(owner===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,sourceY=TOWER_GEOMETRY.fireVentY;
-      const length=Math.max(1,Math.hypot(x-sourceX,y-sourceY)),dx=(x-sourceX)/length,dy=(y-sourceY)/length;
-      const maxReach=flameReach(sourceX,sourceY,dx,dy),speed=type==='lightning'?TOWER_VOLLEY.lightningSpeed:TOWER_VOLLEY.icicleSpeed;
-      this.towerAttacks.push({id:this.id++,phase,type,owner,x,y,sourceX,sourceY,dx,dy,maxReach,reach:0,age:0,warning:TOWER_VOLLEY.warning,life:TOWER_VOLLEY.warning+(type==='fire'?.35:maxReach/speed+.35),hit:false,damaged:new Set(),marked:0});
+      for(const [index,p] of fighters.entries()){
+        const bank=BANK_BOUNDS[owner];
+        const x=clamp(p.x,35,W-35),y=clamp(p.y,bank.minY+24,bank.maxY-24);
+        const sourceX=RIVER.x+(owner===0?-1:1)*TOWER_GEOMETRY.fireVentOffsetX,sourceY=TOWER_GEOMETRY.fireVentY;
+        const length=Math.max(1,Math.hypot(x-sourceX,y-sourceY)),dx=(x-sourceX)/length,dy=(y-sourceY)/length;
+        const maxReach=flameReach(sourceX,sourceY,dx,dy),speed=type==='lightning'?TOWER_VOLLEY.lightningSpeed:TOWER_VOLLEY.icicleSpeed;
+        this.towerAttacks.push({id:this.id++,phase,type,owner,targetId:p.id,x,y,sourceX,sourceY,dx,dy,maxReach,reach:0,age:-index*TOWER_VOLLEY.fighterStagger,warning:TOWER_VOLLEY.warning,life:TOWER_VOLLEY.warning+(type==='fire'?.35:maxReach/speed+.35),hit:false,damaged:new Set(),marked:0});
+      }
     }
     this.emit(type==='lightning'?'lightningCharge':'towerAim');
   }
@@ -865,7 +864,7 @@ export class Match {
         const safe=[{x:240,y:bounds.minY+margin+15},{x:240,y:bounds.maxY-margin-15},{x:W/2,y:(bounds.minY+bounds.maxY)/2}];
         ({x,y}=safe.find(point=>!this.obstacles.some(o=>!o.destroyed&&distance(point,o)<57))||safe[0]);
       }
-      const weapon={id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME,source:'tower',cycle:this.tower.cycle};
+      const weapon={id:this.id++,owner,type,sx,sy,x,y,flight:.75,ttl:PICKUP_LIFETIME,source:'tower'};
       this.pickups.push(weapon);weaponDrops.push(weapon);
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
@@ -890,7 +889,7 @@ export class Match {
   }
   updateTower(dt) {
     const t=this.tower;
-    if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.riseAttack=false;t.lowerAttack=false;t.cycle++;this.emit('rise');}
+    if(t.phase==='rest' && this.time>=this.nextDrop){t.phase='rise';t.progress=0;t.riseAttack=false;t.lowerAttack=false;this.emit('rise');}
     if(t.phase==='rest') return;
     t.progress+=dt;
     if(t.phase==='rise') {t.height=easeLift(t.progress/TOWER_TIMING.rise);if(!t.riseAttack&&t.progress>=TOWER_VOLLEY.riseAt){t.riseAttack=true;this.startTowerVolley('rise');}if(t.progress>=TOWER_TIMING.rise){t.phase='deliver';t.progress=0;this.launch();}}
@@ -973,7 +972,7 @@ export class Match {
       let ty=bank.minY+bankDepth*(lane+laneWave);
       const visibleLures=this.mirages.filter(i=>i.owner===p.bank&&i.state==='lure');
       const supplies=[...this.pickups.filter(i=>i.owner===p.bank&&i.flight<=0&&i.ttl>0),...visibleLures]
-        .filter(i=>visibleLures.includes(i)||!(this.format==='2v2'&&i.source==='tower'&&p.towerWeaponCycle===i.cycle)&&
+        .filter(i=>visibleLures.includes(i)||
           (i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type))
         .sort((a,b)=>(distance(a,p)-(a.type==='syringe'&&p.hp<=65?90:0))-(distance(b,p)-(b.type==='syringe'&&p.hp<=65?90:0)));
       const pickup=this.chooseAiPickup(p,supplies);

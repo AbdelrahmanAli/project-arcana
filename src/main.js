@@ -870,6 +870,7 @@ function renderTowerAttacks(){
     return sprite;
   };
   for(const attack of game.towerAttacks){
+    if(attack.age<0)continue;
     const progress=Math.min(1,attack.age/attack.warning);
     const endX=attack.sourceX+attack.dx*attack.maxReach,endY=attack.sourceY+attack.dy*attack.maxReach;
     if(!attack.hit){
@@ -1490,12 +1491,12 @@ async function boot(){
   }
   for(const [index,id] of fighterIds.entries())characterRollFrames.set(id,isolatedRollFrames(phase7Sheets[index+fighterIds.length]));
   for(const [index,id] of fighterIds.entries()){
-    const art=phase7Sheets[index+fighterIds.length*2],rowHeight=art.height/2,scale=78/rowHeight;
+    const art=phase7Sheets[index+fighterIds.length*2],rowHeight=art.height/2,scale=78/rowHeight*CHARACTER_BY_ID[id].deathScale;
     const rows=CHARACTER_BY_ID[id].deathCuts.map((cuts,row)=>{
       const edges=[0,...cuts,art.width];
       return Array.from({length:4},(_,frame)=>{
         const left=edges[frame],width=edges[frame+1]-left;
-        return {texture:new Texture({source:art.source,frame:new Rectangle(left,row*rowHeight,width,rowHeight)}),width:width*scale,height:78};
+        return {texture:new Texture({source:art.source,frame:new Rectangle(left,row*rowHeight,width,rowHeight)}),width:width*scale,height:rowHeight*scale};
       });
     });
     characterDeathFrames.set(id,{south:rows[0],north:rows[1]});
