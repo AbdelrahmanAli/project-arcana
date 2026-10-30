@@ -41,6 +41,7 @@ let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw
 let sceneDirty=true;
 const BASE_Y=PLATFORM_GEOMETRY.y;
 const PLATFORM_SIDE_FOAM_RISE=8;
+const LOW_HEALTH_THRESHOLD=30;
 // Fighters are tall sprites anchored at their center; sort by their boots, not their torso.
 const FIGHTER_DEPTH_OFFSET=36;
 const DEATH_FRAME_STEP=.18,DEATH_BLEND=.12;
@@ -1068,9 +1069,9 @@ function renderPlatformContact(){
     }
   }
 }
-function renderPlatformLaunchLights(state){
-  if(state.phase!=='launch')return;
-  const pulse=Math.max(0,Math.sin(state.progress*Math.PI*8));
+function renderPlatformSignalLights(state){
+  if(state.phase==='idle')return;
+  const pulse=Math.min(1,Math.max(0,Math.sin(game.time*Math.PI*3)*3));
   if(pulse<=0)return;
   const x=PLATFORM_GEOMETRY.x,y=BASE_Y;
   // These positions follow the four lamps painted on the bank-facing armor.
@@ -1141,7 +1142,7 @@ function render(){
   platformSprite.texture=platformFrames[platformArt.from];
   platformBlendSprite.texture=platformFrames[platformArt.to];
   platformBlendSprite.alpha=platformArt.blend;
-  renderPlatformLaunchLights(platformState);
+  renderPlatformSignalLights(platformState);
   if(game.map===MAPS.RIVERSIDE||game.map===MAPS.STORM){
     waterDraw.ellipse(PLATFORM_GEOMETRY.x,BASE_Y+27,98,40).fill({color:0x073c48,alpha:.28});
     const strength=platformState.phase==='idle'?.25:.48;
@@ -1438,7 +1439,13 @@ function render(){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
     joystickDraw.circle(stick.x+stick.dx,stick.y+stick.dy,17).fill({color:0xf0d58f,alpha:.25}).stroke({color:0xffe6ae,alpha:.6,width:1});
   }
-  const flash=game.players[0].criticalLaserHit;
+  const player=game.players[0],flash=player.criticalLaserHit;
+  if(started&&!paused&&!game.finished&&game.ending<=0&&player.hp>0&&player.hp<=LOW_HEALTH_THRESHOLD&&flash<=0){
+    const pulse=Math.min(1,Math.max(0,Math.sin(game.time*Math.PI*2/1.15)*3));
+    const urgency=1-player.hp/(LOW_HEALTH_THRESHOLD*2);
+    rect(screenHitDraw,0,0,W,H,0xb90724,.13*pulse*urgency);
+    screenHitDraw.rect(8,8,W-16,H-16).stroke({color:0xff3040,width:16,alpha:.42*pulse*urgency});
+  }
   if(flash>0&&Math.sin((.55-flash)*42)>-.15){
     const fade=Math.min(1,flash/.15);
     rect(screenHitDraw,0,0,W,H,0xb90724,.13*fade);
