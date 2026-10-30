@@ -153,14 +153,14 @@ function weatherWav(kind){
   });
 }
 function tornadoWindWav(pull=false){
-  const duration=pull?.55:1.15;let seed=pull?7193:10457,low=0,mid=0;
+  const duration=pull?.62:3.2;let seed=pull?7193:10457,low=0,mid=0,air=0;
   return pcmWav(duration,t=>{
     seed=(seed*1664525+1013904223)>>>0;
     const white=seed/2147483648-1;
-    low=low*.88+white*.12;mid=mid*.56+white*.44;
-    const envelope=pull?Math.min(1,t/.025)*Math.exp(-t*4.3):Math.sin(Math.PI*t/duration)**.7;
-    const whine=Math.sin(2*Math.PI*(pull?105*t+145*t*t:72*t+35*t*t));
-    return (low*.58+mid*.19+whine*(pull?.17:.08))*envelope*.72;
+    low=low*.975+white*.025;mid=mid*.84+white*.16;air=air*.42+white*.58;
+    const envelope=pull?Math.min(1,t/.035)*Math.exp(-t*3.8):Math.min(1,t/.16,(duration-t)/.16);
+    const gust=pull?1:.77+.15*Math.sin(2*Math.PI*.7*t)+.08*Math.sin(2*Math.PI*1.9*t);
+    return (low*.72+mid*.35+air*(pull?.1:.045))*envelope*gust;
   });
 }
 function phase6WindWav(){
@@ -231,7 +231,7 @@ export class Sound {
   constructor(){
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
-    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.platformPhase=null;this.ambientMap=null;
+    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.platformPhase=null;this.ambientMap=null;
   }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
@@ -265,8 +265,8 @@ export class Sound {
     this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});
     this.clips.lightningCharge=new Howl({src:[wav(.43,620,.3,4)],format:['wav'],volume:.12,preload:true});
     this.clips.lightningStrike=new Howl({src:[wav(.68,63,.95,5)],format:['wav'],volume:.34,preload:true});
-    this.clips.tornado=new Howl({src:[tornadoWindWav()],format:['wav'],volume:.16,preload:true});
-    this.clips.tornadoPull=new Howl({src:[tornadoWindWav(true)],format:['wav'],volume:.31,preload:true,pool:4});
+    this.clips.tornado=new Howl({src:[tornadoWindWav()],format:['wav'],volume:.23,loop:true,preload:true});
+    this.clips.tornadoPull=new Howl({src:[tornadoWindWav(true)],format:['wav'],volume:.32,preload:true,pool:4});
     this.clips.ash=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.12,preload:true});
     this.clips.volcanoRockLaunch=new Howl({src:[wav(.45,93,.75,5)],format:['wav'],volume:.21,preload:true});
     this.clips.volcanoFireLaunch=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.2,preload:true});
@@ -290,6 +290,7 @@ export class Sound {
   }
   play(name,x,rate=1){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);if(rate!==1)s.rate(rate,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
+  tornado(active){if(!this.ready||this.tornadoing===active)return;this.tornadoing=active;if(active)this.clips.tornado.play();else this.clips.tornado.stop();}
   environment(map,sandstormActive=false){
     if(!this.ready)return;
     if(this.ambientMap!==map){
@@ -313,5 +314,5 @@ export class Sound {
     if(wet)this.clips.water.volume(.018);
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.storming=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
 }

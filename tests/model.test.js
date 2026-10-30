@@ -206,6 +206,17 @@ test('tornado pulls from farther away with enough force while dodge avoids the p
   assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,1,'re-entering after a roll cues again');
 });
 
+test('a distant teammate does not retrigger the human tornado pull cue',()=>{
+  const m=new Match(()=>.5,{map:MAPS.STORM,format:'2v2'});m.obstacles.forEach(o=>o.destroyed=true);m.mud=[];
+  m.players[0].x=110;m.players[0].y=760;
+  m.players[2].x=400;m.players[2].y=760;
+  m.tornadoes=[{id:999,owner:0,x:220,y:760,dx:1,age:1.2,warning:1,life:6,hit:[false,false]}];
+  m.updateEnvironment(.05);
+  assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,1);
+  m.events=[];m.updateEnvironment(.05);
+  assert.equal(m.events.filter(event=>event.type==='tornadoPull').length,0);
+});
+
 test('magma rocks become temporary solid cover, fire burns, and ash passes',()=>{
   const m=new Match(()=>.5,{map:MAPS.MAGMA});m.obstacles.forEach(o=>o.destroyed=true);
   m.startEnvironmentEvent();assert.deepEqual(m.rocksInFlight.map(o=>o.owner),[0,1]);

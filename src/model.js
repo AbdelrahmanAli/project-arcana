@@ -221,7 +221,7 @@ export class Match {
         for(const owner of [0,1]){
           const bank=BANK_BOUNDS[owner],y=bank.minY+75+this.random()*(bank.maxY-bank.minY-150);
           const direction=this.random()<.5?1:-1;
-          this.tornadoes.push({id:this.id++,owner,x:direction>0?68:W-68,y,dx:direction,age:0,warning:1,life:6,hit:[false,false],pulling:false});
+          this.tornadoes.push({id:this.id++,owner,x:direction>0?68:W-68,y,dx:direction,age:0,warning:1,life:6,hit:[false,false],pullingByPlayer:{}});
         }
         this.emit('tornado');
       }else{
@@ -322,8 +322,9 @@ export class Match {
       for(const p of this.fightersOnBank(vortex.owner)){
       const d=distance(p,vortex);
       const pulling=d<HAZARD_RULES.tornadoPullRadius&&p.dodgeTime<=0&&p.stun<=0;
-      if(pulling&&!vortex.pulling)this.emit('tornadoPull',{x:p.x,player:p.id});
-      vortex.pulling=pulling;
+      const wasPulling=vortex.pullingByPlayer?.[p.id]===true;
+      if(pulling&&!wasPulling&&p.controller==='human')this.emit('tornadoPull',{x:p.x,player:p.id});
+      (vortex.pullingByPlayer??={})[p.id]=pulling;
       if(d<HAZARD_RULES.tornadoPullRadius){
         if(d>15&&p.dodgeTime<=0){
           const strength=HAZARD_RULES.tornadoPullMin+(HAZARD_RULES.tornadoPullMax-HAZARD_RULES.tornadoPullMin)*(1-d/HAZARD_RULES.tornadoPullRadius);

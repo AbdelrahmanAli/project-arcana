@@ -1614,7 +1614,7 @@ async function boot(){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='shot')sound.play(event.weapon,event.x);
         else if(event.type==='fighterDeath')sound.play(`death-${event.characterId}`,event.x);
-        else if(event.type!=='sandstorm'&&event.type!=='hail')sound.play(event.type,event.x);
+        else if(event.type!=='sandstorm'&&event.type!=='hail'&&event.type!=='tornado')sound.play(event.type,event.x);
         if(event.type==='heal'){
           showNumber(event.player,event.amount,true);
           if(event.player===0)toast(`HEALED +${Math.ceil(event.amount)}`);
@@ -1630,6 +1630,7 @@ async function boot(){
       game.events=[];
       sound.burn(game.flames.length>0||game.volcanicFire.some(f=>f.hit)||game.obstacles.some(o=>o.type==='rock'&&!o.destroyed&&o.burning>0));
       sound.environment(game.map,!!game.sandstorm);
+      sound.tornado(game.map===MAPS.STORM&&game.tornadoes.length>0);
       sound.platform(game.platform.phase,game.map);
     } else accumulator=0;
     for(const label of document.querySelectorAll('.opponent-toast'))if(performance.now()>Number(label.dataset.until||0))label.style.opacity=0;
