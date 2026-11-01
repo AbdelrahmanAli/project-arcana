@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Match } from '../src/model.js';
-import { fighterCount, lineupFromSeats, matchOptions, sanitizeInput, snapshot, SNAPSHOT_EVERY_TICKS, TICK_SECONDS, validCharacter } from './room-protocol.js';
+import { bufferInput, consumeTransientInput, fighterCount, lineupFromSeats, matchOptions, snapshot, SNAPSHOT_EVERY_TICKS, TICK_SECONDS, validCharacter } from './room-protocol.js';
 
 const ROOM_ROUTE = /^\/api\/rooms\/([a-f\d-]{36})(?:\/(join|connect))?$/i;
 const EMPTY_INPUT = Object.freeze({ x: 0, y: 0, pistol: false, special: false, specialRelease: false, dodge: false });
@@ -214,7 +214,7 @@ export class MatchRoom extends DurableObject {
     if (Date.now() < (this.room.readyAt || 0)) return;
     this.match.update(TICK_SECONDS, this.inputs);
     this.frame++;
-    for (const input of this.inputs) if (input) input.specialRelease = false;
+    for (const input of this.inputs) consumeTransientInput(input);
     if (this.frame % SNAPSHOT_EVERY_TICKS === 0 || this.match.finished) {
       this.broadcast({ type: 'state', frame: this.frame, state: snapshot(this.match) });
       this.match.events = [];
@@ -241,12 +241,8 @@ export class MatchRoom extends DurableObject {
       return;
     }
     if (packet?.type !== 'input') return;
-    const input = sanitizeInput(packet.input);
-    if (input) {
-      input.dodge ||= this.inputs[seat]?.dodge || false;
-      input.specialRelease ||= this.inputs[seat]?.specialRelease || false;
-      this.inputs[seat] = input;
-    }
+    const input = bufferInput(this.inputs[seat], packet.input);
+    if (input) this.inputs[seat] = input;
   }
 
   webSocketClose(ws) {

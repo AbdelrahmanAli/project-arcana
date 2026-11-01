@@ -37,6 +37,21 @@ export function sanitizeInput(value) {
   };
 }
 
+// Preserve short button presses across packets until the next simulation tick.
+export function bufferInput(previous, value) {
+  const input = sanitizeInput(value);
+  if (!input) return null;
+  input.dodge ||= previous?.dodge || false;
+  input.specialRelease ||= previous?.specialRelease || false;
+  return input;
+}
+
+export function consumeTransientInput(input) {
+  if (!input) return;
+  input.dodge = false;
+  input.specialRelease = false;
+}
+
 export function lineupFromSeats(seats) {
   const [player, opponent, teammate, opponent2] = seats.map(seat => seat?.characterId);
   if (seats.some(seat => !validCharacter(seat?.characterId)) ||

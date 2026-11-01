@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, GAME_MODES } from '../src/model.js';
-import { fighterCount, lineupFromSeats, matchOptions, sanitizeInput, snapshot } from '../server/room-protocol.js';
+import { bufferInput, consumeTransientInput, fighterCount, lineupFromSeats, matchOptions, sanitizeInput, snapshot } from '../server/room-protocol.js';
 
 test('online room configuration accepts the existing formats, maps, and weapon rules', () => {
   assert.equal(fighterCount('1v1'), 2);
@@ -18,6 +18,19 @@ test('online inputs cannot spoof a fighter, exceed movement bounds, or inject ar
   assert.deepEqual(sanitizeInput({ x: 500, y: -7, pistol: true, special: 'true', player: 3, hp: 999 }), {
     x: 1, y: -1, pistol: true, special: false, specialRelease: false, dodge: false,
   });
+});
+
+test('dodge and laser release survive until one tick, then clear before later packets', () => {
+  let input = bufferInput(null, { dodge: true, specialRelease: true });
+  input = bufferInput(input, { dodge: false, specialRelease: false });
+  assert.equal(input.dodge, true);
+  assert.equal(input.specialRelease, true);
+  consumeTransientInput(input);
+  assert.equal(input.dodge, false);
+  assert.equal(input.specialRelease, false);
+  input = bufferInput(input, { dodge: false, specialRelease: false });
+  assert.equal(input.dodge, false);
+  assert.equal(input.specialRelease, false);
 });
 
 test('room seats map to the same distinct 2v2 lineup used by local matches', () => {

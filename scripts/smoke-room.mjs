@@ -1,4 +1,5 @@
 // Run against `pnpm online:dev` to check the real Worker and Durable Object path.
+import { DODGE_COOLDOWN, DODGE_DURATION } from '../src/model.js';
 const origin = process.env.DIVISION_SERVER_URL || 'http://127.0.0.1:8787';
 const timeout = (promise, label) => Promise.race([
   promise,
@@ -49,5 +50,29 @@ for (const format of ['1v1', '2v2']) {
   const packet = await state;
   if (packet.state.players.length !== seats.length) throw new Error('Wrong fighter count');
   console.log(`${format} room ${room.id}: ${seats.length} live fighters, frame ${packet.frame}`);
+  if (format === '1v1') {
+    const rollFrames = [];
+    sockets[0].addEventListener('message', event => {
+      const update = JSON.parse(event.data);
+      if (update.type === 'state') rollFrames.push({ time: update.state.time, roll: update.state.players[0].dodgeTime > 0 });
+    });
+    sockets[0].send(JSON.stringify({ type: 'input', input: { x: 1, y: 0, dodge: true } }));
+    const rolled = await timeout(new Promise(resolve => {
+      sockets[0].addEventListener('message', event => {
+        const update = JSON.parse(event.data);
+        if (update.type === 'state' && update.state.players[0].dodgeTime > 0) resolve(update);
+      });
+    }), 'first dodge');
+    sockets[0].send(JSON.stringify({ type: 'input', input: { x: 0, y: 0, dodge: false } }));
+    await timeout(new Promise(resolve => {
+      sockets[0].addEventListener('message', event => {
+        const update = JSON.parse(event.data);
+        if (update.type === 'state' && update.state.time > rolled.state.time + DODGE_DURATION + DODGE_COOLDOWN + .5) resolve();
+      });
+    }), 'dodge cooldown');
+    const rolls = rollFrames.reduce((count, frame, index) => count + (frame.roll && !rollFrames[index - 1]?.roll ? 1 : 0), 0);
+    if (rolls !== 1) throw new Error(`One dodge input caused ${rolls} rolls`);
+    console.log('Single dodge stayed single after its cooldown');
+  }
   sockets.forEach(socket => socket.close());
 }
