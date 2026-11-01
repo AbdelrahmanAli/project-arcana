@@ -67,7 +67,7 @@ export function segmentRectHit(a,b,r) {
   return {x:a.x+dx*enter,y:a.y+dy*enter};
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,criticalLaserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,specialHeld:false,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,criticalLaserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -138,11 +138,16 @@ export class Match {
     const roster=this.format==='2v2'?[lineup.player,lineup.opponent,lineup.teammate,lineup.opponent2]:[lineup.player,lineup.opponent];
     if(roster.some(id=>!CHARACTER_BY_ID[id])||new Set(roster).size!==roster.length)throw new RangeError('Match lineup must use distinct known characters');
     this.lineup=lineup;
-    this.players=[soldier(0,this.format==='2v2'?150:190,760,0,lineup.player,'human'),
-      soldier(1,this.format==='2v2'?150:290,240,1,lineup.opponent,'computer')];
+    const controller=(id,fallback)=>{
+      const value=options.controllers?.[id]??fallback;
+      if(value!=='human'&&value!=='computer')throw new RangeError('Unknown fighter controller');
+      return value;
+    };
+    this.players=[soldier(0,this.format==='2v2'?150:190,760,0,lineup.player,controller(0,'human')),
+      soldier(1,this.format==='2v2'?150:290,240,1,lineup.opponent,controller(1,'computer'))];
     if(this.format==='2v2')this.players.push(
-      soldier(2,330,760,0,lineup.teammate,'computer'),
-      soldier(3,330,240,1,lineup.opponent2,'computer'));
+      soldier(2,330,760,0,lineup.teammate,controller(2,'computer')),
+      soldier(3,330,240,1,lineup.opponent2,controller(3,'computer')));
     this.mode=options.mode||GAME_MODES.RANDOM;
     if(!Object.values(GAME_MODES).includes(this.mode))throw new RangeError('Unknown game mode');
     this.map=options.map||MAPS.RIVERSIDE;
@@ -160,7 +165,7 @@ export class Match {
     this.platform={phase:'idle',progress:0,firstAttack:false,secondAttackFired:false};
     this.nextDrop=2.5;
     this.aiState=new Map(this.players.filter(p=>p.controller==='computer').map(p=>[p.id,{clock:0,waypoint:null,target:null,pickupId:null,focusId:null,fire:false,lastSeen:null,lastSeenAt:-Infinity,steerX:0,steerY:0}]));
-    this.finished=false; this.winner=null; this.ending=0; this.launches=0; this.specialHeld=false;
+    this.finished=false; this.winner=null; this.ending=0; this.launches=0;
   }
   emit(type, data={}) { this.events.push({type,...data}); }
   fightersOnBank(bank){return this.players.filter(p=>p.bank===bank&&p.hp>0);}
@@ -1022,12 +1027,22 @@ export class Match {
     }
     for(const p of this.players){p.pistolCooldown=Math.max(0,p.pistolCooldown-dt);p.specialCooldown=Math.max(0,p.specialCooldown-dt);p.dodgeCooldown=Math.max(0,p.dodgeCooldown-dt);p.flash=Math.max(0,p.flash-dt);p.hurt=Math.max(0,p.hurt-dt);p.laserHit=Math.max(0,p.laserHit-dt);p.criticalLaserHit=Math.max(0,p.criticalLaserHit-dt);p.stun=Math.max(0,p.stun-dt);p.radiated=Math.max(0,p.radiated-dt);p.burning=Math.max(0,p.burning-dt);p.scorpionSlow=Math.max(0,p.scorpionSlow-dt);p.iceSpray=Math.max(0,p.iceSpray-dt);if(p.hp<=0)p.deathAge+=dt;}
     for(const obstacle of this.obstacles)obstacle.flash=Math.max(0,obstacle.flash-dt);
-    const specialPressed=!!input.special&&!this.specialHeld;
-    this.specialHeld=!!input.special;
-    this.updatePlatform(dt);if(input.dodge)this.dodge(this.players[0],input.x||0,input.y||0);this.move(this.players[0],input.x||0,input.y||0,dt);
-    const p=this.players[0];
-    if(input.special&&p.slot){if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);}
-    if(input.pistol)this.fire(p,0,'pistol');
+    this.updatePlatform(dt);
+    const inputs=Array.isArray(input)?input:[input];
+    for(const p of this.players){
+      if(p.controller!=='human')continue;
+      const controls=inputs[p.id]||{};
+      const specialPressed=!!controls.special&&!p.specialHeld;
+      p.specialHeld=!!controls.special;
+      if(controls.dodge)this.dodge(p,controls.x||0,controls.y||0);
+      this.move(p,controls.x||0,controls.y||0,dt);
+      if(controls.special&&p.slot){
+        if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);
+        else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);
+      }
+      if(controls.specialRelease&&!controls.special&&p.slot?.type==='laser')this.fire(p,p.charge,'special');
+      if(controls.pistol)this.fire(p,0,'pistol');
+    }
     this.think(dt);
     this.updatePlatformAttacks(dt);
     this.updateEnvironment(dt);

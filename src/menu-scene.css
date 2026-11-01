@@ -1,0 +1,34 @@
+/* The menu is a separate screen. Arena sprites and combat controls are never its backdrop. */
+.game-unit.menu-open .game-top,
+.game-unit.menu-open #arena { display: none; }
+.game-unit:not(.menu-open) #menu { display: none !important; }
+.game-unit.menu-open { background: #0b1719; }
+.game-unit.menu-open .main-menu {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-height: min(100dvh, 920px);
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #0814162e 0%, #081416bd 54%, #081416ed 100%),
+    var(--menu-scene-art) center / cover,
+    #10252a;
+  backdrop-filter: none;
+}
+.game-unit.menu-open .main-menu::before {
+  content: '';
+  position: absolute;
+  inset: -25% -80%;
+  pointer-events: none;
+  opacity: .35;
+  background: linear-gradient(100deg, transparent 42%, #d5ad6540 50%, transparent 58%);
+  animation: menu-light-sweep 8s linear infinite;
+}
+.game-unit.menu-open .menu-card { position: relative; z-index: 1; }
+@keyframes menu-light-sweep { to { transform: translateX(35%); } }
+@media (max-width: 700px) {
+  .game-unit.menu-open .main-menu { min-height: 100dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-unit.menu-open .main-menu::before { animation: none; }
+}

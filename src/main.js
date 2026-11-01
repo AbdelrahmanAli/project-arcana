@@ -15,8 +15,10 @@ import './phase3.css';
 import './phase4.css';
 import './phase5.css';
 import './phase7.css';
+import './menu-scene.css';
 
 const $=id=>document.getElementById(id);
+$('menu').style.setProperty('--menu-scene-art',`url("${import.meta.env.BASE_URL}art/arena.png")`);
 const sound=new Sound();
 let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownStage='',countdownSuspended=false,paused=false,finishedShown=false;
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;

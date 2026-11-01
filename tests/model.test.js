@@ -82,6 +82,29 @@ test('separate fire actions keep independent cooldowns and an empty special butt
   assert.equal(p.slot.ammo,1,'pistol never spends the Tower weapon');
 });
 
+test('separate human inputs control opposite banks without invoking computer decisions',()=>{
+  const m=new Match(()=>.5,{controllers:['human','human']});
+  m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
+  const before=m.players.map(({x,y})=>({x,y}));
+  m.update(1/60,[{x:1,y:0,pistol:true},{x:-1,y:0,pistol:true}]);
+  assert.ok(m.players[0].x>before[0].x);
+  assert.ok(m.players[1].x<before[1].x);
+  assert.equal(m.players[0].shots,1);
+  assert.equal(m.players[1].shots,1);
+  assert.equal(m.aiState.size,0);
+});
+
+test('all four 2v2 fighters can receive independent human controls',()=>{
+  const m=new Match(()=>.5,{format:'2v2',controllers:['human','human','human','human']});
+  m.nextDrop=Infinity;
+  m.obstacles.forEach(o=>o.destroyed=true);
+  const before=m.players.map(({x})=>x);
+  m.update(1/60,[{x:1},{x:1},{x:-1},{x:-1}]);
+  assert.deepEqual(m.players.map((p,i)=>Math.sign(p.x-before[i])),[1,1,-1,-1]);
+  assert.equal(m.aiState.size,0);
+});
+
 test('holding the special button launches only one grenade until the next press',()=>{
   for(const type of ['grenade','nuclear']){
     const m=new Match(()=>.5),p=m.players[0];m.think=()=>{};m.nextDrop=Infinity;

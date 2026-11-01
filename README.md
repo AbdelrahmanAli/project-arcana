@@ -1,12 +1,16 @@
 # Division
 
-A single-round browser arena game for phones and desktop. Fight across two equal banks in 1v1 or 2v2 against computer-controlled fighters. A low military platform in the channel supplies both sides; on Riverside, its vents also fire two aimed waves per supply cycle.
+A single-round arena game for phones and desktop. Fight across two equal banks in 1v1 or 2v2 against computer-controlled fighters. A low military platform in the channel supplies both sides; on Riverside, its vents also fire two aimed waves per supply cycle.
 
-Built with PixiJS 8, Howler.js, and Vite. Online multiplayer is not implemented.
+Built with PixiJS 8, Howler.js, and Vite. The same client has Capacitor Android and iOS projects. A Cloudflare Worker and Durable Object room service now run server-owned invite matches locally; the online menu and public multiplayer release are still in development. The committed interface and release architecture is in [Platform and interface decision](docs/PLATFORM_AND_INTERFACE.md).
 
 ## Run locally
 
-Use Node 22.12 or newer. Run `pnpm install`, `pnpm dev`, and open the printed URL. `pnpm test` runs the combat tests; `pnpm build` creates the static site in `dist/`.
+Use Node 22.12 or newer and pnpm 11.25. Run `pnpm install`, `pnpm dev`, and open the printed URL. `pnpm test` runs the combat and room protocol tests; `pnpm build` creates the current GitHub Pages site in `dist/`.
+
+`pnpm build:native` creates a relative-path web bundle for Capacitor. Run `pnpm exec cap sync android` or `pnpm exec cap sync ios` to copy it into the corresponding native project. Native online play needs `VITE_MATCH_SERVER_URL` set to the deployed HTTPS match host at build time. Android builds require Android Studio and SDK; iOS builds require macOS and Xcode.
+
+`pnpm build:cloudflare` builds for the Cloudflare root URL. `pnpm online:dev` starts the Worker and local room service. While it runs, `node scripts/smoke-room.mjs` verifies separate 1v1 and 2v2 WebSocket fighters. `pnpm online:deploy` builds and deploys the web assets and API together once Cloudflare account access is configured.
 
 ## Publish
 
@@ -28,6 +32,8 @@ The platform cycles through idle, prime, launch, second attack, and settle poses
 ## Project structure
 
 - [Match simulation](src/model.js) owns combat, hazards, AI, pickups, and platform timing.
+- [Online room service](server/worker.js) owns invite seats, input validation, simulation ticks, and snapshots.
+- [Online client transport](src/online.js) provides the same room connection for browser and native builds.
 - [Platform geometry and animation](src/platform.js) defines port locations, vent locations, cycle timing, and eight-frame poses.
 - [Pixi rendering and controls](src/main.js) loads sprite sheets and draws the game.
 - [Howler audio](src/audio.js) contains the calm platform cue and combat sounds.
