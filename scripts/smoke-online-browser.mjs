@@ -41,6 +41,9 @@ try {
   });
   await guest.goto(inviteUrl, { waitUntil: 'domcontentloaded' });
   await guest.locator('#online-panel').waitFor({ state: 'visible', timeout: 60000 });
+  await guest.waitForFunction(() => document.querySelector('#online-status')?.textContent.includes('WAITING FOR FIGHTERS'), null, { timeout: 15000 });
+  const inviteError = await guest.locator('#online-error').textContent();
+  if (inviteError.trim()) throw new Error(`Invite lookup failed: ${inviteError}`);
   await guest.locator('#online-characters [data-character="dorian"]').click();
   await guest.locator('#online-join').click();
   await host.locator('#player-hud').waitFor({ state: 'visible', timeout: 15000 });
@@ -83,6 +86,46 @@ try {
   await guest.waitForFunction(() => document.querySelector('.player-hud-label')?.textContent.includes('Dorian'), null, { timeout: 15000 });
   const rejoined = await guest.locator('.player-hud-label').textContent();
   if (!rejoined.includes('Dorian')) throw new Error(`Reconnect changed the fighter: ${rejoined}`);
+  if (process.env.DIVISION_SMOKE_RESULT === '1') {
+    await guest.locator('#pistol-fire').click({ force: true });
+    const hostPistol = (await host.locator('#pistol-label').textContent()).trim();
+    if (hostPistol !== 'AUTO') throw new Error(`Host auto pistol did not resume after reconnect: ${hostPistol}`);
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const [playerX, opponentX] = await host.evaluate(() => [
+        parseFloat(document.querySelector('#player-hud').style.left),
+        parseFloat(document.querySelector('#opponent-hud').style.left),
+      ]);
+      if (Math.abs(playerX - opponentX) < 1.5) break;
+      const key = playerX < opponentX ? 'd' : 'a';
+      await host.keyboard.down(key);
+      await host.waitForTimeout(110);
+      await host.keyboard.up(key);
+    }
+    try { await host.locator('#overlay.result').waitFor({ state: 'visible', timeout: 90000 }); }
+    catch (error) {
+      const situation = await host.evaluate(() => ({
+        player: document.querySelector('.player-hud-label')?.textContent,
+        opponent: document.querySelector('.opponent-hud-label')?.textContent,
+        playerX: document.querySelector('#player-hud')?.style.left,
+        opponentX: document.querySelector('#opponent-hud')?.style.left,
+        pistol: document.querySelector('#pistol-label')?.textContent,
+        overlay: document.querySelector('#overlay')?.className,
+      }));
+      throw new Error(`Round did not finish: ${JSON.stringify(situation)}`, { cause: error });
+    }
+    await guest.locator('#overlay.result').waitFor({ state: 'visible', timeout: 10000 });
+    if ((await host.locator('#start').textContent()).trim() !== 'PLAY AGAIN') {
+      throw new Error('Online result did not offer Play Again');
+    }
+    await host.locator('#start').click();
+    if ((await host.locator('#start').textContent()).trim() !== 'WAITING FOR OPPONENT') {
+      throw new Error('First rematch vote did not wait for the other fighter');
+    }
+    await guest.locator('#start').click();
+    await host.locator('#overlay').waitFor({ state: 'hidden', timeout: 15000 });
+    await guest.locator('#overlay').waitFor({ state: 'hidden', timeout: 15000 });
+    console.log('Online result UI passed: both Play Again votes started a fresh round');
+  }
   console.log(`Online browser smoke passed: ${hostLabel.trim()} / ${guestLabel.trim()}; guest moved ${before.toFixed(1)}% -> ${after.toFixed(1)}%`);
 } finally {
   await browser.close();

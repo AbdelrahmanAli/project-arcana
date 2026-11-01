@@ -97,6 +97,7 @@ export class MatchRoom extends DurableObject {
       })),
       started: !!this.match,
       finished: this.match?.finished || false,
+      rematchVotes: this.room.rematchVotes || Array(fighterCount(this.room.options.format)).fill(false),
     };
   }
 
@@ -118,6 +119,32 @@ export class MatchRoom extends DurableObject {
     this.timer = null;
   }
 
+  async startRematchIfReady() {
+    const count = fighterCount(this.room.options.format);
+    if (!this.match?.finished || this.sockets.size !== count ||
+      !this.room.rematchVotes?.every(Boolean)) return;
+    this.match = new Match(Math.random, this.matchConfig());
+    this.inputs = Array.from({ length: count }, () => ({ ...EMPTY_INPUT }));
+    this.room.readyAt = Date.now() + 1500;
+    this.room.rematchVotes = Array(count).fill(false);
+    this.frame++;
+    await this.ctx.storage.put('room', this.room);
+    await this.saveCheckpoint();
+    this.broadcast({ type: 'state', frame: this.frame, state: snapshot(this.match) });
+    this.broadcast(this.publicStatus());
+    this.resumeIfReady();
+  }
+
+  async requestRematch(seat) {
+    if (!this.match?.finished) return;
+    this.room.rematchVotes ||= Array(fighterCount(this.room.options.format)).fill(false);
+    if (this.room.rematchVotes[seat]) return;
+    this.room.rematchVotes[seat] = true;
+    await this.ctx.storage.put('room', this.room);
+    this.broadcast(this.publicStatus());
+    await this.startRematchIfReady();
+  }
+
   async fetch(request) {
     await this.ready;
     const url = new URL(request.url);
@@ -126,7 +153,8 @@ export class MatchRoom extends DurableObject {
       let options;
       try { options = matchOptions(await body(request)); }
       catch (error) { return json({ error: error.message }, 400); }
-      this.room = { options, seats: Array(fighterCount(options.format)).fill(null), createdAt: Date.now() };
+      this.room = { options, seats: Array(fighterCount(options.format)).fill(null),
+        rematchVotes: Array(fighterCount(options.format)).fill(false), createdAt: Date.now() };
       await this.ctx.storage.put('room', this.room);
       return json({ status: this.publicStatus() }, 201);
     }
@@ -171,6 +199,7 @@ export class MatchRoom extends DurableObject {
         await this.ctx.storage.put('room', this.room);
         this.ctx.waitUntil(this.saveCheckpoint());
       }
+      if (this.match?.finished) await this.startRematchIfReady();
       this.broadcast(this.publicStatus());
       if (this.match) this.broadcast({ type: 'state', frame: this.frame, state: snapshot(this.match) });
       this.resumeIfReady();
@@ -207,6 +236,10 @@ export class MatchRoom extends DurableObject {
     if (message === 'ping') { ws.send('pong'); return; }
     let packet;
     try { packet = JSON.parse(message); } catch { return; }
+    if (packet?.type === 'rematch') {
+      this.ctx.waitUntil(this.requestRematch(seat));
+      return;
+    }
     if (packet?.type !== 'input') return;
     const input = sanitizeInput(packet.input);
     if (input) {

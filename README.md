@@ -2,7 +2,7 @@
 
 A single-round arena game for phones and desktop. Fight across two equal banks in 1v1 or 2v2 against computer-controlled fighters. A low military platform in the channel supplies both sides; on Riverside, its vents also fire two aimed waves per supply cycle.
 
-Built with PixiJS 8, Howler.js, and Vite. The same client has Capacitor Android and iOS projects. A Cloudflare Worker and Durable Object run server-owned invite matches. The online menu currently supports 1v1: each player sees their own fighter on the lower bank, and the server resolves the shared match. Play it at [division.abdelrahman-ali-morgan.workers.dev](https://division.abdelrahman-ali-morgan.workers.dev/). The release architecture is in [Platform and interface decision](docs/PLATFORM_AND_INTERFACE.md).
+Built with PixiJS 8, Howler.js, and Vite. The same client has Capacitor Android and iOS projects. A Cloudflare Worker and Durable Object run server-owned invite matches. The online menu currently supports 1v1: each player sees their own fighter on the lower bank, and the server resolves the shared match. After a round, both players can choose Play Again to rematch in the same room. Play it at [division.abdelrahman-ali-morgan.workers.dev](https://division.abdelrahman-ali-morgan.workers.dev/). The release architecture is in [Platform and interface decision](docs/PLATFORM_AND_INTERFACE.md).
 
 ## Run locally
 
@@ -10,7 +10,7 @@ Use Node 22.12 or newer and pnpm 11.25. Run `pnpm install`, `pnpm dev`, and open
 
 `pnpm build:native` creates a relative-path web bundle for Capacitor. Run `pnpm exec cap sync android` or `pnpm exec cap sync ios` to copy it into the corresponding native project. Native online play needs `VITE_MATCH_SERVER_URL` set to the deployed HTTPS match host at build time. Android builds require Android Studio and SDK; iOS builds require macOS and Xcode.
 
-`pnpm build:cloudflare` builds for the Cloudflare root URL. `pnpm online:dev` starts the Worker and local room service. While it runs, `pnpm online:smoke` verifies separate WebSocket fighters and a two-browser 1v1 match, including the per-player lower-bank view and reconnect. `pnpm online:deploy` builds and deploys the web assets and API together once Cloudflare account access is configured. The room service accepts 2v2, but its invite menu is still 1v1 only.
+`pnpm build:cloudflare` builds for the Cloudflare root URL. `pnpm online:dev` starts the Worker and local room service. While it runs, `pnpm online:smoke` verifies separate WebSocket fighters, a full two-vote rematch, and a two-browser 1v1 match with the per-player lower-bank view and reconnect. Set `DIVISION_SMOKE_RESULT=1` when running the browser script to play through its result screen and verify both Play Again buttons. `pnpm online:deploy` builds and deploys the web assets and API together once Cloudflare account access is configured. The room service accepts 2v2, but its invite menu is still 1v1 only.
 
 ## Publish
 

@@ -19,7 +19,7 @@ async function post(origin, path, payload, transport) {
 }
 
 export class OnlineRoomClient {
-  constructor({ url, transport = fetch, Socket = WebSocket } = {}) {
+  constructor({ url, transport = (...args) => globalThis.fetch(...args), Socket = WebSocket } = {}) {
     this.origin = serverOrigin(url);
     this.transport = transport;
     this.Socket = Socket;
@@ -68,6 +68,12 @@ export class OnlineRoomClient {
   sendInput(input) {
     if (this.socket?.readyState !== 1) return false;
     this.socket.send(JSON.stringify({ type: 'input', input }));
+    return true;
+  }
+
+  requestRematch() {
+    if (this.socket?.readyState !== 1) return false;
+    this.socket.send(JSON.stringify({ type: 'rematch' }));
     return true;
   }
 

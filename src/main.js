@@ -446,9 +446,10 @@ function updateOnlineLobby(){
 async function inspectOnlineInvite(roomId){
   try{
     const client=new OnlineRoomClient();
-    onlineStatus=await client.status(roomId);
-    if(!onlineToken)updateOnlineLobby();
-  }catch(error){onlineError(error);}
+    const status=await client.status(roomId);
+    if(onlineClient||$('online-code').value.trim()!==roomId)return;
+    onlineStatus=status;updateOnlineLobby();
+  }catch(error){if(!onlineClient&&$('online-code').value.trim()===roomId)onlineError(error);}
 }
 function onlineError(error){$('online-error').textContent=error?.message||String(error);}
 function onlineRoomId(value){
@@ -465,7 +466,9 @@ function startOnlineView(state){
   selectedWeapon=onlineStatus.options.weapon||null;
   resolvedLineup={player:seats[0].characterId,opponent:seats[1].characterId};
   prepareMatch(state.map);
+  onlineFrame=-1;onlineTargets=null;onlineEventQueue=[];
   onlineActive=true;onlineConnected=true;starting=state.time===0;started=!starting;paused=false;finishedShown=false;
+  $('start').disabled=false;
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('menu-open','counting-down','paused');
   $('pause').disabled=true;
@@ -473,15 +476,15 @@ function startOnlineView(state){
     countdownElapsed=0;countdownStage='ready';countdownSuspended=false;
     $('match-countdown').hidden=false;$('match-countdown').classList.remove('fight');$('countdown-word').textContent='READY!';
     document.querySelector('.game-unit').classList.add('counting-down');sound.init();sound.play('ready');
-  }
+  }else{pistolAuto=pistolAutoOnStart;input.pistol=pistolAuto;syncPistolButton();}
   app.ticker.start();
 }
 function applyOnlineState(packet){
   if(packet.frame<=onlineFrame)return;
   const state=projectOnlineState(packet.state,onlineSeat);
-  if(!onlineActive)startOnlineView(state);
+  if(!onlineActive||game.finished&&!state.finished)startOnlineView(state);
   if(!onlineActive)return;
-  if(paused){paused=false;$('overlay').classList.add('hidden');document.querySelector('.game-unit').classList.remove('paused');}
+  if(paused){paused=false;input.pistol=pistolAuto;$('overlay').classList.add('hidden');document.querySelector('.game-unit').classList.remove('paused');}
   const previous=game.players.map(p=>({x:p.x,y:p.y}));
   onlineEventQueue.push(...(state.events||[]));
   Object.assign(game,state);
@@ -490,11 +493,18 @@ function applyOnlineState(packet){
   if(onlineFrame>=0)game.players.forEach((p,i)=>{if(previous[i]){p.x=previous[i].x;p.y=previous[i].y;}});
   onlineFrame=packet.frame;sceneDirty=true;app.ticker.start();
 }
+function syncOnlineRematchButton(){
+  if(!onlineActive||!game.finished||!finishedShown)return;
+  const voted=!!onlineStatus?.rematchVotes?.[onlineSeat];
+  $('start').textContent=!onlineConnected?'RECONNECT':voted?'WAITING FOR OPPONENT':'PLAY AGAIN';
+  $('start').disabled=onlineConnected&&voted;
+}
 function handleOnlinePacket(packet){
   if(packet.type==='welcome'||packet.type==='status'){
     onlineStatus=packet.status||packet;updateOnlineLobby();
+    syncOnlineRematchButton();
     if(onlineActive&&!game.finished&&!onlineStatus.seats.every(seat=>seat.connected)){
-      paused=true;clearInput();onlineClient?.sendInput(inputForSeat(input,onlineSeat));sound.stop();sceneDirty=true;
+      paused=true;clearInput(true);onlineClient?.sendInput(inputForSeat(input,onlineSeat));sound.stop();sceneDirty=true;
       document.querySelector('.game-unit').classList.add('paused');
       showOverlay('WAITING FOR<br><em>FIGHTER.</em>','The match resumes when the other fighter reconnects.','LEAVE MATCH');
       app.ticker.start();
@@ -503,12 +513,13 @@ function handleOnlinePacket(packet){
 }
 function connectOnline(client,token){
   const socket=client.connect(token,handleOnlinePacket);
-  socket.addEventListener('open',()=>{if(client===onlineClient)onlineConnected=true;});
+  socket.addEventListener('open',()=>{if(client===onlineClient){onlineConnected=true;syncOnlineRematchButton();}});
   socket.addEventListener('close',()=>{
     if(client!==onlineClient||socket!==client.socket)return;
     onlineConnected=false;
+    syncOnlineRematchButton();
     if(onlineActive&&!game.finished){
-      paused=true;clearInput();sound.stop();sceneDirty=true;
+      paused=true;clearInput(true);sound.stop();sceneDirty=true;
       document.querySelector('.game-unit').classList.add('paused');
       showOverlay('CONNECTION<br><em>LOST.</em>','The match is waiting for both fighters.','RECONNECT');app.ticker.start();
     }else if(!onlineActive)onlineError(new Error('Connection closed. You can rejoin with the same invite.'));
@@ -616,7 +627,14 @@ function showNumber(playerId,amount,healing=false){
   label.addEventListener('animationend',()=>label.remove(),{once:true});
   $('arena').appendChild(label);
 }
-$('start').addEventListener('click',()=>{if(onlineActive){if(!onlineConnected)reconnectOnline();else openMenu();}else if(paused)pause();else replay();});
+$('start').addEventListener('click',()=>{
+  if(onlineActive){
+    if(!onlineConnected)reconnectOnline();
+    else if(game.finished&&onlineClient?.requestRematch()){
+      onlineStatus.rematchVotes[onlineSeat]=true;syncOnlineRematchButton();
+    }else if(!game.finished)openMenu();
+  }else if(paused)pause();else replay();
+});
 $('pause').addEventListener('click',pause);
 function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;disconnectOnline();playKind='computer';clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
 $('menu-play').addEventListener('click',()=>{playKind='computer';showMenuPanel('format-panel');});
@@ -1828,7 +1846,8 @@ async function boot(){
       const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
       const survivors=game.players.filter(fighter=>fighter.hp>0).map(fighter=>CHARACTER_BY_ID[fighter.characterId]?.name).join(' & ');
       const omen=drawn?'Neither team survived.':won?localFighter().hp>0?'The other side fell. You remain.':`Your ally ${survivors} survived the fight.`:'Your side fell. The other team remains.';
-      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?localFighter().hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${localFighter().shots} shots fired · ${game.launches} supply launches`,onlineActive?'MAIN MENU':'PLAY AGAIN',omen);
+      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?localFighter().hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${localFighter().shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN',omen);
+      syncOnlineRematchButton();
     }
     const animating=starting||started&&!paused&&!game.finished;
     if(animating||sceneDirty){render();if(animating)syncHudPositions();else updateHud();sceneDirty=false;}
