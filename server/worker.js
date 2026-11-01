@@ -88,6 +88,7 @@ export class MatchRoom extends DurableObject {
   publicStatus() {
     return {
       type: 'status',
+      options: this.room.options,
       format: this.room.options.format,
       seats: this.room.seats.map((seat, index) => ({
         seat: index,
@@ -165,7 +166,9 @@ export class MatchRoom extends DurableObject {
       server.send(JSON.stringify({ type: 'welcome', seat, status: this.publicStatus() }));
       if (!this.match && this.sockets.size === fighterCount(this.room.options.format)) {
         this.match = new Match(Math.random, this.matchConfig());
+        this.room.readyAt = Date.now() + 1500;
         this.inputs = Array(fighterCount(this.room.options.format)).fill(null).map(() => ({ ...EMPTY_INPUT }));
+        await this.ctx.storage.put('room', this.room);
         this.ctx.waitUntil(this.saveCheckpoint());
       }
       this.broadcast(this.publicStatus());
@@ -179,6 +182,7 @@ export class MatchRoom extends DurableObject {
 
   tick() {
     if (!this.match) return;
+    if (Date.now() < (this.room.readyAt || 0)) return;
     this.match.update(TICK_SECONDS, this.inputs);
     this.frame++;
     for (const input of this.inputs) if (input) input.specialRelease = false;
@@ -205,7 +209,11 @@ export class MatchRoom extends DurableObject {
     try { packet = JSON.parse(message); } catch { return; }
     if (packet?.type !== 'input') return;
     const input = sanitizeInput(packet.input);
-    if (input) this.inputs[seat] = input;
+    if (input) {
+      input.dodge ||= this.inputs[seat]?.dodge || false;
+      input.specialRelease ||= this.inputs[seat]?.specialRelease || false;
+      this.inputs[seat] = input;
+    }
   }
 
   webSocketClose(ws) {

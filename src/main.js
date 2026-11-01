@@ -7,6 +7,8 @@ import { isolatedRollFrames } from './roll-sprites.js';
 import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation.js';
 import { directShotDepth, laserDepthSegments } from './projectile-depth.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
+import { OnlineRoomClient } from './online.js';
+import { inputForSeat, projectOnlineState } from './online-perspective.js';
 import './style.css';
 import './hud.css';
 import './arcana.css';
@@ -23,8 +25,11 @@ const sound=new Sound();
 let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownStage='',countdownSuspended=false,paused=false,finishedShown=false;
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 let selectedFormat='1v1',selectedCharacter='elias',lineupSelections={opponent:'random',teammate:'random',opponent2:'random'},resolvedLineup=null;
+let playKind='computer',onlineClient=null,onlineSeat=0,onlineToken=null,onlineStatus=null,onlineActive=false,onlineConnected=false,onlineFrame=-1,onlineTargets=null,onlineEventQueue=[];
+const localFighter=()=>game.players[onlineActive?onlineSeat:0]||game.players[0];
+const visibleOpponent=()=>game.players.find(fighter=>fighter.team!==localFighter().team)||game.players[1];
 try {const saved=localStorage.getItem('tower-deal-character-v1');if(CHARACTER_BY_ID[saved])selectedCharacter=saved;}catch { /* Storage is optional. */ }
-const input={x:0,y:0,pistol:false,special:false,dodge:false};
+const input={x:0,y:0,pistol:false,special:false,specialRelease:false,dodge:false};
 const keys=new Set(),firePointers={pistol:null,special:null};let stick=null,toastUntil=0;
 const PISTOL_AUTO_HOLD_MS=500;
 const PISTOL_PREF_KEY='tower-deal-auto-pistol-v1';
@@ -196,8 +201,11 @@ function armPistolAuto(){
 function stopPistolAuto(){pistolAuto=false;input.pistol=firePointers.pistol!==null||keys.has('Space');syncPistolButton();showPistolHint('AUTO OFF · HOLD TO RESTART');}
 function releaseFire(mode,cancel=false){
   const held=firePointers[mode]!==null||keys.has(mode==='pistol'?'Space':'KeyE');
-  const player=game.players[0];
-  if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&player.slot?.type==='laser')game.fire(player,player.charge,'special');
+  const player=localFighter();
+  if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&player.slot?.type==='laser'){
+    if(onlineActive)input.specialRelease=true;
+    else game.fire(player,player.charge,'special');
+  }
   if(mode==='pistol'){
     if(!held){
       cancelPistolHoldTimer();
@@ -208,18 +216,19 @@ function releaseFire(mode,cancel=false){
     input.pistol=held||pistolAuto;syncPistolButton();return;
   }
   input[mode]=held;
-  if(mode==='special'&&!held)player.charge=0;
+  if(mode==='special'&&!held&&!onlineActive)player.charge=0;
   $(`${mode}-fire`).classList.toggle('pressed',held);
 }
 function clearInput(preservePistolAuto=false){
   const keepAuto=preservePistolAuto&&pistolAuto;
   cancelPistolHoldTimer();hidePistolHint();pistolAuto=keepAuto;pistolHoldStart=0;pistolCancelKeyUntilRelease=false;
   keys.clear();stick=null;firePointers.pistol=null;firePointers.special=null;
-  input.x=0;input.y=0;input.pistol=keepAuto&&!paused;input.special=false;input.dodge=false;game.players[0].charge=0;
+  input.x=0;input.y=0;input.pistol=keepAuto&&!paused;input.special=false;input.specialRelease=false;input.dodge=false;
+  if(!onlineActive)localFighter().charge=0;
   syncPistolButton();$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
-const menuPanels=['menu-home','format-panel','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','lineup-panel','settings-panel'];
+const menuPanels=['menu-home','format-panel','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','lineup-panel','online-panel','settings-panel'];
 const MAP_ART={riverside:'art/arena.png',storm:'art/arena-storm.webp',magma:'art/arena-magma.webp',desert:'art/phase6/arena-desert.webp',snow:'art/phase6/arena-snow.webp'};
 let dealTimer=null,dealRun=0,mapDealTimer=null,mapDealRun=0;
 function cancelDealAnimation(){
@@ -366,7 +375,7 @@ function beginMatch(){
 }
 function finishCountdown(){
   starting=false;started=true;countdownStage='';sceneDirty=true;
-  $('match-countdown').hidden=true;document.querySelector('.game-unit').classList.remove('counting-down');$('pause').disabled=false;
+  $('match-countdown').hidden=true;document.querySelector('.game-unit').classList.remove('counting-down');$('pause').disabled=onlineActive;
   pistolAuto=pistolAutoOnStart;input.pistol=pistolAuto;syncPistolButton();
   showPistolHint(pistolAuto?'AUTO ON · TAP TO STOP\nHOLD TO RESTART':'TAP TO FIRE · HOLD FOR AUTO',5200);
 }
@@ -389,8 +398,159 @@ function replay(){
     showMenuPanel('map-deal-panel');animateMapDeal(chosen,startPreparedMatch);
   }else startPreparedMatch(selectedMap);
 }
+function rememberOnlineSeat(roomId,token){
+  try{sessionStorage.setItem(`division-seat-${roomId}`,token);}catch{/* Storage is optional. */}
+}
+function savedOnlineSeat(roomId){
+  try{return sessionStorage.getItem(`division-seat-${roomId}`);}catch{return null;}
+}
+function disconnectOnline(){
+  const client=onlineClient;onlineClient=null;onlineActive=false;onlineConnected=false;onlineStatus=null;onlineToken=null;onlineTargets=null;onlineEventQueue=[];onlineFrame=-1;onlineSeat=0;
+  client?.close();
+}
+function renderOnlineCharacters(){
+  const choices=$('online-characters');choices.replaceChildren();
+  for(const character of CHARACTERS){
+    const button=document.createElement('button');button.type='button';button.className='online-fighter';
+    button.dataset.character=character.id;button.style.setProperty('--character-color',character.color);
+    button.setAttribute('aria-pressed',String(character.id===selectedCharacter));
+    const taken=onlineStatus?.seats.some(seat=>seat.characterId===character.id&&(!onlineToken||seat.seat!==onlineSeat));
+    button.disabled=!!taken||!!onlineToken;
+    const portrait=document.createElement('span');portrait.className=`character-portrait ${character.id}`;portrait.setAttribute('aria-hidden','true');
+    const name=document.createElement('strong');name.textContent=character.name;
+    button.append(portrait,name);
+    button.addEventListener('click',()=>{
+      selectedCharacter=character.id;
+      try{localStorage.setItem('tower-deal-character-v1',selectedCharacter);}catch{/* Storage is optional. */}
+      renderOnlineCharacters();renderCharacterChoices();
+    });
+    choices.appendChild(button);
+  }
+}
+function showOnlinePanel(message='Create an invite or join one.'){
+  $('online-status').textContent=message;$('online-error').textContent='';
+  $('online-entry').hidden=!!onlineToken;$('online-invite').hidden=true;
+  renderOnlineCharacters();$('menu').classList.remove('hidden');
+  document.querySelector('.game-unit').classList.add('menu-open');showMenuPanel('online-panel');
+}
+function updateOnlineLobby(){
+  if(!onlineStatus)return;
+  const seats=onlineStatus.seats;
+  if(!onlineToken&&seats.some(seat=>seat.characterId===selectedCharacter)){
+    selectedCharacter=CHARACTERS.find(character=>!seats.some(seat=>seat.characterId===character.id))?.id||selectedCharacter;
+  }
+  const occupied=seats.filter(seat=>seat.characterId).length;
+  $('online-status').textContent=onlineStatus.started?'Both fighters are connected. Entering the arena…':`WAITING FOR FIGHTERS · ${occupied}/${seats.length} JOINED`;
+  renderOnlineCharacters();
+}
+async function inspectOnlineInvite(roomId){
+  try{
+    const client=new OnlineRoomClient();
+    onlineStatus=await client.status(roomId);
+    if(!onlineToken)updateOnlineLobby();
+  }catch(error){onlineError(error);}
+}
+function onlineError(error){$('online-error').textContent=error?.message||String(error);}
+function onlineRoomId(value){
+  const raw=value.trim();
+  let id=raw;
+  try{id=new URL(raw).searchParams.get('room')||raw;}catch{/* A room code is valid input. */}
+  if(!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(id))throw new Error('Paste a valid invite link or room code.');
+  return id;
+}
+function startOnlineView(state){
+  const seats=onlineStatus?.seats;
+  if(!seats?.[0]?.characterId||!seats?.[1]?.characterId)return;
+  selectedFormat='1v1';selectedMode=state.mode;selectedMap=state.map;
+  selectedWeapon=onlineStatus.options.weapon||null;
+  resolvedLineup={player:seats[0].characterId,opponent:seats[1].characterId};
+  prepareMatch(state.map);
+  onlineActive=true;onlineConnected=true;starting=state.time===0;started=!starting;paused=false;finishedShown=false;
+  $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
+  document.querySelector('.game-unit').classList.remove('menu-open','counting-down','paused');
+  $('pause').disabled=true;
+  if(starting){
+    countdownElapsed=0;countdownStage='ready';countdownSuspended=false;
+    $('match-countdown').hidden=false;$('match-countdown').classList.remove('fight');$('countdown-word').textContent='READY!';
+    document.querySelector('.game-unit').classList.add('counting-down');sound.init();sound.play('ready');
+  }
+  app.ticker.start();
+}
+function applyOnlineState(packet){
+  if(packet.frame<=onlineFrame)return;
+  const state=projectOnlineState(packet.state,onlineSeat);
+  if(!onlineActive)startOnlineView(state);
+  if(!onlineActive)return;
+  if(paused){paused=false;$('overlay').classList.add('hidden');document.querySelector('.game-unit').classList.remove('paused');}
+  const previous=game.players.map(p=>({x:p.x,y:p.y}));
+  onlineEventQueue.push(...(state.events||[]));
+  Object.assign(game,state);
+  game.events=[];
+  onlineTargets=game.players.map(p=>({x:p.x,y:p.y}));
+  if(onlineFrame>=0)game.players.forEach((p,i)=>{if(previous[i]){p.x=previous[i].x;p.y=previous[i].y;}});
+  onlineFrame=packet.frame;sceneDirty=true;app.ticker.start();
+}
+function handleOnlinePacket(packet){
+  if(packet.type==='welcome'||packet.type==='status'){
+    onlineStatus=packet.status||packet;updateOnlineLobby();
+    if(onlineActive&&!game.finished&&!onlineStatus.seats.every(seat=>seat.connected)){
+      paused=true;clearInput();onlineClient?.sendInput(inputForSeat(input,onlineSeat));sound.stop();sceneDirty=true;
+      document.querySelector('.game-unit').classList.add('paused');
+      showOverlay('WAITING FOR<br><em>FIGHTER.</em>','The match resumes when the other fighter reconnects.','LEAVE MATCH');
+      app.ticker.start();
+    }
+  }else if(packet.type==='state')applyOnlineState(packet);
+}
+function connectOnline(client,token){
+  const socket=client.connect(token,handleOnlinePacket);
+  socket.addEventListener('open',()=>{if(client===onlineClient)onlineConnected=true;});
+  socket.addEventListener('close',()=>{
+    if(client!==onlineClient||socket!==client.socket)return;
+    onlineConnected=false;
+    if(onlineActive&&!game.finished){
+      paused=true;clearInput();sound.stop();sceneDirty=true;
+      document.querySelector('.game-unit').classList.add('paused');
+      showOverlay('CONNECTION<br><em>LOST.</em>','The match is waiting for both fighters.','RECONNECT');app.ticker.start();
+    }else if(!onlineActive)onlineError(new Error('Connection closed. You can rejoin with the same invite.'));
+  });
+  socket.addEventListener('error',()=>{if(client===onlineClient&&!onlineActive)onlineError(new Error('Could not connect to the match service.'));});
+}
+async function createOnlineRoom(map){
+  showOnlinePanel('Creating your invite…');$('online-entry').hidden=true;
+  try{
+    disconnectOnline();
+    const client=new OnlineRoomClient();onlineClient=client;
+    const room=await client.create({format:'1v1',mode:selectedMode,map,weapon:selectedWeapon});
+    const seat=await client.join(room.id,selectedCharacter);
+    onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
+    rememberOnlineSeat(room.id,seat.token);
+    $('online-invite-link').value=room.inviteUrl;$('online-invite').hidden=false;
+    updateOnlineLobby();connectOnline(client,seat.token);
+  }catch(error){onlineError(error);$('online-entry').hidden=false;}
+}
+async function joinOnlineRoom(){
+  $('online-error').textContent='';
+  try{
+    const roomId=onlineRoomId($('online-code').value);
+    disconnectOnline();
+    const client=new OnlineRoomClient();onlineClient=client;
+    const saved=savedOnlineSeat(roomId);
+    let seat;
+    try{seat=await client.join(roomId,selectedCharacter,saved);}
+    catch(error){if(!saved)throw error;seat=await client.join(roomId,selectedCharacter);}
+    onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
+    rememberOnlineSeat(roomId,seat.token);
+    $('online-entry').hidden=true;updateOnlineLobby();connectOnline(client,seat.token);
+  }catch(error){onlineError(error);}
+}
+function reconnectOnline(){
+  if(!onlineClient||!onlineToken)return;
+  $('overlay-copy').textContent='Reconnecting to your fighter…';
+  connectOnline(onlineClient,onlineToken);
+}
 let revealedMap=MAPS.RIVERSIDE;
 function openLineup(map){
+  if(playKind==='online'){createOnlineRoom(map);return;}
   revealedMap=map;
   $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()}`;
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
@@ -438,11 +598,11 @@ function startPreparedMatch(map){
     animateDeal();
   }else beginMatch();
 }
-function pause(){if(!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput(true);document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The fight will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
+function pause(){if(onlineActive||!started||game.finished)return;paused=!paused;sceneDirty=true;clearInput(true);document.querySelector('.game-unit').classList.toggle('paused',paused);if(paused){sound.stop();showOverlay('TAKE A<br><em>BREATHER.</em>','The fight will wait.','RESUME');app.ticker.stop();}else{$('overlay').classList.add('hidden');sound.init();app.ticker.start();}$('pause').textContent=paused?'▶':'Ⅱ';}
 function showOverlay(title,copy,button,omen=''){$('overlay-title').innerHTML=title;$('overlay-omen').textContent=omen;$('overlay-omen').hidden=!omen;$('overlay-copy').textContent=copy;$('start').textContent=button;$('overlay').classList.remove('hidden');}
 function toast(text){$('toast').textContent=text;toastUntil=performance.now()+1700;$('toast').style.opacity=1;}
 function fighterToast(playerId,text,duration=1600){
-  let label=playerId===1?$('opponent-toast'):$(`fighter-${playerId}-toast`);
+  let label=playerId===visibleOpponent().id?$('opponent-toast'):$(`fighter-${playerId}-toast`);
   if(!label){label=document.createElement('div');label.id=`fighter-${playerId}-toast`;label.className='opponent-toast';$('arena').appendChild(label);}
   label.textContent=text;label.style.opacity=1;label.dataset.until=String(performance.now()+duration);
 }
@@ -456,13 +616,19 @@ function showNumber(playerId,amount,healing=false){
   label.addEventListener('animationend',()=>label.remove(),{once:true});
   $('arena').appendChild(label);
 }
-$('start').addEventListener('click',()=>{if(paused)pause();else replay();});
+$('start').addEventListener('click',()=>{if(onlineActive){if(!onlineConnected)reconnectOnline();else openMenu();}else if(paused)pause();else replay();});
 $('pause').addEventListener('click',pause);
-function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
-$('menu-play').addEventListener('click',()=>showMenuPanel('format-panel'));
+function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;disconnectOnline();playKind='computer';clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+$('menu-play').addEventListener('click',()=>{playKind='computer';showMenuPanel('format-panel');});
+$('menu-online').addEventListener('click',()=>{playKind='online';showOnlinePanel();});
+$('online-host').addEventListener('click',()=>{selectedFormat='1v1';showMenuPanel('mode-panel');});
+$('online-join').addEventListener('click',joinOnlineRoom);
+$('online-code').addEventListener('keydown',event=>{if(event.key==='Enter')joinOnlineRoom();});
+$('online-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('online-invite-link').value);$('online-copy').textContent='COPIED';}catch{onlineError(new Error('Select and copy the invite link above.'));}});
+$('online-back').addEventListener('click',openMenu);
 document.querySelectorAll('.format-choice').forEach(button=>button.addEventListener('click',()=>{selectedFormat=button.dataset.format;showMenuPanel('mode-panel');}));
 $('format-back').addEventListener('click',()=>showMenuPanel('menu-home'));
-$('mode-back').addEventListener('click',()=>showMenuPanel('format-panel'));
+$('mode-back').addEventListener('click',()=>showMenuPanel(playKind==='online'?'online-panel':'format-panel'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('weapon-start').addEventListener('click',()=>{if(selectedWeapon)showMenuPanel('map-panel');});
 $('map-back').addEventListener('click',()=>showMenuPanel(selectedMode===GAME_MODES.CHOOSE_FIXED?'weapon-panel':'mode-panel'));
@@ -547,17 +713,17 @@ for(const mode of ['pistol','special']){
     if(e.button!==0||!started||paused||game.finished||game.ending>0||firePointers[mode]!==null)return;
     e.preventDefault();e.stopPropagation();
     if(mode==='pistol'&&pistolAuto){stopPistolAuto();return;}
-    if(mode==='special'&&!game.players[0].slot){sound.play('empty');return;}
+    if(mode==='special'&&!localFighter().slot){sound.play('empty');return;}
     const wasFiring=input[mode];firePointers[mode]=e.pointerId;button.setPointerCapture(e.pointerId);input[mode]=true;
     if(mode==='pistol')armPistolAuto();
-    if(!wasFiring&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
+    if(!onlineActive&&!wasFiring&&(mode==='pistol'||game.weapon(localFighter())!=='laser'))game.fire(localFighter(),0,mode);
     if(mode==='pistol')syncPistolButton();else button.classList.add('pressed');
   });
   button.addEventListener('pointerup',e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode);}});
   for(const name of ['pointercancel','lostpointercapture'])button.addEventListener(name,e=>{if(e.pointerId===firePointers[mode]){firePointers[mode]=null;releaseFire(mode,true);}});
 }
 function queueDodge(){
-  const p=game.players[0];
+  const p=localFighter();
   if(input.dodge||p.dodgeTime>0||p.dodgeCooldown>0||p.stun>0){sound.play('dodgeDenied');return;}
   input.dodge=true;
 }
@@ -576,17 +742,18 @@ window.addEventListener('keydown',e=>{
   const mode=e.code==='Space'?'pistol':e.code==='KeyE'?'special':null;
   if(mode==='pistol'&&pistolCancelKeyUntilRelease)return;
   if(mode==='pistol'&&pistolAuto){if(!e.repeat){pistolCancelKeyUntilRelease=true;stopPistolAuto();}return;}
-  if(mode==='special'&&!game.players[0].slot){if(!e.repeat)sound.play('empty');return;}
+  if(mode==='special'&&!localFighter().slot){if(!e.repeat)sound.play('empty');return;}
   const wasFiring=mode&&input[mode];keys.add(e.code);
-  if(mode&&(mode==='pistol'||game.players[0].slot)){
+  if(mode&&(mode==='pistol'||localFighter().slot)){
     input[mode]=true;
     if(mode==='pistol')armPistolAuto();
-    if(!wasFiring&&!e.repeat&&(mode==='pistol'||game.weapon(game.players[0])!=='laser'))game.fire(game.players[0],0,mode);
+    if(!onlineActive&&!wasFiring&&!e.repeat&&(mode==='pistol'||game.weapon(localFighter())!=='laser'))game.fire(localFighter(),0,mode);
     if(mode==='pistol')syncPistolButton();else $(`${mode}-fire`).classList.add('pressed');
   }
 });
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Space'){pistolCancelKeyUntilRelease=false;releaseFire('pistol');}if(e.code==='KeyE')releaseFire('special');});
 function pauseOnFocusLoss(){
+  if(onlineActive){clearInput();onlineClient?.sendInput(inputForSeat(input,onlineSeat));return;}
   if(starting){countdownSuspended=true;clearInput();app.ticker.stop();return;}
   if(started&&!paused&&!game.finished)pause();
   else clearInput(paused);
@@ -602,7 +769,7 @@ window.addEventListener('resize',()=>{
 });
 
 function updateHud(){
-  const p=game.players[0],enemy=game.players[1];
+  const p=localFighter(),enemy=visibleOpponent();
   const dodge=$('dodge-fire');
   dodge.classList.toggle('rolling',p.dodgeTime>0);
   dodge.classList.toggle('cooldown',p.dodgeCooldown>0&&p.dodgeTime<=0);
@@ -678,11 +845,11 @@ function updateHud(){
 function syncHudPositions(){
   const scale=$('arena').clientWidth/W;
   for(const fighter of game.players){
-    const hud=$(fighter.id===0?'player-hud':fighter.id===1?'opponent-hud':`fighter-${fighter.id}-hud`);
+    const hud=$(fighter.id===(onlineActive?onlineSeat:0)?'player-hud':fighter.id===(onlineActive?1-onlineSeat:1)?'opponent-hud':`fighter-${fighter.id}-hud`);
     if(!hud)continue;
     hud.style.setProperty('--hud-scale',scale);
     hud.style.left=`${Math.max(50,Math.min(W-50,fighter.x))/W*100}%`;
-    hud.style.top=`${(fighter.y-(fighter.id===0?38:30))/H*100}%`;
+    hud.style.top=`${(fighter.y-(fighter.id===(onlineActive?onlineSeat:0)?38:30))/H*100}%`;
   }
 }
 function sheetLoop(time,fps,count){const span=count*2-2,step=Math.floor(time*fps)%span;return step<count?step:span-step;}
@@ -1441,7 +1608,7 @@ function render(){
     joystickDraw.circle(stick.x,stick.y,43).fill({color:0x10272a,alpha:.22}).stroke({color:0xf0dfb4,alpha:.25,width:1});
     joystickDraw.circle(stick.x+stick.dx,stick.y+stick.dy,17).fill({color:0xf0d58f,alpha:.25}).stroke({color:0xffe6ae,alpha:.6,width:1});
   }
-  const player=game.players[0],flash=player.criticalLaserHit;
+  const player=localFighter(),flash=player.criticalLaserHit;
   if(started&&!paused&&!game.finished&&game.ending<=0&&player.hp>0&&player.hp<=LOW_HEALTH_THRESHOLD&&flash<=0){
     const pulse=Math.min(1,Math.max(0,Math.sin(game.time*Math.PI*2/1.15)*3));
     const urgency=1-player.hp/(LOW_HEALTH_THRESHOLD*2);
@@ -1593,6 +1760,12 @@ async function boot(){
   buildWeaponChoices();
   $('art-loading').hidden=true;
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
+  const onlineConfigured=!!import.meta.env.VITE_MATCH_SERVER_URL||
+    (!import.meta.env.DEV&&['http:','https:'].includes(location.protocol)&&!location.pathname.startsWith('/project-arcana/'));
+  $('menu-online').disabled=!onlineConfigured;
+  $('menu-online').title=onlineConfigured?'Create or join a separate-device match':'Online hosting is not connected on this site';
+  const invitedRoom=new URLSearchParams(location.search).get('room');
+  if(invitedRoom&&onlineConfigured){$('online-code').value=invitedRoom;playKind='online';showOnlinePanel('Choose your fighter, then join the invitation.');inspectOnlineInvite(invitedRoom);}
   let accumulator=0,hudTime=0;
   app.ticker.add(ticker=>{
     const dt=Math.min(ticker.deltaMS/1000,.05);
@@ -1609,8 +1782,20 @@ async function boot(){
       input.x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);
       input.y=(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0);
       if(stick){input.x=stick.dx/43;input.y=stick.dy/43;}
-      accumulator+=dt;
-      while(accumulator>=1/120){game.update(1/120,input);input.dodge=false;accumulator-=1/120;}
+      if(onlineActive){
+        if(onlineConnected)onlineClient?.sendInput(inputForSeat(input,onlineSeat));
+        input.dodge=false;input.specialRelease=false;
+        game.time+=dt;
+        if(onlineTargets)game.players.forEach((fighter,index)=>{
+          const target=onlineTargets[index];if(!target)return;
+          const t=Math.min(1,dt/.055);
+          fighter.x+=(target.x-fighter.x)*t;fighter.y+=(target.y-fighter.y)*t;
+        });
+        game.events=onlineEventQueue.splice(0);
+      }else{
+        accumulator+=dt;
+        while(accumulator>=1/120){game.update(1/120,input);input.dodge=false;accumulator-=1/120;}
+      }
       const damageByPlayer=Array(game.players.length).fill(0);
       for(const event of game.events){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
@@ -1619,14 +1804,14 @@ async function boot(){
         else if(event.type!=='sandstorm'&&event.type!=='hail'&&event.type!=='tornado')sound.play(event.type,event.x);
         if(event.type==='heal'){
           showNumber(event.player,event.amount,true);
-          if(event.player===0)toast(`HEALED +${Math.ceil(event.amount)}`);
+          if(event.player===localFighter().id)toast(`HEALED +${Math.ceil(event.amount)}`);
           else fighterToast(event.player,`HEALED +${Math.ceil(event.amount)}`);
         }
-        if(event.type==='pickup'&&event.player===0)toast(event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} COLLECTED`);
-        if(event.type==='pickup'&&event.player!==0)fighterToast(event.player,event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} ACQUIRED`);
-        if(event.type==='stun'&&event.player===0)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
-        if(event.type==='stun'&&event.player!==0)fighterToast(event.player,'STUNNED',1800);
-        if(event.type==='fighterDeath'&&event.player===0&&selectedFormat==='2v2'&&game.fightersOnBank(0).length)toast('YOU FELL · YOUR ALLY FIGHTS ON');
+        if(event.type==='pickup'&&event.player===localFighter().id)toast(event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} COLLECTED`);
+        if(event.type==='pickup'&&event.player!==localFighter().id)fighterToast(event.player,event.ammoAdded?`${WEAPONS[event.weapon].name} +${event.ammoAdded} AMMO`:`${WEAPONS[event.weapon].name} ACQUIRED`);
+        if(event.type==='stun'&&event.player===localFighter().id)toast(`STUNNED · ${GRENADE_STUN_DURATION.toFixed(1)}S`);
+        if(event.type==='stun'&&event.player!==localFighter().id)fighterToast(event.player,'STUNNED',1800);
+        if(event.type==='fighterDeath'&&event.player===localFighter().id&&selectedFormat==='2v2'&&game.fightersOnBank(localFighter().bank).length)toast('YOU FELL · YOUR ALLY FIGHTS ON');
       }
       damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showNumber(playerId,amount);});
       game.events=[];
@@ -1638,12 +1823,12 @@ async function boot(){
     for(const label of document.querySelectorAll('.opponent-toast'))if(performance.now()>Number(label.dataset.until||0))label.style.opacity=0;
     if(game.finished&&!finishedShown){
       finishedShown=true;sceneDirty=true;clearInput();sound.stop();
-      const won=game.winner===0,drawn=game.winner==='draw';
+      const won=game.winner===localFighter().team,drawn=game.winner==='draw';
       $('overlay').classList.add('result');document.querySelector('.game-unit').classList.add('ended');
       const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
       const survivors=game.players.filter(fighter=>fighter.hp>0).map(fighter=>CHARACTER_BY_ID[fighter.characterId]?.name).join(' & ');
-      const omen=drawn?'Neither team survived.':won?game.players[0].hp>0?'The other side fell. You remain.':`Your ally ${survivors} survived the fight.`:'Your side fell. The other team remains.';
-      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?game.players[0].hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${game.players[0].shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN',omen);
+      const omen=drawn?'Neither team survived.':won?localFighter().hp>0?'The other side fell. You remain.':`Your ally ${survivors} survived the fight.`:'Your side fell. The other team remains.';
+      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?localFighter().hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${localFighter().shots} shots fired · ${game.launches} supply launches`,onlineActive?'MAIN MENU':'PLAY AGAIN',omen);
     }
     const animating=starting||started&&!paused&&!game.finished;
     if(animating||sceneDirty){render();if(animating)syncHudPositions();else updateHud();sceneDirty=false;}

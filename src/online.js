@@ -42,6 +42,13 @@ export class OnlineRoomClient {
     return seat;
   }
 
+  async status(roomId) {
+    const response = await this.transport(`${this.origin}/api/rooms/${encodeURIComponent(roomId)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Match server returned ${response.status}`);
+    return data;
+  }
+
   connect(token, onPacket) {
     if (!this.roomId || this.seat === null) throw new Error('Join a room before connecting');
     this.close();

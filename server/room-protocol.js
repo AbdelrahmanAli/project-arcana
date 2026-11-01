@@ -2,7 +2,7 @@ import { CHARACTER_BY_ID } from '../src/characters.js';
 import { DROP_TYPES, GAME_MODES, MAP_TYPES } from '../src/model.js';
 
 export const TICK_SECONDS = 1 / 60;
-export const SNAPSHOT_EVERY_TICKS = 3;
+export const SNAPSHOT_EVERY_TICKS = 2;
 
 export function matchOptions(value) {
   if (!value || typeof value !== 'object') throw new RangeError('Match options are required');
@@ -48,6 +48,7 @@ export function lineupFromSeats(seats) {
 
 export function snapshot(match) {
   return {
+    id: match.id,
     time: match.time,
     finished: match.finished,
     ending: match.ending,
@@ -56,6 +57,8 @@ export function snapshot(match) {
     mode: match.mode,
     fixedWeapon: match.fixedWeapon,
     format: match.format,
+    launches: match.launches,
+    marksRevision: match.marksRevision,
     players: match.players,
     bullets: match.bullets,
     pickups: match.pickups,

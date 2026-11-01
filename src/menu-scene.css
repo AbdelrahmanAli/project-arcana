@@ -32,3 +32,16 @@
 @media (prefers-reduced-motion: reduce) {
   .game-unit.menu-open .main-menu::before { animation: none; }
 }
+.online-characters { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:12px 0 18px; }
+.online-fighter { min-height:80px; padding:3px; display:grid; justify-items:center; align-content:center; gap:2px; background:#142628; border:1px solid #5d7777; }
+.online-fighter[aria-pressed="true"] { border-color:var(--character-color); box-shadow:inset 0 0 0 2px #fff3,0 0 14px var(--character-color); }
+.online-fighter .character-portrait { width:52px; height:52px; background-size:208px 208px; }
+.online-fighter .character-portrait.dorian { background-position:3px 0; }
+.online-fighter strong { font-size:8px; letter-spacing:1px; }
+.online-label { display:block; text-align:left; color:#d9bc7a; font-size:9px; letter-spacing:1px; margin:11px 0 6px; }
+#online-code,#online-invite-link { width:100%; min-height:40px; padding:8px; color:#eef0df; font:11px 'IBM Plex Mono',monospace; background:#0d1b1e; border:1px solid #7a8a79; border-radius:0; }
+#online-invite-link { margin:0 0 10px; }
+#online-status { min-height:2.8em; }
+#online-error { min-height:1.5em; color:#ff967c; }
+#online-panel .primary,#online-panel .secondary { margin-bottom:8px; }
+#online-panel .secondary { min-height:36px; }

@@ -27,3 +27,13 @@ test('online client uses a separate HTTPS match origin for native builds', async
   ]);
   client.close();
 });
+
+test('invite status can be checked before the guest chooses a free fighter', async () => {
+  const client = new OnlineRoomClient({
+    url: 'https://match.example.com',
+    transport: async url => ({ ok: true, json: async () => ({ seats: [{ characterId: 'elias' }, { characterId: null }], url }) }),
+  });
+  const status = await client.status('room-id');
+  assert.equal(status.seats[0].characterId, 'elias');
+  assert.equal(status.url, 'https://match.example.com/api/rooms/room-id');
+});
