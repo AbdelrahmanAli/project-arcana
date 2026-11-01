@@ -2,7 +2,7 @@
 
 A single-round arena game for phones and desktop. Fight across two equal banks in 1v1 or 2v2 against computer-controlled fighters. A low military platform in the channel supplies both sides; on Riverside, its vents also fire two aimed waves per supply cycle.
 
-Built with PixiJS 8, Howler.js, and Vite. The same client has Capacitor Android and iOS projects. A Cloudflare Worker and Durable Object run server-owned invite matches. The online menu currently supports 1v1: each player sees their own fighter on the lower bank, and the server resolves the shared match. Public online play awaits Cloudflare deployment. The release architecture is in [Platform and interface decision](docs/PLATFORM_AND_INTERFACE.md).
+Built with PixiJS 8, Howler.js, and Vite. The same client has Capacitor Android and iOS projects. A Cloudflare Worker and Durable Object run server-owned invite matches. The online menu currently supports 1v1: each player sees their own fighter on the lower bank, and the server resolves the shared match. Play it at [division.abdelrahman-ali-morgan.workers.dev](https://division.abdelrahman-ali-morgan.workers.dev/). The release architecture is in [Platform and interface decision](docs/PLATFORM_AND_INTERFACE.md).
 
 ## Run locally
 
@@ -14,9 +14,9 @@ Use Node 22.12 or newer and pnpm 11.25. Run `pnpm install`, `pnpm dev`, and open
 
 ## Publish
 
-The GitHub Pages base path remains `/project-arcana/`, so the site stays at [abdelrahmanali.github.io/project-arcana](https://abdelrahmanali.github.io/project-arcana/). Pushing to `main` runs the [Deploy Division](.github/workflows/deploy.yml) workflow. The public URL can be renamed separately if the title becomes final.
+The GitHub Pages base path remains `/project-arcana/`, so the solo build stays at [abdelrahmanali.github.io/project-arcana](https://abdelrahmanali.github.io/project-arcana/). Pushing to `main` runs the [Deploy Division](.github/workflows/deploy.yml) workflow. The Cloudflare URL above serves both the game and online rooms.
 
-The GitHub Pages build keeps online play disabled until it has a deployed match host. For a public invite site on one service, sign in with `pnpm exec wrangler login`, then run `pnpm online:deploy`. Use the resulting Cloudflare URL for invites; both the game assets and room API are served there.
+The GitHub Pages build keeps online play disabled because it has no match host. For a new Cloudflare release, run `pnpm online:deploy` from an authenticated Wrangler session; both the game assets and room API are served together.
 
 ## Controls
 

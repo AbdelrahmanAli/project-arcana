@@ -2,7 +2,7 @@
 
 **Decision:** One PixiJS game client ships on the web and inside Capacitor Android and iOS projects. Cloudflare Workers serves the public web build and API; one Durable Object owns each invite match and runs the existing `Match` simulation. Howler remains the audio layer. We will not rewrite the game in Flutter or run combat state through Firebase.
 
-This is a committed design for the interface, native releases, and online multiplayer. The current GitHub Pages URL remains the public playable build until the Cloudflare service and clients are connected; it is not the target online host.
+This is a committed design for the interface, native releases, and online multiplayer. The Cloudflare 1v1 prototype is live at [division.abdelrahman-ali-morgan.workers.dev](https://division.abdelrahman-ali-morgan.workers.dev/); the older GitHub Pages URL remains available for solo play during migration.
 
 ## Interface contract
 
@@ -22,10 +22,11 @@ PixiJS/Howler client ── input packets ──► Cloudflare Worker ──► 
 
 - `src/model.js` owns movement, collision, weapons, hazards, AI, and match results. Both the solo client and online room use this module. An input array is indexed by fighter seat; local computer seats retain the existing AI.
 - The server assigns a private seat token when a player joins an invite room. A WebSocket connection is bound to that seat. Clients send only movement and button states, never positions, hits, health, pickups, or results.
-- The room advances the match at 60 simulation ticks per second and broadcasts snapshots at 20 per second. Rendering interpolates between snapshots. A disconnect pauses the room and the same seat token can reconnect.
+- The room advances the match at 60 simulation ticks per second and broadcasts snapshots at 30 per second. Rendering interpolates between snapshots. A disconnect pauses the room and the same seat token can reconnect.
+- Each 1v1 client projects the shared arena so its own fighter appears on the lower bank. Movement input is rotated back before it reaches the server; combat state remains authoritative and shared.
 - The first and second seats start on opposite banks. In 2v2, seats three and four join their respective teams. All four are separate phone/browser clients. The match still ends when the last fighter on one team falls.
 - The browser build uses the same origin for the API. Native builds set `VITE_MATCH_SERVER_URL` to the HTTPS Cloudflare host. Invite links open the web client and can be handled by app links in the native packages.
-- Room IDs are unguessable UUIDs. Seat tokens are private. The Worker validates room options; the room clamps movement and accepts only known button fields. Before public online release, add admission expiry, origin/rate controls, reconnect expiry, versioned packets, latency compensation, and abuse monitoring.
+- Room IDs are unguessable UUIDs. Seat tokens are private. The Worker validates room options; the room clamps movement and accepts only known button fields. Before wider release, add admission expiry, origin/rate controls, reconnect expiry, versioned packets, latency compensation, and abuse monitoring.
 
 ## Build and hosting contract
 
@@ -50,5 +51,5 @@ The native apps ship the actual game, saved settings, touch controls, local solo
 
 - Native Android and iOS projects, build targets, and Cloudflare Worker configuration are in this repository.
 - The match now accepts independent human controls for two or four seats, with tests.
-- The room service can create rooms, assign seats, accept separate WebSockets, and advance a server-owned match; a local two-client smoke test covers the full path.
-- The current menu has been structurally separated from the arena. Its illustrated Pixi scene and carousel controls, online menu wiring, interpolation, and store release validation remain work against the acceptance criteria above.
+- The room service can create rooms, assign seats, accept separate WebSockets, and advance a server-owned match. Local and deployed two-browser smoke tests cover 1v1 invites, lower-bank perspectives, movement, and reconnect; room tests cover four connected seats.
+- The online menu offers 1v1 invites. A playable online 2v2 menu, physical-device validation, latency compensation, and store release validation remain work against the acceptance criteria above.
