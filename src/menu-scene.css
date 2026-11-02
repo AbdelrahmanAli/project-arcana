@@ -45,3 +45,17 @@
 #online-error { min-height:1.5em; color:#ff967c; }
 #online-panel .primary,#online-panel .secondary { margin-bottom:8px; }
 #online-panel .secondary { min-height:36px; }
+.online-match-details { display:flex; align-items:center; gap:10px; padding:8px; text-align:left; border:1px solid #68736a; background:#101e1f; }
+.online-match-details .map-thumb { flex:none; width:78px; height:54px; background-position:center; background-size:cover; }
+.online-match-details strong,.online-match-details small { display:block; }
+.online-match-details strong { color:#e9bb70; font-size:10px; letter-spacing:1px; }
+.online-match-details small { margin-top:5px; color:#d4ddd2; font-size:9px; line-height:1.4; }
+#online-character-lock { color:#e9bb70; font-size:9px; letter-spacing:1px; }
+#online-teams { margin:10px 0; text-align:left; }
+#online-teams>span { display:block; margin-bottom:5px; color:#d9bc7a; font-size:9px; letter-spacing:1px; }
+.online-team { width:49%; min-height:35px; color:#e6e9dc; background:#142628; border:1px solid #5d7777; font:9px 'IBM Plex Mono',monospace; }
+.online-team+ .online-team { margin-left:2%; }
+.online-team[aria-pressed="true"] { border-color:#e9bb70; box-shadow:inset 0 0 0 1px #e9bb70; }
+.online-team:disabled { opacity:.4; }
+#online-code:read-only { color:#e9bb70; }
+.online-match-details[hidden],#online-teams[hidden],#online-host[hidden],#online-character-lock[hidden] { display:none; }

@@ -16,6 +16,7 @@ try {
   await host.locator('#menu-online').waitFor({ state: 'visible', timeout: 60000 });
   await host.locator('#menu-online').click({ timeout: 60000 });
   await host.locator('#online-host').click();
+  await host.locator('#online-format-panel [data-online-mode="duel"]').click();
   await host.locator('#mode-panel [data-mode="random"]').click();
   await host.locator('#map-panel [data-map="riverside"]').click();
   const invite = host.locator('#online-invite-link');
@@ -42,6 +43,12 @@ try {
   await guest.goto(inviteUrl, { waitUntil: 'domcontentloaded' });
   await guest.locator('#online-panel').waitFor({ state: 'visible', timeout: 60000 });
   await guest.waitForFunction(() => document.querySelector('#online-status')?.textContent.includes('WAITING FOR FIGHTERS'), null, { timeout: 15000 });
+  if(await guest.locator('#online-host').isVisible()||!await guest.locator('#online-code').evaluate(element=>element.readOnly)){
+    throw new Error('Invite guest can create a match or edit the room code');
+  }
+  if(!((await guest.locator('#online-map-name').textContent())||'').includes('RIVERSIDE')){
+    throw new Error('Invite does not show its map details');
+  }
   const inviteError = await guest.locator('#online-error').textContent();
   if (inviteError.trim()) throw new Error(`Invite lookup failed: ${inviteError}`);
   await guest.locator('#online-characters [data-character="dorian"]').click();
@@ -118,7 +125,7 @@ try {
       throw new Error('Online result did not offer Play Again');
     }
     await host.locator('#start').click();
-    if ((await host.locator('#start').textContent()).trim() !== 'WAITING FOR OPPONENT') {
+    if ((await host.locator('#start').textContent()).trim() !== 'WAITING FOR FIGHTERS') {
       throw new Error('First rematch vote did not wait for the other fighter');
     }
     await guest.locator('#start').click();

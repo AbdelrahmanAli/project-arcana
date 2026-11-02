@@ -44,6 +44,17 @@ function healWav(){
     return (rise*.27+chime*.2)*Math.min(1,t/.015);
   });
 }
+function heartbeatWav(){
+  return pcmWav(1.18,t=>{
+    const beat=start=>{
+      const age=t-start;
+      if(age<0||age>.22)return 0;
+      const thump=Math.sin(2*Math.PI*(72-34*age)*age);
+      return thump*Math.min(1,age/.012)*Math.exp(-age*25);
+    };
+    return beat(.08)*.46+beat(.31)*.29;
+  });
+}
 function platformCueWav(){
   return pcmWav(.42,t=>{
     const note=(start,freq)=>{
@@ -231,7 +242,7 @@ export class Sound {
   constructor(){
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
-    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.platformPhase=null;this.ambientMap=null;
+    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;
   }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
@@ -247,6 +258,7 @@ export class Sound {
     this.clips.empty=new Howl({src:[pcmWav(.16,t=>Math.sin(2*Math.PI*(t<.065?420*t:420*.065+290*(t-.065)))*Math.exp(-t*19)*.38)],format:['wav'],volume:.2,preload:true,pool:4});
     this.clips.dodgeDenied=new Howl({src:[dodgeDeniedWav()],format:['wav'],volume:.22,preload:true,pool:4});
     this.clips.heal=new Howl({src:[healWav()],format:['wav'],volume:.28,preload:true,pool:4});
+    this.clips.heartbeat=new Howl({src:[heartbeatWav()],format:['wav'],volume:.23,loop:true,preload:true});
     this.clips.crateLoot=new Howl({src:[wav(.2,370,.3,13)],format:['wav'],volume:.18,preload:true,pool:8});
     this.clips.missile=new Howl({src:[`${import.meta.env.BASE_URL}audio/smart-missile.mp3`],format:['mp3'],volume:.4,preload:true,pool:8});
     this.clips.grenade=new Howl({src:[grenadeLaunchWav()],format:['wav'],volume:.38,preload:true,pool:8});
@@ -290,6 +302,7 @@ export class Sound {
   }
   play(name,x,rate=1){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);if(rate!==1)s.rate(rate,id);}}
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
+  lowHealth(active){if(!this.ready||this.heartbeatPlaying===active)return;this.heartbeatPlaying=active;if(active)this.clips.heartbeat.play();else this.clips.heartbeat.stop();}
   tornado(active){if(!this.ready||this.tornadoing===active)return;this.tornadoing=active;if(active)this.clips.tornado.play();else this.clips.tornado.stop();}
   environment(map,sandstormActive=false){
     if(!this.ready)return;
@@ -314,5 +327,5 @@ export class Sound {
     if(wet)this.clips.water.volume(.018);
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
 }

@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { Match } from '../src/model.js';
-import { bufferInput, consumeTransientInput, fighterCount, lineupFromSeats, matchOptions, snapshot, SNAPSHOT_EVERY_TICKS, TICK_SECONDS, validCharacter } from './room-protocol.js';
+import { availableSeat, bufferInput, consumeTransientInput, fighterCount, fillComputerSeats, humanSeats, lineupFromSeats, matchOptions, snapshot, SNAPSHOT_EVERY_TICKS, TICK_SECONDS, validCharacter } from './room-protocol.js';
 
 const ROOM_ROUTE = /^\/api\/rooms\/([a-f\d-]{36})(?:\/(join|connect))?$/i;
 const EMPTY_INPUT = Object.freeze({ x: 0, y: 0, pistol: false, special: false, specialRelease: false, dodge: false });
@@ -67,9 +67,11 @@ export class MatchRoom extends DurableObject {
       this.room = await ctx.storage.get('room') || null;
       const checkpoint = await ctx.storage.get('checkpoint');
       if (this.room && checkpoint) {
-        this.match = Object.assign(new Match(Math.random, this.matchConfig()), checkpoint.match);
+        const restored = new Match(Math.random, this.matchConfig());
+        const aiState = restored.aiState;
+        this.match = Object.assign(restored, checkpoint.match);
         this.match.random = Math.random;
-        this.match.aiState = new Map();
+        this.match.aiState = aiState;
         this.inputs = checkpoint.inputs || [];
         this.frame = checkpoint.frame || 0;
       }
@@ -81,7 +83,7 @@ export class MatchRoom extends DurableObject {
     return {
       ...this.room.options,
       lineup: lineupFromSeats(this.room.seats),
-      controllers: Array(fighterCount(this.room.options.format)).fill('human'),
+      controllers: this.room.seats.map(seat => seat?.computer ? 'computer' : 'human'),
     };
   }
 
@@ -90,10 +92,12 @@ export class MatchRoom extends DurableObject {
       type: 'status',
       options: this.room.options,
       format: this.room.options.format,
+      requiredPlayers: humanSeats(this.room.options).length,
       seats: this.room.seats.map((seat, index) => ({
         seat: index,
         characterId: seat?.characterId || null,
-        connected: [...this.sockets.values()].includes(index),
+        computer: !!seat?.computer,
+        connected: !!seat?.computer || [...this.sockets.values()].includes(index),
       })),
       started: !!this.match,
       finished: this.match?.finished || false,
@@ -110,7 +114,7 @@ export class MatchRoom extends DurableObject {
 
   resumeIfReady() {
     if (!this.room || this.timer || !this.match || this.match.finished) return;
-    if (this.sockets.size !== fighterCount(this.room.options.format)) return;
+    if (this.sockets.size !== humanSeats(this.room.options).length) return;
     this.timer = setInterval(() => this.tick(), 1000 * TICK_SECONDS);
   }
 
@@ -121,8 +125,8 @@ export class MatchRoom extends DurableObject {
 
   async startRematchIfReady() {
     const count = fighterCount(this.room.options.format);
-    if (!this.match?.finished || this.sockets.size !== count ||
-      !this.room.rematchVotes?.every(Boolean)) return;
+    if (!this.match?.finished || this.sockets.size !== humanSeats(this.room.options).length ||
+      !humanSeats(this.room.options).every(seat => this.room.rematchVotes?.[seat])) return;
     this.match = new Match(Math.random, this.matchConfig());
     this.inputs = Array.from({ length: count }, () => ({ ...EMPTY_INPUT }));
     this.room.readyAt = Date.now() + 1500;
@@ -136,7 +140,7 @@ export class MatchRoom extends DurableObject {
   }
 
   async requestRematch(seat) {
-    if (!this.match?.finished) return;
+    if (!this.match?.finished || !humanSeats(this.room.options).includes(seat)) return;
     this.room.rematchVotes ||= Array(fighterCount(this.room.options.format)).fill(false);
     if (this.room.rematchVotes[seat]) return;
     this.room.rematchVotes[seat] = true;
@@ -171,8 +175,12 @@ export class MatchRoom extends DurableObject {
       if (this.room.seats.some(entry => entry?.characterId === data.characterId)) {
         return json({ error: 'Fighter already chosen' }, 409);
       }
-      const seat = this.room.seats.findIndex(entry => !entry);
-      if (seat < 0) return json({ error: 'Room is full' }, 409);
+      const requestedTeam = data?.team;
+      if (requestedTeam !== undefined && requestedTeam !== 0 && requestedTeam !== 1) {
+        return json({ error: 'Choose a valid team' }, 400);
+      }
+      const seat = availableSeat(this.room.seats, this.room.options, requestedTeam);
+      if (seat < 0) return json({ error: 'Room or selected team is full' }, 409);
       const token = crypto.randomUUID();
       this.room.seats[seat] = { characterId: data.characterId, token };
       await this.ctx.storage.put('room', this.room);
@@ -192,7 +200,8 @@ export class MatchRoom extends DurableObject {
       server.serializeAttachment({ seat });
       this.sockets.set(server, seat);
       server.send(JSON.stringify({ type: 'welcome', seat, status: this.publicStatus() }));
-      if (!this.match && this.sockets.size === fighterCount(this.room.options.format)) {
+      if (!this.match && this.sockets.size === humanSeats(this.room.options).length) {
+        this.room.seats = fillComputerSeats(this.room.seats, this.room.options);
         this.match = new Match(Math.random, this.matchConfig());
         this.room.readyAt = Date.now() + 1500;
         this.inputs = Array(fighterCount(this.room.options.format)).fill(null).map(() => ({ ...EMPTY_INPUT }));
@@ -247,7 +256,7 @@ export class MatchRoom extends DurableObject {
 
   webSocketClose(ws) {
     if (!this.sockets.delete(ws)) return;
-    if (this.sockets.size < fighterCount(this.room.options.format)) this.stop();
+    if (this.sockets.size < humanSeats(this.room.options).length) this.stop();
     if (this.room) this.broadcast(this.publicStatus());
     if (this.match) this.ctx.waitUntil(this.saveCheckpoint());
   }

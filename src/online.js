@@ -34,9 +34,9 @@ export class OnlineRoomClient {
     return room;
   }
 
-  async join(roomId, characterId, token) {
+  async join(roomId, characterId, token, team) {
     const seat = await post(this.origin, `/api/rooms/${encodeURIComponent(roomId)}/join`,
-      token ? { token } : { characterId }, this.transport);
+      token ? { token } : { characterId, ...(team === undefined ? {} : { team }) }, this.transport);
     this.roomId = roomId;
     this.seat = seat.seat;
     return seat;

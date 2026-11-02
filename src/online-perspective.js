@@ -35,8 +35,8 @@ function rotate(value) {
 }
 
 export function projectOnlineState(state, seat) {
-  if (seat === 0) return state;
-  if (seat !== 1 || state.format !== '1v1') throw new RangeError('Unsupported online perspective');
+  if (!Number.isInteger(seat) || seat < 0 || seat >= state.players.length) throw new RangeError('Unsupported online perspective');
+  if (seat % 2 === 0) return state;
   const view = rotate(state);
   for (const collection of bankOwned) {
     for (const item of view[collection] || []) if (item.owner === 0 || item.owner === 1) item.owner = 1 - item.owner;
@@ -46,6 +46,6 @@ export function projectOnlineState(state, seat) {
 }
 
 export function inputForSeat(input, seat) {
-  if (seat === 0) return input;
+  if (seat % 2 === 0) return input;
   return { ...input, x: -(input.x || 0), y: -(input.y || 0) };
 }

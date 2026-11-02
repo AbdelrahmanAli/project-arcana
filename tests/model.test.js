@@ -131,7 +131,7 @@ test('each launch creates a pair with independent rolls and valid bank positions
   assert.equal(weapons[0].flight,weapons[1].flight);
 });
 
-test('rare Tower syringes are extra independent drops on each bank',()=>{
+test('rare platform syringe launch gives both banks one extra drop',()=>{
   assert.ok(PLATFORM_HEAL_CHANCE>0&&PLATFORM_HEAL_CHANCE<.15);
   for(const map of MAP_TYPES){
     const m=new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'laser',map});
@@ -148,6 +148,9 @@ test('rare Tower syringes are extra independent drops on each bank',()=>{
       assert.equal(heal.flightDuration,heal.flight);
     }
   }
+  const noHeal=new Match(()=>.5,{mode:GAME_MODES.CHOOSE_FIXED,weapon:'laser'});
+  noHeal.random=()=>.5;noHeal.launch();
+  assert.equal(noHeal.pickups.filter(item=>item.type==='syringe').length,0);
 });
 
 test('fixed modes deal one weapon to both banks while random mode remains independent',()=>{

@@ -1,4 +1,4 @@
-import { CHARACTER_BY_ID } from '../src/characters.js';
+import { CHARACTERS, CHARACTER_BY_ID } from '../src/characters.js';
 import { DROP_TYPES, GAME_MODES, MAP_TYPES } from '../src/model.js';
 
 export const TICK_SECONDS = 1 / 60;
@@ -7,17 +7,41 @@ export const SNAPSHOT_EVERY_TICKS = 2;
 export function matchOptions(value) {
   if (!value || typeof value !== 'object') throw new RangeError('Match options are required');
   const { format = '1v1', mode = GAME_MODES.RANDOM, map = MAP_TYPES[0], weapon } = value;
+  const teamMode = value.teamMode || (format === '1v1' ? 'duel' : 'versus');
   if (!['1v1', '2v2'].includes(format)) throw new RangeError('Unknown match format');
+  if (format === '1v1' ? teamMode !== 'duel' : !['coop', 'versus'].includes(teamMode)) throw new RangeError('Unknown online team mode');
   if (!Object.values(GAME_MODES).includes(mode)) throw new RangeError('Unknown weapon mode');
   if (!MAP_TYPES.includes(map)) throw new RangeError('Unknown map');
   if (mode === GAME_MODES.CHOOSE_FIXED && !DROP_TYPES.includes(weapon)) {
     throw new RangeError('Choose Fixed Weapon requires a valid weapon');
   }
-  return { format, mode, map, ...(mode === GAME_MODES.CHOOSE_FIXED ? { weapon } : {}) };
+  return { format, teamMode, mode, map, ...(mode === GAME_MODES.CHOOSE_FIXED ? { weapon } : {}) };
 }
 
 export function fighterCount(format) {
   return format === '2v2' ? 4 : 2;
+}
+
+export function humanSeats(options) {
+  if (options.format === '1v1') return [0, 1];
+  return options.teamMode === 'coop' ? [0, 2] : [0, 1, 2, 3];
+}
+
+export function availableSeat(seats, options, team = null) {
+  const candidates = humanSeats(options).filter(seat => team === null || seat % 2 === team);
+  return candidates.find(seat => !seats[seat]) ?? -1;
+}
+
+export function fillComputerSeats(seats, options, random = Math.random) {
+  const result = [...seats];
+  const human = new Set(humanSeats(options));
+  for (let seat = 0; seat < result.length; seat++) {
+    if (human.has(seat)) continue;
+    const choices = CHARACTERS.filter(character => !result.some(entry => entry?.characterId === character.id));
+    const character = choices[Math.floor(random() * choices.length)];
+    result[seat] = { characterId: character.id, computer: true };
+  }
+  return result;
 }
 
 export function validCharacter(id) {

@@ -833,8 +833,9 @@ export class Match {
       this.pickups.push(weapon);weaponDrops.push(weapon);
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
+    const healingLaunch=this.random()<PLATFORM_HEAL_CHANCE;
     for(const owner of [0,1]){
-      if(this.random()>=PLATFORM_HEAL_CHANCE)continue;
+      if(!healingLaunch)continue;
       const weapon=weaponDrops.find(drop=>drop.owner===owner),bounds=BANK_BOUNDS[owner];
       const clear=point=>point.x>=48&&point.x<=W-48&&point.y>=bounds.minY+20&&point.y<=bounds.maxY-20&&
         this.obstacles.every(o=>o.destroyed||distance(point,o)>=57)&&
@@ -845,7 +846,7 @@ export class Match {
         if(clear(point)){site=point;break;}
       }
       if(!site)site=[100,240,380].flatMap(x=>[bounds.minY+45,(bounds.minY+bounds.maxY)/2,bounds.maxY-45].map(y=>({x,y}))).find(clear);
-      if(!site)continue;
+      if(!site)site={x:W/2,y:(bounds.minY+bounds.maxY)/2};
       const {x:sx,y:sy}=supplyPort(owner,this.format==='2v2'?2:1);
       this.pickups.push({id:this.id++,owner,type:'syringe',sx,sy,...site,flight:.82,flightDuration:.82,ttl:PICKUP_LIFETIME});
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});

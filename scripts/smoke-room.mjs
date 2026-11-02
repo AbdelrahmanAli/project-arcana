@@ -21,7 +21,7 @@ for (const format of ['1v1', '2v2']) {
   const characters = ['elias', 'dorian', 'nadia', 'imani'].slice(0, format === '2v2' ? 4 : 2);
   const seats = [];
   for (const characterId of characters) {
-    seats.push(await request(`/api/rooms/${room.id}/join`, { characterId }));
+    seats.push(await request(`/api/rooms/${room.id}/join`, { characterId, ...(format==='2v2'?{team:seats.length%2}:{}) }));
   }
   if (seats.some((seat, index) => seat.seat !== index)) throw new Error('Seats were assigned incorrectly');
 
@@ -75,4 +75,37 @@ for (const format of ['1v1', '2v2']) {
     console.log('Single dodge stayed single after its cooldown');
   }
   sockets.forEach(socket => socket.close());
+}
+
+{
+  const room=await request('/api/rooms',{format:'2v2',teamMode:'coop',mode:'random',map:'storm'});
+  const teammates=[
+    await request(`/api/rooms/${room.id}/join`,{characterId:'elias',team:0}),
+    await request(`/api/rooms/${room.id}/join`,{characterId:'nadia',team:0}),
+  ];
+  if(teammates[0].seat!==0||teammates[1].seat!==2)throw new Error('Co-op teammates did not share a bank');
+  const sockets=[];
+  try{
+    for(const seat of teammates){
+      const socket=new WebSocket(`${origin.replace(/^http/,'ws')}/api/rooms/${room.id}/connect?token=${seat.token}`);
+      await timeout(new Promise((resolve,reject)=>{
+        socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',reject,{once:true});
+      }),'co-op connection');
+      sockets.push(socket);
+    }
+    const state=await timeout(new Promise(resolve=>{
+      sockets[0].addEventListener('message',event=>{
+        const packet=JSON.parse(event.data);
+        if(packet.type==='state'&&packet.state.time>2)resolve(packet.state);
+      });
+    }),'co-op live snapshot');
+    if(state.players.length!==4||state.players[1].controller!=='computer'||state.players[3].controller!=='computer'){
+      throw new Error('Co-op room did not start with two computer opponents');
+    }
+    const status=await (await fetch(`${origin}/api/rooms/${room.id}`)).json();
+    if(status.requiredPlayers!==2||!status.seats[1].computer||!status.seats[3].computer){
+      throw new Error('Co-op lobby did not report its computer seats');
+    }
+    console.log(`2v2 co-op room ${room.id}: 2 humans and 2 computers, map ${state.map}`);
+  }finally{sockets.forEach(socket=>socket.close());}
 }

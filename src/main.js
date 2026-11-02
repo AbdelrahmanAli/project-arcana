@@ -26,6 +26,7 @@ let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownSt
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 let selectedFormat='1v1',selectedCharacter='elias',lineupSelections={opponent:'random',teammate:'random',opponent2:'random'},resolvedLineup=null;
 let playKind='computer',onlineClient=null,onlineSeat=0,onlineToken=null,onlineStatus=null,onlineActive=false,onlineConnected=false,onlineFrame=-1,onlineTargets=null,onlineEventQueue=[];
+let onlineTeamMode='duel',onlineSelectedTeam=1,invitedRoomId=null;
 const localFighter=()=>game.players[onlineActive?onlineSeat:0]||game.players[0];
 const visibleOpponent=()=>game.players.find(fighter=>fighter.team!==localFighter().team)||game.players[1];
 try {const saved=localStorage.getItem('tower-deal-character-v1');if(CHARACTER_BY_ID[saved])selectedCharacter=saved;}catch { /* Storage is optional. */ }
@@ -228,8 +229,9 @@ function clearInput(preservePistolAuto=false){
   syncPistolButton();$('special-fire').classList.remove('pressed');
 }
 function clearSpriteMap(map){for(const sprite of map.values())sprite.destroy({children:true});map.clear();}
-const menuPanels=['menu-home','format-panel','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','lineup-panel','online-panel','settings-panel'];
+const menuPanels=['menu-home','format-panel','mode-panel','weapon-panel','map-panel','map-deal-panel','deal-panel','lineup-panel','online-format-panel','online-panel','settings-panel'];
 const MAP_ART={riverside:'art/arena.png',storm:'art/arena-storm.webp',magma:'art/arena-magma.webp',desert:'art/phase6/arena-desert.webp',snow:'art/phase6/arena-snow.webp'};
+const MAP_DETAILS={riverside:'Platform fire attacks cross both banks.',storm:'Rain, mud, lightning and tornadoes.',magma:'Volcanic rocks, fire and drifting ash.',desert:'Sandstorm, eagle, quicksand and mirages.',snow:'Sliding ice, avalanche and hail.'};
 let dealTimer=null,dealRun=0,mapDealTimer=null,mapDealRun=0;
 function cancelDealAnimation(){
   dealRun++;
@@ -430,6 +432,11 @@ function renderOnlineCharacters(){
 function showOnlinePanel(message='Create an invite or join one.'){
   $('online-status').textContent=message;$('online-error').textContent='';
   $('online-entry').hidden=!!onlineToken;$('online-invite').hidden=true;
+  $('online-match-details').hidden=!onlineStatus;
+  $('online-teams').hidden=true;
+  $('online-host').hidden=!!invitedRoomId;
+  $('online-code').readOnly=!!invitedRoomId;
+  $('online-character-lock').hidden=!onlineToken;
   renderOnlineCharacters();$('menu').classList.remove('hidden');
   document.querySelector('.game-unit').classList.add('menu-open');showMenuPanel('online-panel');
 }
@@ -439,8 +446,27 @@ function updateOnlineLobby(){
   if(!onlineToken&&seats.some(seat=>seat.characterId===selectedCharacter)){
     selectedCharacter=CHARACTERS.find(character=>!seats.some(seat=>seat.characterId===character.id))?.id||selectedCharacter;
   }
-  const occupied=seats.filter(seat=>seat.characterId).length;
-  $('online-status').textContent=onlineStatus.started?'Both fighters are connected. Entering the arena…':`WAITING FOR FIGHTERS · ${occupied}/${seats.length} JOINED`;
+  const occupied=seats.filter(seat=>seat.characterId&&!seat.computer).length;
+  $('online-status').textContent=onlineStatus.started?'Fighters connected. Entering the arena…':`WAITING FOR FIGHTERS · ${occupied}/${onlineStatus.requiredPlayers||seats.length} JOINED`;
+  const options=onlineStatus.options;
+  const details=$('online-match-details');details.hidden=false;
+  $('online-map-art').style.backgroundImage=`url("${import.meta.env.BASE_URL}${MAP_ART[options.map]}")`;
+  $('online-map-name').textContent=`${options.map.toUpperCase()} · ${options.format.toUpperCase()}`;
+  $('online-map-description').textContent=MAP_DETAILS[options.map]||'';
+  $('online-mode-description').textContent=`${options.teamMode==='coop'?'CO-OP · 2 HUMANS VS 2 COMPUTERS':options.teamMode==='versus'?'VERSUS · 4 HUMANS':'DUEL · 2 HUMANS'} · ${options.mode.replaceAll('-',' ').toUpperCase()}${options.weapon?` · ${WEAPONS[options.weapon].name.toUpperCase()}`:''}`;
+  const choosingTeams=options.teamMode==='versus'&&!onlineToken;
+  $('online-teams').hidden=!choosingTeams;
+  for(const button of document.querySelectorAll('.online-team')){
+    const team=Number(button.dataset.team),count=seats.filter(seat=>seat.seat%2===team&&seat.characterId).length;
+    button.textContent=`${team===0?'LOWER BANK':'UPPER BANK'} · ${count}/2`;
+    button.disabled=count>=2;
+    button.setAttribute('aria-pressed',String(team===onlineSelectedTeam));
+  }
+  if(choosingTeams&&document.querySelector(`.online-team[data-team="${onlineSelectedTeam}"]`).disabled){
+    const available=[...document.querySelectorAll('.online-team')].find(button=>!button.disabled);
+    if(available){onlineSelectedTeam=Number(available.dataset.team);available.setAttribute('aria-pressed','true');}
+  }
+  $('online-character-lock').hidden=!onlineToken;
   renderOnlineCharacters();
 }
 async function inspectOnlineInvite(roomId){
@@ -461,10 +487,10 @@ function onlineRoomId(value){
 }
 function startOnlineView(state){
   const seats=onlineStatus?.seats;
-  if(!seats?.[0]?.characterId||!seats?.[1]?.characterId)return;
-  selectedFormat='1v1';selectedMode=state.mode;selectedMap=state.map;
+  if(!seats?.every(seat=>seat.characterId))return;
+  selectedFormat=state.format;selectedMode=state.mode;selectedMap=state.map;
   selectedWeapon=onlineStatus.options.weapon||null;
-  resolvedLineup={player:seats[0].characterId,opponent:seats[1].characterId};
+  resolvedLineup={player:seats[0].characterId,opponent:seats[1].characterId,...(seats.length===4?{teammate:seats[2].characterId,opponent2:seats[3].characterId}:{})};
   prepareMatch(state.map);
   onlineFrame=-1;onlineTargets=null;onlineEventQueue=[];
   onlineActive=true;onlineConnected=true;starting=state.time===0;started=!starting;paused=false;finishedShown=false;
@@ -496,7 +522,7 @@ function applyOnlineState(packet){
 function syncOnlineRematchButton(){
   if(!onlineActive||!game.finished||!finishedShown)return;
   const voted=!!onlineStatus?.rematchVotes?.[onlineSeat];
-  $('start').textContent=!onlineConnected?'RECONNECT':voted?'WAITING FOR OPPONENT':'PLAY AGAIN';
+  $('start').textContent=!onlineConnected?'RECONNECT':voted?'WAITING FOR FIGHTERS':'PLAY AGAIN';
   $('start').disabled=onlineConnected&&voted;
 }
 function handleOnlinePacket(packet){
@@ -531,9 +557,10 @@ async function createOnlineRoom(map){
   try{
     disconnectOnline();
     const client=new OnlineRoomClient();onlineClient=client;
-    const room=await client.create({format:'1v1',mode:selectedMode,map,weapon:selectedWeapon});
-    const seat=await client.join(room.id,selectedCharacter);
+    const room=await client.create({format:selectedFormat,teamMode:onlineTeamMode,mode:selectedMode,map,weapon:selectedWeapon});
+    const seat=await client.join(room.id,selectedCharacter,undefined,0);
     onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
+    selectedCharacter=onlineStatus.seats[onlineSeat].characterId;
     rememberOnlineSeat(room.id,seat.token);
     $('online-invite-link').value=room.inviteUrl;$('online-invite').hidden=false;
     updateOnlineLobby();connectOnline(client,seat.token);
@@ -547,9 +574,13 @@ async function joinOnlineRoom(){
     const client=new OnlineRoomClient();onlineClient=client;
     const saved=savedOnlineSeat(roomId);
     let seat;
-    try{seat=await client.join(roomId,selectedCharacter,saved);}
-    catch(error){if(!saved)throw error;seat=await client.join(roomId,selectedCharacter);}
+    const status=await client.status(roomId);
+    onlineStatus=status;updateOnlineLobby();
+    const team=status.options.teamMode==='coop'?0:status.options.teamMode==='versus'?onlineSelectedTeam:undefined;
+    try{seat=await client.join(roomId,selectedCharacter,saved,team);}
+    catch(error){if(!saved)throw error;seat=await client.join(roomId,selectedCharacter,undefined,team);}
     onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
+    selectedCharacter=onlineStatus.seats[onlineSeat].characterId;
     rememberOnlineSeat(roomId,seat.token);
     $('online-entry').hidden=true;updateOnlineLobby();connectOnline(client,seat.token);
   }catch(error){onlineError(error);}
@@ -636,17 +667,24 @@ $('start').addEventListener('click',()=>{
   }else if(paused)pause();else replay();
 });
 $('pause').addEventListener('click',pause);
-function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;disconnectOnline();playKind='computer';clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+function openMenu(){cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;disconnectOnline();invitedRoomId=null;$('online-code').readOnly=false;playKind='computer';clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
 $('menu-play').addEventListener('click',()=>{playKind='computer';showMenuPanel('format-panel');});
 $('menu-online').addEventListener('click',()=>{playKind='online';showOnlinePanel();});
-$('online-host').addEventListener('click',()=>{selectedFormat='1v1';showMenuPanel('mode-panel');});
+$('online-host').addEventListener('click',()=>showMenuPanel('online-format-panel'));
+$('online-format-back').addEventListener('click',()=>showMenuPanel('online-panel'));
+document.querySelectorAll('.online-format-choice').forEach(button=>button.addEventListener('click',()=>{
+  onlineTeamMode=button.dataset.onlineMode;selectedFormat=onlineTeamMode==='duel'?'1v1':'2v2';showMenuPanel('mode-panel');
+}));
+document.querySelectorAll('.online-team').forEach(button=>button.addEventListener('click',()=>{
+  onlineSelectedTeam=Number(button.dataset.team);updateOnlineLobby();
+}));
 $('online-join').addEventListener('click',joinOnlineRoom);
 $('online-code').addEventListener('keydown',event=>{if(event.key==='Enter')joinOnlineRoom();});
 $('online-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('online-invite-link').value);$('online-copy').textContent='COPIED';}catch{onlineError(new Error('Select and copy the invite link above.'));}});
 $('online-back').addEventListener('click',openMenu);
 document.querySelectorAll('.format-choice').forEach(button=>button.addEventListener('click',()=>{selectedFormat=button.dataset.format;showMenuPanel('mode-panel');}));
 $('format-back').addEventListener('click',()=>showMenuPanel('menu-home'));
-$('mode-back').addEventListener('click',()=>showMenuPanel(playKind==='online'?'online-panel':'format-panel'));
+$('mode-back').addEventListener('click',()=>showMenuPanel(playKind==='online'?'online-format-panel':'format-panel'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
 $('weapon-start').addEventListener('click',()=>{if(selectedWeapon)showMenuPanel('map-panel');});
 $('map-back').addEventListener('click',()=>showMenuPanel(selectedMode===GAME_MODES.CHOOSE_FIXED?'weapon-panel':'mode-panel'));
@@ -826,19 +864,19 @@ function updateHud(){
   if(WEAPON_ART_BOUNDS[enemyWeapon])fitWeaponIcon(badge.firstElementChild,enemyWeapon);
   else clearWeaponIconFit(badge.firstElementChild);
   $('opponent-toast').style.left=`${enemy.x/W*100}%`;$('opponent-toast').style.top=`${(enemy.y+40)/H*100}%`;
-  for(const fighter of game.players.slice(2)){
+  for(const fighter of game.players.filter(fighter=>fighter.id!==p.id&&fighter.id!==enemy.id)){
     const label=$(`fighter-${fighter.id}-toast`);
     if(label){label.style.left=`${fighter.x/W*100}%`;label.style.top=`${(fighter.y+40)/H*100}%`;}
   }
   $('opponent-hud').dataset.name=`ENEMY · ${CHARACTER_BY_ID[enemy.characterId]?.name||''}`;
   $('player-hud').querySelector('.player-hud-label').firstChild.textContent=`YOU · ${CHARACTER_BY_ID[p.characterId]?.name||''} `;
-  for(const fighter of game.players.slice(2)){
+  for(const fighter of game.players.filter(fighter=>fighter.id!==p.id&&fighter.id!==enemy.id)){
     const id=`fighter-${fighter.id}-hp`;
     let hud=$(`fighter-${fighter.id}-hud`);
     if(!hud){
       hud=document.createElement('div');hud.id=`fighter-${fighter.id}-hud`;hud.className='opponent-hud phase7-fighter-hud';
       const name=document.createElement('span');name.className='phase7-fighter-name';hud.appendChild(name);
-      const hp=document.createElement('div');hp.id=id;hp.className='health-segments';hp.setAttribute('role','progressbar');hp.setAttribute('aria-label',`${fighter.team===0?'Ally':'Enemy'} health`);hp.setAttribute('aria-valuemin','0');hp.setAttribute('aria-valuemax','100');
+      const hp=document.createElement('div');hp.id=id;hp.className='health-segments';hp.setAttribute('role','progressbar');hp.setAttribute('aria-label',`${fighter.team===p.team?'Ally':'Enemy'} health`);hp.setAttribute('aria-valuemin','0');hp.setAttribute('aria-valuemax','100');
       const cells=Array.from({length:20},()=>{const cell=document.createElement('span');cell.className='health-cell';const fill=document.createElement('i');cell.appendChild(fill);hp.appendChild(cell);return fill;});
       healthCells.set(id,cells);hud.appendChild(hp);
       const badge=document.createElement('div');badge.className='opponent-weapon phase7-weapon';
@@ -847,27 +885,27 @@ function updateHud(){
       badge.append(picture,chargeLabel,chargeTrack);hud.appendChild(badge);
       $('arena').appendChild(hud);
     }
-    hud.querySelector('.phase7-fighter-name').textContent=`${fighter.team===0?'ALLY':'ENEMY'} · ${CHARACTER_BY_ID[fighter.characterId]?.name||''}`;
+    hud.querySelector('.phase7-fighter-name').textContent=`${fighter.team===p.team?'ALLY':'ENEMY'} · ${CHARACTER_BY_ID[fighter.characterId]?.name||''}`;
     hud.style.display=fighter.hp>0&&(fighter.team===p.team||game.canSee(p,fighter,true))?'flex':'none';
     updateHealth(id,fighter.hp);
     const badge=hud.querySelector('.phase7-weapon'),type=game.weapon(fighter),picture=badge.firstElementChild;
     if(picture.dataset.weapon!==type)setWeaponPicture(picture,type);
     badge.classList.toggle('charging',type==='laser'&&fighter.charge>0);
     badge.classList.toggle('laser-white',type==='laser'&&fighter.charge>0&&laserWhitePhase(game.time,fighter.charge>=1));
-    badge.title=WEAPONS[type].name;badge.setAttribute('aria-label',`${fighter.team===0?'Ally':'Enemy'} equipped weapon: ${WEAPONS[type].name}`);
+    badge.title=WEAPONS[type].name;badge.setAttribute('aria-label',`${fighter.team===p.team?'Ally':'Enemy'} equipped weapon: ${WEAPONS[type].name}`);
     badge.querySelector('.opponent-charge-track i').style.width=`${fighter.charge*100}%`;
   }
-  for(const id of [2,3])if(!game.players[id]&&$(`fighter-${id}-hud`))$(`fighter-${id}-hud`).style.display='none';
+  for(const id of [0,1,2,3])if((!game.players[id]||id===p.id||id===enemy.id)&&$(`fighter-${id}-hud`))$(`fighter-${id}-hud`).style.display='none';
   syncHudPositions();
 }
 function syncHudPositions(){
   const scale=$('arena').clientWidth/W;
   for(const fighter of game.players){
-    const hud=$(fighter.id===(onlineActive?onlineSeat:0)?'player-hud':fighter.id===(onlineActive?1-onlineSeat:1)?'opponent-hud':`fighter-${fighter.id}-hud`);
+    const hud=$(fighter.id===localFighter().id?'player-hud':fighter.id===visibleOpponent().id?'opponent-hud':`fighter-${fighter.id}-hud`);
     if(!hud)continue;
     hud.style.setProperty('--hud-scale',scale);
     hud.style.left=`${Math.max(50,Math.min(W-50,fighter.x))/W*100}%`;
-    hud.style.top=`${(fighter.y-(fighter.id===(onlineActive?onlineSeat:0)?38:30))/H*100}%`;
+    hud.style.top=`${(fighter.y-(fighter.id===localFighter().id?38:30))/H*100}%`;
   }
 }
 function sheetLoop(time,fps,count){const span=count*2-2,step=Math.floor(time*fps)%span;return step<count?step:span-step;}
@@ -1634,9 +1672,9 @@ function render(){
     screenHitDraw.rect(8,8,W-16,H-16).stroke({color:0xff3040,width:16,alpha:.42*pulse*urgency});
   }
   if(flash>0&&Math.sin((.55-flash)*42)>-.15){
-    const fade=Math.min(1,flash/.15);
-    rect(screenHitDraw,0,0,W,H,0xb90724,.13*fade);
-    screenHitDraw.rect(8,8,W-16,H-16).stroke({color:0xff3040,width:16,alpha:.36*fade});
+    const fade=Math.min(1,flash/.18);
+    rect(screenHitDraw,0,0,W,H,0xd60925,.3*fade);
+    screenHitDraw.rect(8,8,W-16,H-16).stroke({color:0xff1834,width:22,alpha:.72*fade});
   }
 }
 async function boot(){
@@ -1783,7 +1821,7 @@ async function boot(){
   $('menu-online').disabled=!onlineConfigured;
   $('menu-online').title=onlineConfigured?'Create or join a separate-device match':'Online hosting is not connected on this site';
   const invitedRoom=new URLSearchParams(location.search).get('room');
-  if(invitedRoom&&onlineConfigured){$('online-code').value=invitedRoom;playKind='online';showOnlinePanel('Choose your fighter, then join the invitation.');inspectOnlineInvite(invitedRoom);}
+  if(invitedRoom&&onlineConfigured){invitedRoomId=invitedRoom;$('online-code').value=invitedRoom;playKind='online';showOnlinePanel('Choose your fighter, then join the invitation.');inspectOnlineInvite(invitedRoom);}
   let accumulator=0,hudTime=0;
   app.ticker.add(ticker=>{
     const dt=Math.min(ticker.deltaMS/1000,.05);
@@ -1834,6 +1872,7 @@ async function boot(){
       damageByPlayer.forEach((amount,playerId)=>{if(amount>0)showNumber(playerId,amount);});
       game.events=[];
       sound.burn(game.flames.length>0||game.volcanicFire.some(f=>f.hit)||game.obstacles.some(o=>o.type==='rock'&&!o.destroyed&&o.burning>0));
+      sound.lowHealth(localFighter().hp>0&&localFighter().hp<=LOW_HEALTH_THRESHOLD);
       sound.environment(game.map,!!game.sandstorm);
       sound.tornado(game.map===MAPS.STORM&&game.tornadoes.length>0);
       sound.platform(game.platform.phase,game.map);

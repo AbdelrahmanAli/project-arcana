@@ -33,6 +33,18 @@ test('the invited fighter appears below the channel with mirrored controls and w
   assert.equal(state.players[1].bank, 1, 'projection does not mutate the server state');
 });
 
+test('every 2v2 online seat sees their own bank below the river',()=>{
+  const match=new Match(()=>.5,{format:'2v2',controllers:['human','human','human','human']});
+  const state=snapshot(match);
+  for(let seat=0;seat<4;seat++){
+    const view=projectOnlineState(state,seat);
+    assert.equal(view.players[seat].bank,0);
+    assert.ok(view.players[seat].y>=BANK_BOUNDS[0].minY);
+    assert.equal(view.players[(seat+1)%4].bank,1);
+    assert.equal(inputForSeat({x:1,y:-1},seat).x,seat%2?-1:1);
+  }
+});
+
 for (const map of MAP_TYPES) test(`${map} online perspective puts the invited fighter on the lower bank`, () => {
   const match = new Match(() => .5, { map, controllers: ['human', 'human'] });
   for (let tick = 0; tick < 480; tick++) match.update(1 / 60, [{ x: 0, y: 0 }, { x: 0, y: 0 }]);
