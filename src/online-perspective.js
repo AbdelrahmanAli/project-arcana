@@ -1,4 +1,5 @@
-import { BANK_BOUNDS, H, RIVER, W } from './model.js';
+import { BANK_BOUNDS, H, HAIL_CLUSTER, RIVER, W } from './model.js';
+import { ashCloudVisuals } from './phase5-visuals.js';
 
 const xPositions = new Set(['x', 'sx', 'tx', 'sourceX', 'anchorX', 'startX', 'endX', 'targetX', 'fromX', 'toX', 'originX']);
 const yPositions = new Set(['y', 'sy', 'ty', 'sourceY', 'anchorY', 'startY', 'endY', 'targetY', 'fromY', 'toY', 'originY', 'cloudY']);
@@ -38,6 +39,10 @@ export function projectOnlineState(state, seat) {
   if (!Number.isInteger(seat) || seat < 0 || seat >= state.players.length) throw new RangeError('Unsupported online perspective');
   if (seat % 2 === 0) return state;
   const view = rotate(state);
+  // Ash routes are generated from time, so rotating only the stored age does
+  // not rotate their actual coverage. Share projected clouds with visibility checks.
+  if(state.ash)view.ash.clouds=ashCloudVisuals(state.ash).map(cloud=>({...rotate(cloud),owner:1-cloud.owner}));
+  for(const pellet of view.hail||[])pellet.impactOffsets=HAIL_CLUSTER.offsets.map(([x,y])=>[-x,-y]);
   for (const collection of bankOwned) {
     for (const item of view[collection] || []) if (item.owner === 0 || item.owner === 1) item.owner = 1 - item.owner;
   }

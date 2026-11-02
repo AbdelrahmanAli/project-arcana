@@ -1024,6 +1024,7 @@ function renderPhase6Environment(){
     const drawnHailClouds=new Set();
     for(const pellet of game.hail){
       if(pellet.age<pellet.start)continue;
+      const impactOffsets=pellet.impactOffsets||HAIL_CLUSTER.offsets;
       const cloudId=pellet.cloudId??pellet.id;
       if(!drawnHailClouds.has(cloudId)){
         drawnHailClouds.add(cloudId);
@@ -1046,11 +1047,11 @@ function renderPhase6Environment(){
         environmentGround.ellipse(pellet.x,pellet.y,r,r*.78)
           .fill({color:0x7bc8e8,alpha:.25*fade})
           .stroke({color:0xe5fbff,width:2.2,alpha:.9*pulse});
-        for(const [dx,dy] of HAIL_CLUSTER.offsets)
+        for(const [dx,dy] of impactOffsets)
           environmentGround.ellipse(pellet.x+dx,pellet.y+dy,2.4,1.8).fill({color:0x1d678c,alpha:.8*fade});
       }
       for(let index=0;index<HAIL_CLUSTER.offsets.length;index++){
-        const [dx,dy]=HAIL_CLUSTER.offsets[index];
+        const [dx,dy]=impactOffsets[index];
         const impactAt=pellet.warning+index*HAIL_CLUSTER.stagger;
         if(pellet.age<impactAt-HAIL_CLUSTER.fall||pellet.age>=impactAt+.42)continue;
         const frame=pellet.age<impactAt
@@ -1270,12 +1271,15 @@ function renderPlatformContact(){
   const x=PLATFORM_GEOMETRY.x,y=BASE_Y,time=game.time;
   // The near rim is partly submerged. The wash covers only its lowest pixels;
   // side wakes stay in waterDraw behind the armor.
-  platformContactDraw.moveTo(x-88,y+25);
+  platformContactDraw.moveTo(x-88,y+platformContactEdgeY(time,-88));
   for(let offset=-80;offset<=80;offset+=16){
     platformContactDraw.lineTo(x+offset,y+platformContactEdgeY(time,offset));
   }
-  platformContactDraw.lineTo(x+88,y+25).lineTo(x+102,y+70).lineTo(x-102,y+70).closePath()
-    .fill({color:0x086071,alpha:.58});
+  platformContactDraw.lineTo(x+88,y+platformContactEdgeY(time,88));
+  for(let offset=88;offset>=-88;offset-=8){
+    platformContactDraw.lineTo(x+offset,y+platformContactEdgeY(time,offset)+5);
+  }
+  platformContactDraw.closePath().fill({color:0x086071,alpha:.42});
   const sway=platformContactSway(time);
   for(const side of [-1,1]){
     waterDraw.moveTo(x+side*80,y+24-PLATFORM_SIDE_FOAM_RISE+sway)
@@ -1482,7 +1486,7 @@ function render(){
         const dotX=p.x+(p.bank===0?5:-5),dotY=p.y-10;
         circle(draw,dotX,dotY,6+power*3,white?0xffe9e4:0xff1631,ready?.35:.24);
         circle(draw,dotX,dotY,3+power*1.5,white?0xffffff:0xff263d,1);
-        if(p.id===0){
+        if(p.id===localFighter().id){
           draw.roundRect(p.x-19,p.y-36,38,6,2).fill({color:0x220c10,alpha:.9});
           draw.roundRect(p.x-18,p.y-35,36*power,4,1).fill({color:white?0xffffff:ready?0xff5262:0xff263d,alpha:1});
         }
@@ -1497,12 +1501,13 @@ function render(){
       const pose=(sprite,index,alpha)=>{
         const art=death[deathFacing][index];
         sprite.texture=art.texture;
+        sprite.scale.set(Math.abs(sprite.scale.x),Math.abs(sprite.scale.y));
         sprite.width=art.width;sprite.height=art.height;
-        sprite.position.set(x,y);sprite.rotation=0;sprite.alpha=alpha;sprite.tint=0xffffff;
+        sprite.position.set(x,y);sprite.zIndex=y+FIGHTER_DEPTH_OFFSET;sprite.rotation=0;sprite.alpha=alpha;sprite.tint=0xffffff;
       };
       s.visible=frame<3&&blend<1;
       if(s.visible)pose(s,frame,1-blend);
-      corpse.visible=true;pose(corpse,next,blend);corpse.zIndex=p.y+FIGHTER_DEPTH_OFFSET;
+      corpse.visible=true;pose(corpse,next,blend);
       groundDraw.ellipse(p.x,p.y+24,29,7).fill({color:0x211917,alpha:.45*Math.min(1,age/.65)});
     }
     if(p.stun>0&&p.hp>0){
@@ -1812,7 +1817,9 @@ async function boot(){
   }
   draw=new Graphics();joystickDraw=new Graphics();screenHitDraw=new Graphics();phase6WeatherLayer=new Container();phase6WeatherDraw=new Graphics();phase6WeatherLayer.addChild(phase6WeatherDraw);
   for(let i=0;i<12;i++){const cloud=new Sprite(phase6Frames.sandstorm[0]);cloud.anchor.set(.5);cloud.visible=false;sandstormSprites.push(cloud);phase6WeatherLayer.addChild(cloud);}
-  app.stage.addChild(draw,ashCloudLayer,phase6WeatherLayer,joystickDraw,screenHitDraw);
+  // Combat effects belong below obscuring weather, including hail clouds and avalanches.
+  world.addChildAt(draw,world.getChildIndex(environmentSky));
+  app.stage.addChild(ashCloudLayer,phase6WeatherLayer,joystickDraw,screenHitDraw);
   buildWeaponChoices();
   $('art-loading').hidden=true;
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';

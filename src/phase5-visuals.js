@@ -3,6 +3,7 @@ import { W, RIVER } from './arena-geometry.js';
 // Three plumes per bank rise from its vent, then spread across different lanes.
 export function ashCloudVisuals(ash){
   if(!ash)return [];
+  if(ash.clouds)return ash.clouds;
   const clouds=[];
   for(const owner of [0,1])for(let index=0;index<3;index++){
     const delay=index*.38,age=ash.age-delay;

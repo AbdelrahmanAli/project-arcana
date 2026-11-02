@@ -1,14 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Match, BANK_BOUNDS, H, MAP_TYPES, RIVER, W } from '../src/model.js';
+import { Match, BANK_BOUNDS, H, HAIL_CLUSTER, MAP_TYPES, RIVER, W } from '../src/model.js';
 import { inputForSeat, mirrorY, projectOnlineState } from '../src/online-perspective.js';
 import { snapshot } from '../server/room-protocol.js';
+import { ashCloudVisuals } from '../src/phase5-visuals.js';
+
+test('online magma smoke and its visibility coverage rotate with the invited bank',()=>{
+  const match=new Match(()=>.5,{map:'magma'});
+  match.ash={age:4,life:12};
+  const clouds=ashCloudVisuals(match.ash);
+  const view=projectOnlineState(snapshot(match),1);
+  ashCloudVisuals(view.ash).forEach((cloud,index)=>{
+    assert.equal(cloud.x,W-clouds[index].x);
+    assert.equal(cloud.y,mirrorY(clouds[index].y));
+    assert.equal(cloud.owner,1-clouds[index].owner);
+  });
+});
 
 test('opposing banks project onto the same lower-bank bounds', () => {
   assert.equal(mirrorY(BANK_BOUNDS[1].minY), BANK_BOUNDS[0].maxY);
   assert.equal(mirrorY(BANK_BOUNDS[1].maxY), BANK_BOUNDS[0].minY);
   assert.equal(mirrorY(RIVER.y), RIVER.y);
   for (let y = 0; y <= H; y += 5) assert.ok(Math.abs(mirrorY(mirrorY(y)) - y) < .00001);
+});
+
+test('invited snow view keeps every icicle aligned with its authoritative impact',()=>{
+  const match=new Match(()=>.5,{map:'snow'});
+  match.hail=[{x:150,y:230,owner:1}];
+  const pellet=projectOnlineState(snapshot(match),1).hail[0];
+  pellet.impactOffsets.forEach(([dx,dy],index)=>{
+    assert.equal(pellet.x+dx,W-150-HAIL_CLUSTER.offsets[index][0]);
+    assert.equal(pellet.y+dy,mirrorY(230+HAIL_CLUSTER.offsets[index][1]));
+  });
 });
 
 test('the invited fighter appears below the channel with mirrored controls and world objects', () => {
