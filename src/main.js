@@ -264,7 +264,9 @@ function buildMenuArt(){
     if(button.dataset.mode){
       const icon=document.createElement('span');setWeaponPicture(icon,({random:'rifle','random-same':'shotgun','random-fixed':'nuclear','choose-fixed':'laser'})[button.dataset.mode]);art.appendChild(icon);
     }else{
-      const ids=button.dataset.format==='2v2'||button.dataset.onlineMode==='coop'||button.dataset.onlineMode==='versus'?['elias','mara','dorian']:['elias','dorian'];
+      const isTeamMatch=button.dataset.format==='2v2'||button.dataset.onlineMode==='coop'||button.dataset.onlineMode==='versus';
+      const ids=isTeamMatch?['elias','mara','dorian','imani']:['elias','dorian'];
+      art.classList.toggle('squad-illustration',isTeamMatch);
       for(const id of ids){const sprite=document.createElement('span');sprite.className=`character-portrait ${id}`;art.appendChild(sprite);}
     }
     button.prepend(art);
