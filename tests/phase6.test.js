@@ -141,10 +141,10 @@ test('a mirage bites and briefly staggers an armed fighter',()=>{
   assert.equal(m.events.filter(event=>event.type==='scorpionBite').length,1);
 });
 
-test('the armed computer can still pursue a mirage',()=>{
+test('the armed computer pursues a matching-ammo mirage like a real pickup',()=>{
   const m=new Match(()=>.5,{map:MAPS.DESERT}),p=m.players[1];m.obstacles.forEach(o=>o.destroyed=true);
   p.slot={type:'rifle',ammo:4};
-  const lure={id:1,owner:1,x:p.x+40,y:p.y+30,type:'missile',state:'lure',age:3,warning:2,life:12,aiInterested:true};
+  const lure={id:1,owner:1,x:p.x+40,y:p.y+30,type:'rifle',state:'lure',age:3,warning:2,life:12};
   m.mirages=[lure];m.think(1/120);
   assert.deepEqual(m.aiState.get(1).target,{x:lure.x,y:lure.y});
 });

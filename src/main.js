@@ -1,5 +1,5 @@
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
-import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers } from './model.js';
+import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, hailCloudVisual } from './model.js';
 import { Sound } from './audio.js';
 import {PLATFORM_GEOMETRY,platformPose,platformContactEdgeY,platformContactSway} from './platform.js';
 import { CHARACTERS, CHARACTER_BY_ID, resolveLineup } from './characters.js';
@@ -1082,12 +1082,8 @@ function renderPhase6Environment(){
       const cloudId=pellet.cloudId??pellet.id;
       if(!drawnHailClouds.has(cloudId)){
         drawnHailClouds.add(cloudId);
-        const direction=pellet.direction||1;
-        const startX=direction>0?-HAIL_CLUSTER.entry:W+HAIL_CLUSTER.entry;
-        const endX=direction>0?W+HAIL_CLUSTER.entry:-HAIL_CLUSTER.entry;
-        const progress=Math.max(0,Math.min(1,(pellet.age-(pellet.cloudStart??pellet.start))/((pellet.cloudLife??pellet.life)-(pellet.cloudStart??pellet.start))));
-        const cloudX=startX+(endX-startX)*progress;
-        sprite(`hail-cloud-${cloudId}`,phase6Frames.hailCloud,lightningLayer,cloudX,(pellet.cloudY??pellet.y)-125,280,170,sheetLoop(pellet.age,6,4),.94);
+        const cloud=hailCloudVisual(pellet);
+        if(cloud)sprite(`hail-cloud-${cloudId}`,phase6Frames.hailCloud,lightningLayer,cloud.x,cloud.y,cloud.width,cloud.height,sheetLoop(pellet.age,6,4),.94);
       }
       const markerStart=pellet.warning-HAIL_CLUSTER.fall;
       const markerEnd=pellet.warning+HAIL_CLUSTER.stagger*(HAIL_CLUSTER.offsets.length-1);

@@ -2,6 +2,7 @@ import { CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { W, H, RIVER } from './arena-geometry.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, supplyPort, attackVent} from './platform.js';
+import {AI_TIMING,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition} from './ai-tactics.js';
 
 export { W, H, RIVER };
 export {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE};
@@ -17,7 +18,7 @@ export const LASER_CHARGE_TIME = 1.1, LASER_BONUS_DAMAGE = 30;
 export const WASTE_RADIUS = 24, WASTE_DAMAGE_PER_SECOND = 5;
 export const BARREL_BLAST_RADIUS = 65, BARREL_DAMAGE = 22;
 export const FLAME_SPEED = 330, FLAME_DAMAGE_PER_SECOND = 20;
-export const DEATH_DURATION = 4.4;
+export const DEATH_DURATION = 1.4;
 export const WEAPONS = {
   pistol: { name: 'SERVICE PISTOL', ammo: Infinity, damage: 5, speed: 540, cooldown: .48, frame: 13, color: 0xffdc80 },
   rifle: { name: 'ASSAULT RIFLE', ammo: 10, damage: 6, speed: 650, cooldown: .18, frame: 8, color: 0xffdd77 },
@@ -37,6 +38,13 @@ export const AVALANCHE = { warning:1.5, life:4.4, edge:100, halfWidth:205, hitDe
 export const HAIL_CLUSTER = { radius:33, impactRadius:17, stagger:.11, fall:.58, cloudDuration:9.6, cloudGap:1.2, entry:165, offsets:[[-16,-4],[0,5],[16,-3]] };
 export const EAGLE_FLIGHT = { approach:.85, dive:PHASE6_RULES.eagleWarning, recover:.55, retreat:1.3 };
 export const SANDSTORM_WAVE_GAP = 150;
+export function hailCloudVisual(pellet){
+  const start=pellet.cloudStart??pellet.start;
+  if(pellet.age<start)return null;
+  const direction=pellet.direction||1,from=direction>0?-HAIL_CLUSTER.entry:W+HAIL_CLUSTER.entry,to=direction>0?W+HAIL_CLUSTER.entry:-HAIL_CLUSTER.entry;
+  const progress=Math.max(0,Math.min(1,(pellet.age-start)/((pellet.cloudLife??pellet.life)-start)));
+  return {x:from+(to-from)*progress,y:(pellet.cloudY??pellet.y)-125,width:280,height:170};
+}
 export function sandstormCovers(storm,y){
   return !!storm&&(Math.abs(y-storm.y)<115||Math.abs(y-(storm.y-storm.direction*SANDSTORM_WAVE_GAP))<115);
 }
@@ -86,19 +94,8 @@ function pathClear(a,b,crates){
   }
   return true;
 }
-function escapeLane(p,source,dx,dy,reach,bank){
-  const end={x:source.x+dx*reach,y:source.y+dy*reach};
-  let best=null,bestScore=-Infinity;
-  for(const side of [-1,1]){
-    const point={x:clamp(p.x+side*dy*110,38,W-38),y:clamp(p.y-side*dx*110,bank.minY,bank.maxY)};
-    const travel=distance(p,point);
-    const score=segmentDistance(point,source,end)+Math.min(80,travel)*.15-(travel<10?200:0);
-    if(score>bestScore){best=point;bestScore=score;}
-  }
-  return best;
-}
-function routeAroundCrates(start,target,crates,bank){
-  if(!crates.length||pathClear(start,target,crates))return target;
+function routeAroundCrates(start,target,crates,bank,zones=[]){
+  if(pathClear(start,target,crates)&&pathDanger(start,target,zones)<.8)return target;
   const columns=24,rows=Math.ceil((bank.maxY-bank.minY)/18)+1,count=columns*rows;
   const nodes=Array.from({length:count},(_,index)=>({
     x:38+(index%columns)*(W-76)/(columns-1),
@@ -115,19 +112,25 @@ function routeAroundCrates(start,target,crates,bank){
   };
   const first=nearest(start,true),last=nearest(target,false);
   if(first<0||last<0)return start;
-  const previous=new Int16Array(count).fill(-1),queue=[first];previous[first]=first;
-  for(let head=0;head<queue.length&&previous[last]<0;head++){
-    const at=queue[head],cx=at%columns,cy=Math.floor(at/columns);
+  const previous=new Int16Array(count).fill(-1),cost=new Float64Array(count).fill(Infinity),closed=new Uint8Array(count),queue=[first];previous[first]=first;cost[first]=0;
+  const risk=nodes.map(point=>dangerAt(point,zones));
+  while(queue.length){
+    let best=0;
+    for(let i=1;i<queue.length;i++)if(cost[queue[i]]+distance(nodes[queue[i]],nodes[last])<cost[queue[best]]+distance(nodes[queue[best]],nodes[last]))best=i;
+    const at=queue.splice(best,1)[0];if(at===last)break;if(closed[at])continue;closed[at]=1;
+    const cx=at%columns,cy=Math.floor(at/columns);
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
       const nx=cx+dx,ny=cy+dy;if(nx<0||nx>=columns||ny<0||ny>=rows)continue;
       const next=ny*columns+nx;
-      if(!free[next]||previous[next]>=0||!pathClear(nodes[at],nodes[next],crates))continue;
-      previous[next]=at;queue.push(next);
+      if(!free[next]||closed[next]||!pathClear(nodes[at],nodes[next],crates))continue;
+      const nextCost=cost[at]+distance(nodes[at],nodes[next])*(1+(.5*risk[at]+.5*risk[next])*.65);
+      if(nextCost>=cost[next])continue;
+      cost[next]=nextCost;previous[next]=at;if(!queue.includes(next))queue.push(next);
     }
   }
   if(previous[last]<0)return start;
   const route=[];for(let at=last;at!==first;at=previous[at])route.push(nodes[at]);
-  for(const point of route)if(pathClear(start,point,crates))return point;
+  for(const point of route)if(pathClear(start,point,crates)&&pathDanger(start,point,zones)<=Math.max(.8,dangerAt(start,zones)*.55))return point;
   return route.at(-1)||target;
 }
 export class Match {
@@ -184,12 +187,17 @@ export class Match {
   }
   canSee(observer,target,ignoreCover=false){
     if(target.hp<=0)return false;
-    if(distance(observer,target)<90)return true;
-    if(this.map===MAPS.DESERT&&(sandstormCovers(this.sandstorm,observer.y)||sandstormCovers(this.sandstorm,target.y)))return false;
-    if(this.map===MAPS.MAGMA&&ashCloudVisuals(this.ash).some(cloud=>cloud.alpha>.42&&
-      ((target.x-cloud.x)/(cloud.width*.45))**2+((target.y-cloud.y)/(cloud.height*.45))**2<1))return false;
-    if(this.map===MAPS.SNOW&&this.avalanches.some(front=>front.age>=front.warning&&
-      Math.abs(front.y-target.y)<70&&Math.abs(front.x-target.x)<AVALANCHE.halfWidth))return false;
+    const obscured=point=>{
+      if(this.map===MAPS.DESERT&&sandstormCovers(this.sandstorm,point.y))return true;
+      if(this.map===MAPS.MAGMA&&ashCloudVisuals(this.ash).some(cloud=>cloud.alpha>.42&&
+        ((point.x-cloud.x)/(cloud.width*.45))**2+((point.y-cloud.y)/(cloud.height*.45))**2<1))return true;
+      if(this.map===MAPS.SNOW){
+        if(this.avalanches.some(front=>front.age>=front.warning&&Math.abs(front.y-point.y)<70&&Math.abs(front.x-point.x)<AVALANCHE.halfWidth))return true;
+        if(this.hail.some(pellet=>{const cloud=hailCloudVisual(pellet);return cloud&&((point.x-cloud.x)/(cloud.width*.4))**2+((point.y-20-cloud.y)/(cloud.height*.4))**2<1;}))return true;
+      }
+      return false;
+    };
+    if(obscured(observer)||obscured(target))return false;
     if(ignoreCover)return true;
     return !this.obstacles.some(obstacle=>!obstacle.destroyed&&obstacle.type==='crate'&&
       segmentRectHit(observer,target,obstacleBounds(obstacle)));
@@ -880,11 +888,10 @@ export class Match {
     if(!visible.length)return null;
     const teammate=this.fightersOnBank(p.bank).find(other=>other.id!==p.id&&other.controller==='computer');
     const teammateFocus=this.aiState.get(teammate?.id)?.focusId;
-    return visible.reduce((best,other)=>{
-      const score=distance(p,other)+(other.id===teammateFocus&&visible.length>1?95:0);
-      const bestScore=best?distance(p,best)+(best.id===teammateFocus&&visible.length>1?95:0):Infinity;
-      return score<bestScore?other:best;
-    },null);
+    const score=other=>distance(p,other)+(other.id===teammateFocus&&visible.length>1?95:0);
+    const best=visible.reduce((best,other)=>!best||score(other)<score(best)?other:best,null);
+    const current=visible.find(other=>other.id===this.aiState.get(p.id)?.focusId);
+    return current&&score(current)<=score(best)+55?current:best;
   }
   chooseAiPickup(p,supplies){
     const teammates=this.fightersOnBank(p.bank).filter(other=>other.id!==p.id&&other.controller==='computer');
@@ -910,100 +917,88 @@ export class Match {
   }
   thinkFighter(p,dt) {
     const state=this.aiState.get(p.id);
-    const visible=this.opponentsOf(p).filter(other=>this.canSee(p,other));
-    const sighted=this.chooseAiOpponent(p,visible);
-    state.focusId=sighted?.id??null;
-    if(sighted){state.lastSeen={x:sighted.x,y:sighted.y,id:sighted.id};state.lastSeenAt=this.time;}
-    const remembered=this.time-state.lastSeenAt<3?state.lastSeen:null;
-    const enemy=sighted||remembered||p;
-    state.aim=sighted?{x:sighted.x,y:sighted.y}:remembered?{x:remembered.x,y:remembered.y}:null;
-    if(!sighted)state.fire=false;
     if(p.stun>0){p.moving=false;p.charge=0;state.steerX=0;state.steerY=0;return;}
-    if(p.dodgeTime<=0&&p.dodgeCooldown<=0){
-      const scorpion=this.mirages.find(lure=>lure.owner===p.bank&&lure.state==='strike'&&distance(p,lure)<48);
-      if(scorpion&&this.random()<.55)this.dodge(p,p.x-scorpion.x,p.y-scorpion.y);
-      const threat=this.bullets.find(b=>this.ownerOf(b.owner).team!==p.team&&(
-        (['grenade','nuclear'].includes(b.type)&&b.t/b.duration>.68&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18)||
-        (b.type==='missile'&&b.targetDistance-b.travel<130&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS.missile+18)
-      ));
-      if(threat)this.dodge(p,p.x===threat.tx?(p.x>=W/2?1:-1):p.x-threat.tx,p.y-threat.ty);
-    }
     state.clock-=dt;
-    if(state.clock<=0) {
-      state.clock=.2+this.random()*.12;
-      const bank=BANK_BOUNDS[p.bank];
-      const sandBlind=!sighted;
-      // Patrol almost the full bank depth, including the sand beside the river wall.
-      const bankDepth=bank.maxY-bank.minY;
+    if(state.clock<=0){
+      state.clock=AI_TIMING.decision+this.random()*AI_TIMING.jitter;
+      // Low cover blocks bullets, not the player's overhead view. Weather blocks observation.
+      const sighted=this.chooseAiOpponent(p,this.opponentsOf(p).filter(other=>this.canSee(p,other,true)));
+      if(state.focusId!==(sighted?.id??null))state.acquiredAt=this.time;
+      state.focusId=sighted?.id??null;
+      if(sighted){
+        state.lastSeen={x:sighted.x,y:sighted.y,id:sighted.id,hp:sighted.hp,stun:sighted.stun,charge:sighted.charge,weapon:this.weapon(sighted)};
+        state.lastSeenAt=this.time;
+      }
+      const remembered=this.time-state.lastSeenAt<AI_TIMING.memory?state.lastSeen:null;
+      state.observed=sighted?{...state.lastSeen}:null;
+      const enemy=state.observed||remembered;
+      const bank=BANK_BOUNDS[p.bank],bankDepth=bank.maxY-bank.minY;
       const lane=this.format==='2v2'?(p.id===1?.38:p.id===3?.64:.55):.5;
       const teammate=this.fightersOnBank(p.bank).find(other=>other.id!==p.id&&other.controller==='computer');
       const sharedTarget=sighted&&this.aiState.get(teammate?.id)?.focusId===sighted.id;
-      const combatOffset=this.format==='2v2'?(sharedTarget&&p.id===3?80:p.id===1?-20:20):0;
+      const offset=this.format==='2v2'?(sharedTarget&&p.id===3?80:p.id===1?-15:15):0;
       const patrolX=this.format==='2v2'?W/2+(p.id===1?-105:105)+Math.sin(this.time*.43+p.id)*52:W/2+Math.sin(this.time*.8+p.id)*145;
-      const laneWave=this.format==='2v2'?.12*Math.sin(this.time*.6+p.id*1.7):.495*Math.sin(this.time*.6);
-      let tx=sandBlind?patrolX:enemy.x+combatOffset;
-      let ty=bank.minY+bankDepth*(lane+laneWave);
-      const visibleLures=this.mirages.filter(i=>i.owner===p.bank&&i.state==='lure');
-      const supplies=[...this.pickups.filter(i=>i.owner===p.bank&&i.flight<=0&&i.ttl>0),...visibleLures]
-        .filter(i=>visibleLures.includes(i)||
-          (i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type))
-        .sort((a,b)=>(distance(a,p)-(a.type==='syringe'&&p.hp<=65?90:0))-(distance(b,p)-(b.type==='syringe'&&p.hp<=65?90:0)));
+      const wave=this.format==='2v2'?.12*Math.sin(this.time*.6+p.id*1.7):.495*Math.sin(this.time*.6);
+      let desired={x:enemy?enemy.x+offset:patrolX,y:bank.minY+bankDepth*(lane+wave)};
+      const zones=hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
+      if(state.observed?.weapon==='laser'&&state.observed.charge>.35){
+        const source={x:state.observed.x,y:state.observed.y};
+        zones.push({a:source,b:{x:source.x,y:p.bank===0?H:0},radius:35,weight:16,urgent:state.observed.charge>.85});
+      }
+      const solid=this.obstacles.filter(o=>o.owner===p.bank&&o.type!=='barrel'&&!o.destroyed);
+      const free=point=>!solid.some(o=>blocksFighter(o,point.x,point.y));
+      const coverCandidate=coverPosition(this,p,enemy,bank,free);
+      let cover=null;
+      if(coverCandidate&&this.time>=(state.coverRetryAt??0)){
+        state.coverUntil??=this.time+2+this.random()*.6;
+        if(this.time<state.coverUntil)cover=coverCandidate;
+        else{state.coverUntil=null;state.coverRetryAt=this.time+3;}
+      }
+      state.covering=!!cover;
+      if(cover)desired=cover;
+      // Lures have the same value rules as real loot. No trap flag is used to identify one.
+      const supplies=[...this.pickups.filter(i=>i.owner===p.bank&&i.flight<=0&&i.ttl>0),...this.mirages.filter(i=>i.owner===p.bank&&i.state==='lure')]
+        .filter(i=>(i.type==='syringe'?p.hp<100:!p.slot||i.type===p.slot.type)&&this.canSee(p,{...i,hp:1},true)&&dangerAt(i,zones)<5)
+        .sort((a,b)=>{
+          const value=i=>distance(p,i)+pathDanger(p,i,zones)*30-(i.type==='syringe'?(100-p.hp)*2:0)-(i.id===state.pickupId?20:0);
+          return value(a)-value(b);
+        });
       const pickup=this.chooseAiPickup(p,supplies);
       state.pickupId=pickup?.id??null;
-      if(pickup){tx=pickup.x;ty=pickup.y;}
-      for(const b of this.bullets) {
-        if(this.ownerOf(b.owner).team===p.team)continue;
-        if((b.type==='grenade'||b.type==='nuclear')&&b.t>.45&&Math.hypot(b.tx-p.x,b.ty-p.y)<BLAST_RADIUS[b.type]+18){tx=p.x+(p.x>b.tx?105:-105);ty=p.y+28;break;}
-        if(b.y>p.y&&b.y-p.y<200&&Math.abs(b.x-p.x)<38){tx=p.x+(p.x>W/2?-100:100);break;}
+      if(pickup)desired={x:pickup.x,y:pickup.y};
+      const barrel=sighted&&advantageousBarrel(this,p,state.observed,BARREL_BLAST_RADIUS);
+      const aim=barrel||state.observed;
+      if(barrel&&!pickup&&!cover)desired.x=barrel.x;
+      state.aim=aim?{x:aim.x+(this.random()-.5)*12,y:aim.y+(this.random()-.5)*16,hp:aim.hp,stun:aim.stun}:null;
+      state.target=safeDestination(p,desired,bank,zones,free);
+      state.waypoint=routeAroundCrates(p,state.target,solid,bank,zones);
+      const urgent=zones.some(zone=>zone.urgent&&(zone.weight>=12||p.hp<30)&&dangerAt(p,[zone])>5);
+      if(urgent&&p.dodgeCooldown<=0&&this.random()<.72){
+        const escape=state.waypoint;
+        if(distance(p,escape)>18)this.dodge(p,escape.x-p.x,escape.y-p.y);
       }
-      for(const waste of this.waste)if(Math.hypot(waste.x-p.x,waste.y-p.y)<WASTE_RADIUS+25){tx=p.x+(p.x>waste.x?85:-85);ty=p.y+(p.y>waste.y?45:-45);break;}
-      for(const f of this.flames){const end={x:f.x+f.dx*f.maxReach,y:f.y+f.dy*f.maxReach};if(segmentDistance(p,f,end)<50){const escape=escapeLane(p,f,f.dx,f.dy,f.maxReach,bank);tx=escape.x;ty=escape.y;}}
-      const platformTarget=this.platformAttacks.find(a=>a.owner===p.bank&&!a.hit&&segmentDistance(p,{x:a.sourceX,y:a.sourceY},{x:a.sourceX+a.dx*a.maxReach,y:a.sourceY+a.dy*a.maxReach})<55);
-      if(platformTarget){
-        const source={x:platformTarget.sourceX,y:platformTarget.sourceY};
-        const escape=escapeLane(p,source,platformTarget.dx,platformTarget.dy,platformTarget.maxReach,bank);
-        tx=escape.x;ty=escape.y;
-        if(platformTarget.age>platformTarget.warning-.3&&segmentDistance(p,source,{x:source.x+platformTarget.dx*platformTarget.maxReach,y:source.y+platformTarget.dy*platformTarget.maxReach})<30)this.dodge(p,escape.x-p.x,escape.y-p.y);
-      }
-      const mapThreat=[...this.lightning.filter(h=>!h.hit&&h.age>=h.start),...this.rocksInFlight.filter(h=>!h.hit),...this.volcanicFire.filter(h=>h.hit||h.age>h.warning*.6),...this.tornadoes.filter(h=>h.age>h.warning*.5),...this.obstacles.filter(h=>h.type==='rock'&&!h.destroyed&&h.burning>0)]
-        .find(h=>h.owner===p.bank&&distance(p,h)<(h.dx?HAZARD_RULES.tornadoPullRadius+20:65));
-      if(mapThreat){
-        tx=p.x+(p.x>=mapThreat.x?145:-145);ty=p.y+(p.y>=mapThreat.y?68:-68);
-        if(distance(p,mapThreat)<(mapThreat.dx?60:33)&&mapThreat.age>mapThreat.warning*.7)this.dodge(p,p.x-mapThreat.x,p.y-mapThreat.y);
-      }
-      const eagle=this.eagles.find(h=>h.owner===p.bank&&h.target&&(
-        h.target===h.target1?h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive-.65:
-          h.age>EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive+EAGLE_FLIGHT.recover+EAGLE_FLIGHT.dive-.65)&&distance(p,h.target)<70);
-      const avalanche=this.avalanches.find(h=>h.owner===p.bank&&h.age>h.warning-.3&&Math.abs(h.y-p.y)<105&&Math.abs(h.x-p.x)<AVALANCHE.halfWidth);
-      const hail=this.hail.find(h=>h.owner===p.bank&&!h.hit&&h.age>=h.warning-.75&&distance(p,h)<55);
-      const sand=this.quicksand.find(h=>h.owner===p.bank&&distance(p,h)<80);
-      const lateral=avalanche;
-      if(lateral){ty=p.y-lateral.direction*110;if(Math.abs(p.y-lateral.y)<65)this.dodge(p,0,-lateral.direction);}
-      if(eagle){
-        const impact=eagle.target===eagle.target1?EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive:EAGLE_FLIGHT.approach+EAGLE_FLIGHT.dive*2+EAGLE_FLIGHT.recover;
-        tx=p.x+(p.x>=eagle.target.x?90:-90);ty=p.y+(p.y>=eagle.target.y?75:-75);
-        if(eagle.age>impact-.22&&distance(p,eagle.target)<41)this.dodge(p,p.x-eagle.target.x,p.y-eagle.target.y);
-      }
-      if(hail||sand){const threat=hail||sand;tx=p.x+(p.x>=threat.x?95:-95);ty=p.y+(p.y>=threat.y?65:-65);if(hail&&distance(p,hail)<30&&hail.age>hail.warning-.25)this.dodge(p,p.x-hail.x,p.y-hail.y);}
-      state.target={x:clamp(tx,38,W-38),y:clamp(ty,bank.minY,bank.maxY)};
-      const crates=this.obstacles.filter(o=>o.owner===p.bank&&o.type!=='barrel'&&!o.destroyed);
-      state.waypoint=routeAroundCrates(p,state.target,crates,bank);
-      const type=this.weapon(p);
-      state.fire=!!sighted&&(['grenade','missile','nuclear'].includes(type)||Math.abs(enemy.x-p.x)<(type==='shotgun'?85:29));
+      state.fire=!!sighted;
     }
     const waypoint=state.waypoint||p,l=distance(p,waypoint),movement=this.aiMoveVector(p,waypoint);
-    // A short turn-in keeps rapid waypoint changes from making the gait skate sideways.
     const turn=1-Math.exp(-dt*12);
-    state.steerX+=(movement.x-state.steerX)*turn;
-    state.steerY+=(movement.y-state.steerY)*turn;
+    state.steerX+=(movement.x-state.steerX)*turn;state.steerY+=(movement.y-state.steerY)*turn;
     this.move(p,state.steerX,state.steerY,dt);
-    if(l<=4&&state.target&&distance(p,state.target)>10)state.clock=0;
+    if(l<=4&&state.target&&distance(p,state.target)>10)state.clock=Math.min(state.clock,.06);
     if(p.dodgeTime>0){p.charge=0;return;}
-    const chargingLaser=p.slot?.type==='laser'&&(state.fire||p.charge>0);
-    if(p.slot?.type==='laser') {
-      if(state.fire||p.charge>0){p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);if(p.charge>=1&&state.aim)this.fire(p,1,'auto',state.aim);}
-    } else if(p.slot&&state.fire) this.fire(p,0,'auto',state.aim);
-    if(sighted&&!chargingLaser&&Math.abs(enemy.x-p.x)<29)this.fire(p,0,'pistol',state.aim);
+    const liveTarget=this.players.find(other=>other.id===state.focusId&&other.hp>0);
+    // Never update aim from hidden coordinates, and do not finish a lock after sight is lost.
+    if(!liveTarget||!this.canSee(p,liveTarget,true)){
+      state.fire=false;state.aim=null;state.focusId=null;p.charge=0;return;
+    }
+    if(!state.fire||this.time-(state.acquiredAt??this.time)<AI_TIMING.reaction)return;
+    const type=this.weapon(p),plan=shotPlan(this,p,state.aim,type,BARREL_BLAST_RADIUS,state.covering);
+    if(type==='laser'){
+      if(plan.special){
+        p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);
+        if(p.charge>=1)this.fire(p,1,'special',state.aim);
+      }else p.charge=Math.max(0,p.charge-dt*2);
+    }else if(p.slot&&plan.special)this.fire(p,0,'special',state.aim);
+    if(plan.pistol&&p.charge<=0)this.fire(p,0,'pistol',state.aim);
   }
   update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;

@@ -43,8 +43,8 @@
 #charge { z-index:0; background:linear-gradient(#ff8b8b99,#ff2137c4); }
 @keyframes laserReadyPulse { from { filter:brightness(.9); } to { filter:brightness(1.35) drop-shadow(0 0 7px #ff354d); } }
 .opponent-hud { z-index:4; }
-.overlay.result { animation:resultFade .9s ease both; }
-.overlay.result .overlay-card { animation:resultRise .9s .25s ease both; }
+.overlay.result { animation:resultFade .35s ease both; }
+.overlay.result .overlay-card { animation:resultRise .4s .08s ease both; }
 @keyframes resultFade { from { opacity:0; } to { opacity:1; } }
 @keyframes resultRise { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 @media(max-width:700px){ .menu-card { padding:14px; } .menu-card h2 { font-size:56px; } .game-top #menu-open { font-size:8px; } }
