@@ -25,14 +25,19 @@ try{
     await page.locator('#special-fire').hover();await page.mouse.down();await page.waitForTimeout(700);
     assert.ok(await page.locator('#special-fire').evaluate(el=>el.classList.contains('laser-charging')));
     await page.screenshot({path:`test-output/combat-ui/${name}-charging.png`});
-    await page.mouse.up();await page.waitForTimeout(100);
+    await page.mouse.up();await page.waitForFunction(()=>document.getElementById('special-ammo').textContent==='2');
     assert.equal(await page.locator('#special-ammo').textContent(),'2');
     await page.locator('#dodge-fire').click();await page.waitForTimeout(150);
     await page.screenshot({path:`test-output/combat-ui/${name}-dodge.png`});
     const controls=await page.locator('.fire-control').evaluateAll(buttons=>buttons.map(button=>{const r=button.getBoundingClientRect();return {id:button.id,visible:r.left>=0&&r.top>=0&&r.bottom<=innerHeight&&r.right<=innerWidth};}));
     assert.ok(controls.every(control=>control.visible),JSON.stringify(controls));
-    await page.locator('#sound').click();assert.equal(await page.locator('#sound').getAttribute('aria-label'),'Enable sound');
+    assert.equal(await page.locator('.game-top').count(),0);
+    const pauseTarget=await page.locator('#pause').boundingBox();
+    assert.ok(pauseTarget.width>=44&&pauseTarget.height>=44&&pauseTarget.x+pauseTarget.width<=width);
+    assert.equal(await page.locator('#sound').isVisible(),false);
     await page.locator('#pause').click();await page.waitForTimeout(200);
+    assert.equal(await page.locator('#pause').isVisible(),false);
+    await page.locator('#sound').click();assert.equal(await page.locator('#sound').getAttribute('aria-label'),'Enable sound');
     assert.ok(await page.evaluate(()=>window.arcana.snapshot().paused));
     await page.screenshot({path:`test-output/combat-ui/${name}-paused.png`});
     async function checkOverlay(){

@@ -20,8 +20,9 @@
       <div class="desktop-controls"><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>SPACE</kbd> pistol</p><p><kbd>E</kbd> special weapon &nbsp; <kbd>SHIFT</kbd> dodge &nbsp; <kbd>ESC</kbd> pause</p></div>
     </aside>
     <section class="game-unit menu-open" aria-label="Division game">
-      <header class="game-top"><span><b>D</b> DIVISION</span><div><button id="menu-open" aria-label="Open main menu" title="Main menu">MENU</button><button id="sound" aria-label="Mute sound" title="Toggle sound">SOUND ON</button><button id="pause" aria-label="Pause game" title="Pause / resume">Ⅱ</button></div></header>
+
       <div id="arena" aria-label="Game arena. Drag anywhere here to move.">
+        <button id="pause" class="match-options" aria-label="Pause game" title="Match options"><span aria-hidden="true">Ⅱ</span></button>
         <div id="opponent-hud" class="opponent-hud">
           <div id="opponent-hp" class="health-segments" role="progressbar" aria-label="Opponent health" aria-valuemin="0" aria-valuemax="100"></div>
           <div id="opponent-weapon" class="opponent-weapon" role="img" aria-label="Opponent equipped weapon: service pistol"><span class="weapon-picture"></span><span class="opponent-charge-label">CHARGING</span><span class="opponent-charge-track"><i id="opponent-charge"></i></span></div>
@@ -37,7 +38,7 @@
           <button id="special-fire" class="fire-control special-fire empty" aria-label="No special weapon" aria-disabled="true"><svg class="meter-ring" aria-hidden="true" viewBox="0 0 100 100"><circle class="meter-track" cx="50" cy="50" r="45"/><circle id="special-meter" class="meter-fill" cx="50" cy="50" r="45" pathLength="100"/></svg><span class="fire-control-art" aria-hidden="true"></span><b id="special-label">EMPTY</b><strong id="special-ammo"></strong><i id="charge"></i></button>
         </div>
         <div id="overlay" class="overlay hidden">
-          <div class="overlay-card"><h2 id="overlay-title">WHEN CERTAINTY<br><em>FALLS.</em></h2><p id="overlay-omen" class="overlay-omen" hidden></p><p id="overlay-copy">Drag anywhere in the arena to move.<br>Collect weapons. Line up. Open fire.</p><button id="start" class="primary" disabled>LOADING ART…</button><button id="result-menu" class="secondary">MAIN MENU</button></div>
+          <div class="overlay-card"><h2 id="overlay-title">WHEN CERTAINTY<br><em>FALLS.</em></h2><p id="overlay-omen" class="overlay-omen" hidden></p><p id="overlay-copy">Drag anywhere in the arena to move.<br>Collect weapons. Line up. Open fire.</p><button id="start" class="primary" disabled>LOADING ART…</button><div class="match-utilities"><button id="sound" class="secondary" aria-label="Mute sound">SOUND ON</button><button id="result-menu" class="secondary">MAIN MENU</button></div></div>
         </div>
       </div>
         <div id="menu" class="main-menu" data-screen="menu-home">

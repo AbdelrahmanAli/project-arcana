@@ -57,6 +57,20 @@ try {
   await guest.locator('#player-hud').waitFor({ state: 'visible', timeout: 15000 });
   await host.locator('#match-countdown').waitFor({ state: 'hidden', timeout: 10000 });
   await guest.locator('#match-countdown').waitFor({ state: 'hidden', timeout: 10000 });
+  await guest.locator('#pause').click();
+  const optionsTime=guestFrames.at(-1)?.time;
+  await guest.waitForTimeout(450);
+  if(!await guest.locator('#overlay').isVisible()||!((await guest.locator('#overlay-copy').textContent()).includes('Online play continues'))||!(guestFrames.at(-1)?.time>optionsTime)){
+    throw new Error('Online match options must stay open without stopping the match');
+  }
+  await guest.keyboard.press('Space');await guest.keyboard.press('d');await guest.waitForTimeout(150);
+  const optionsInput=guestInputs.at(-1);
+  if(optionsInput?.pistol||optionsInput?.special||optionsInput?.dodge||optionsInput?.x||optionsInput?.y)throw new Error('Match options leaked combat input');
+  await guest.locator('#sound').click();
+  if(await guest.locator('#sound').getAttribute('aria-label')!=='Enable sound')throw new Error('Online options sound toggle failed');
+  await guest.screenshot({path:'test-output/online-options.png'});
+  await guest.locator('#start').click();
+  if(await guest.locator('#overlay').isVisible())throw new Error('Return to match did not close options');
   const hostLabel = await host.locator('.player-hud-label').textContent();
   const guestLabel = await guest.locator('.player-hud-label').textContent();
   if (!hostLabel.includes('Elias') || !guestLabel.includes('Dorian')) {

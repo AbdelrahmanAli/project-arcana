@@ -25,7 +25,9 @@ Online browser smoke scripts cover the invite and match-start flow using the sam
 
 ## Combat interface
 
-`src/combat-ui.css` extends this art direction to the toolbar, fighter HUDs, touch controls, countdown, pause screen, results, and desktop surround. It preserves existing touch targets, positions, ammo/cooldown meter bindings, health anchors, and combat input handlers.
+`src/combat-ui.css` extends this art direction to fighter HUDs, touch controls, countdown, pause screen, results, and desktop surround. Combat has no top toolbar: one 44px floating pause/options button sits in the upper corner. Sound and Main Menu live inside the match overlay. The arena uses the reclaimed height; fighter coordinates and bank bounds stay unchanged.
+
+Offline matches pause normally. Online match options leave the server simulation running, explain that play continues, and suppress local movement/fire/dodge inputs until Return to Match. Reconnect and result overlays supersede match options.
 
 `public/art/ui/combat-bezel.webp` is a transparent, painted metal control rim created with the built-in image generator. Both the center opening and outside retain alpha transparency. The generated PNG was converted to WebP without rescaling. Icons, labels, ammo values, and progress rings remain separate live elements.
 

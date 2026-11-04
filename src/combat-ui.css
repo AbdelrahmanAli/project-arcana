@@ -4,26 +4,27 @@
   max-width:none;
 }
 .game-unit:not(.menu-open){border-color:#8e7952;border-radius:3px;box-shadow:0 0 0 3px #071419,0 18px 70px #000b}
-.game-top{
-  background:linear-gradient(110deg,#162a32e8,#07141be8),url('/art/ui/hangar.webp') center 32%/cover;
-  border-bottom:2px solid #9e7846;box-shadow:inset 0 1px #b4a27c55;
+/* One floating control replaces the toolbar; utilities live inside the match overlay. */
+#pause.match-options{position:absolute;z-index:5;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));width:44px;height:44px;padding:0;border:0;border-radius:50%;color:#f6e6bd;background:radial-gradient(circle,#0b1b26b8 0 52%,transparent 65%);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.match-options::before{content:'';position:absolute;inset:0;background:url('/art/ui/combat-bezel.webp') center/105% 105% no-repeat;pointer-events:none}
+.match-options::after{content:'';position:absolute;left:16px;top:15px;width:12px;height:14px;background:linear-gradient(90deg,currentColor 0 4px,transparent 4px 8px,currentColor 8px);filter:drop-shadow(0 1px 2px #000);pointer-events:none}
+.match-options span{font-size:0}
+.match-options:hover{filter:brightness(1.2)}
+.match-options:active{filter:brightness(1.4)}
+.game-unit:is(.menu-open,.counting-down,.ended) .match-options,.game-unit:has(#overlay:not(.hidden)) .match-options{display:none}
+.game-unit.options-open .fire-control{pointer-events:none;filter:grayscale(.8) brightness(.55)}
+#overlay .match-utilities{display:flex;flex-wrap:wrap;gap:12px 20px;margin-top:12px}
+#overlay .match-utilities .secondary{min-width:0;width:auto;margin:0;padding:12px 14px;font-size:12px}
+#overlay #sound{display:flex;align-items:center;gap:9px}
+#overlay #sound::before{content:'';width:16px;height:16px;flex:none;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-5v16l-5-5H3zM16 7q6 5 0 10M19 3q9 9 0 18' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
+#overlay #sound[aria-label="Enable sound"]{color:#e99381}
+@media(min-width:701px){.game-unit:not(.menu-open){max-width:min(470px,calc((100dvh - 60px)*.51064))}}
+@media(orientation:landscape) and (max-height:520px) and (max-width:950px){
+  .game-unit:not(.menu-open){max-width:calc((100dvh - 16px)*.51064)}
+  .match-options{top:4px;right:4px}
+  #overlay .match-utilities{gap:6px;margin-top:8px}
+  #overlay .match-utilities .secondary{font-size:10px;padding:8px 10px}
 }
-.game-top>span{font:800 15px/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.14em;color:#f2d7a3}
-.game-top>span b{display:none}
-.game-top>div{gap:5px;height:100%;align-items:center}
-.game-top #menu-open,.game-top #sound,.game-top #pause{
-  position:relative;width:31px;min-width:31px;height:28px;padding:5px;font-size:0;
-  border-left:1px solid #bd9e6555;background:linear-gradient(125deg,#a99b6320,transparent);color:#ead4a7;
-}
-.game-top button::before{content:'';display:block;width:17px;height:17px;margin:auto;background:currentColor;pointer-events:none}
-.game-top #menu-open::before{mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 5h18M3 12h18M3 19h18' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
-.game-top #sound::before{mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-5v16l-5-5H3zM16 7q6 5 0 10M19 3q9 9 0 18' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
-.game-top #sound[aria-label="Enable sound"]::after{content:'';position:absolute;width:23px;height:2px;background:#ed7966;left:4px;top:13px;transform:rotate(-45deg);box-shadow:0 1px #101b21}
-.game-top #pause::before{width:13px;height:15px;background:linear-gradient(90deg,currentColor 0 4px,transparent 4px 9px,currentColor 9px)}
-.game-unit.paused #pause::before{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:13px solid currentColor;background:none}
-.game-top button:hover:not(:disabled){color:#fff1cc;background:#d4aa5530}
-.game-top button:disabled{opacity:.35}
-
 /* Painted bezels surround translucent touch controls; the existing rings still communicate ammo and recovery. */
 .fire-control{
   --control-accent:#e8c47d;
@@ -89,13 +90,9 @@
 .briefing .tagline{color:#ccae78}
 .briefing .desktop-controls{border-top:1px solid #c3a57555;padding-top:15px;color:#bdc5bc;line-height:2}
 @media(max-width:1100px){.shell:not(:has(.menu-open)){grid-template-columns:1fr minmax(300px,470px)}}
-@media(max-width:700px){.shell:not(:has(.menu-open)){display:block;background:#09171e}.game-unit:not(.menu-open){border:0;border-radius:0;box-shadow:none}.game-top>span{font-size:14px}.game-top #menu-open,.game-top #sound,.game-top #pause{height:26px}.game-top{flex-shrink:0}}
+@media(max-width:700px){.shell:not(:has(.menu-open)){display:block;background:#09171e}.game-unit:not(.menu-open){border:0;border-radius:0;box-shadow:none}}
 @media(orientation:landscape) and (max-height:520px) and (max-width:950px){
   .shell:not(:has(.menu-open)){display:block}
-  .game-top>span{font-size:10px;letter-spacing:.04em}
-  .game-top #menu-open,.game-top #sound,.game-top #pause{width:22px;min-width:22px;height:23px;padding:3px}
-  .game-top>div{gap:0}.game-top button::before{width:14px;height:14px}
-  .game-top #sound[aria-label="Enable sound"]::after{width:17px;left:3px;top:11px}
   .fire-control b{font-size:7px}.fire-control strong{top:4px;right:4px;font-size:9px;padding:0 2px}
   .special-fire.empty::after{width:15px;height:11px}
   #overlay .overlay-card{padding:14px}
