@@ -18,6 +18,7 @@ import './phase4.css';
 import './phase5.css';
 import './phase7.css';
 import './menu-scene.css';
+import './game-menus.css';
 
 const $=id=>document.getElementById(id);
 $('menu').style.setProperty('--menu-scene-art',`url("${import.meta.env.BASE_URL}art/arena.png")`);
@@ -251,6 +252,23 @@ function showMenuPanel(id){
   if(id!=='deal-panel')cancelDealAnimation();
   if(id!=='map-deal-panel')cancelMapDealAnimation();
   for(const panel of menuPanels)$(panel).classList.toggle('hidden',panel!==id);
+  $('menu').dataset.screen=id;
+  const heading=$(id).querySelector('h2');
+  heading?.setAttribute('tabindex','-1');heading?.focus({preventScroll:true});
+  window.scrollTo({top:0,behavior:'instant'});
+  requestAnimationFrame(()=>$(id).querySelectorAll('.weapon-picture[data-weapon]').forEach(icon=>fitWeaponIcon(icon,icon.dataset.weapon)));
+}
+function buildMenuArt(){
+  for(const button of document.querySelectorAll('#format-panel .mode-choice,#online-format-panel .mode-choice,#mode-panel .mode-choice')){
+    const art=document.createElement('span');art.className='choice-illustration';art.setAttribute('aria-hidden','true');
+    if(button.dataset.mode){
+      const icon=document.createElement('span');setWeaponPicture(icon,({random:'rifle','random-same':'shotgun','random-fixed':'nuclear','choose-fixed':'laser'})[button.dataset.mode]);art.appendChild(icon);
+    }else{
+      const ids=button.dataset.format==='2v2'||button.dataset.onlineMode==='coop'||button.dataset.onlineMode==='versus'?['elias','mara','dorian']:['elias','dorian'];
+      for(const id of ids){const sprite=document.createElement('span');sprite.className=`character-portrait ${id}`;art.appendChild(sprite);}
+    }
+    button.prepend(art);
+  }
 }
 function setWeaponPicture(icon,type){
   icon.className='weapon-picture';
@@ -271,7 +289,7 @@ function animateDeal(){
   preview.classList.remove('settled');preview.classList.add('rolling');
   preview.setAttribute('aria-live','off');
   $('menu-open').disabled=true;
-  status.textContent='THE TOWER IS DEALING…';
+  status.textContent='SELECTING YOUR WEAPON…';
   const countDown=remaining=>{
     if(run!==dealRun)return;
     if(remaining===0){dealTimer=null;beginMatch();return;}
@@ -311,7 +329,7 @@ function animateMapDeal(chosen,onReady=openLineup){
   preview.classList.remove('settled');preview.classList.add('rolling');
   preview.setAttribute('aria-live','off');
   $('menu-open').disabled=true;
-  status.textContent='THE TOWER IS CHOOSING…';
+  status.textContent='SELECTING THE BATTLEFIELD…';
   let step=0;
   const tick=()=>{
     if(run!==mapDealRun)return;
@@ -591,22 +609,37 @@ function reconnectOnline(){
   connectOnline(onlineClient,onlineToken);
 }
 let revealedMap=MAPS.RIVERSIDE;
+let lineupActiveSlot='opponent';
 function openLineup(map){
   if(playKind==='online'){createOnlineRoom(map);return;}
   revealedMap=map;
+  lineupActiveSlot=selectedFormat==='2v2'?'teammate':'opponent';
   $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()}`;
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
 }
 function renderLineup(){
   const choices=$('lineup-choices');
   const slots=selectedFormat==='2v2'?['teammate','opponent','opponent2']:['opponent'];
-  const previousScroll=Object.fromEntries([...choices.querySelectorAll('.lineup-options')].map(row=>[row.dataset.slot,row.scrollLeft]));
+  if(!slots.includes(lineupActiveSlot))lineupActiveSlot=slots[0];
   choices.replaceChildren();
+  const tabs=document.createElement('div');tabs.className='lineup-tabs';tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Choose lineup position');
+  const slotName=slot=>({teammate:'TEAMMATE',opponent:selectedFormat==='2v2'?'OPPONENT 1':'OPPONENT',opponent2:'OPPONENT 2'})[slot];
+  for(const slot of slots){
+    const tab=document.createElement('button');tab.type='button';tab.textContent=slotName(slot);tab.setAttribute('aria-pressed',String(slot===lineupActiveSlot));
+    tab.addEventListener('click',()=>{lineupActiveSlot=slot;renderLineup();choices.querySelector('.lineup-tabs [aria-pressed="true"]')?.focus({preventScroll:true});});tabs.appendChild(tab);
+  }
+  choices.appendChild(tabs);
+  const stage=document.createElement('div');stage.className='lineup-stage';
   const player=document.createElement('div');player.className='lineup-player';
   const playerPortrait=document.createElement('span');playerPortrait.className=`character-portrait ${selectedCharacter}`;playerPortrait.setAttribute('aria-hidden','true');
   const playerName=document.createElement('span');playerName.textContent=`YOU · ${CHARACTER_BY_ID[selectedCharacter].name}`;
-  player.append(playerPortrait,playerName);choices.appendChild(player);
-  for(const slot of slots){
+  player.append(playerPortrait,playerName);stage.appendChild(player);
+  const versus=document.createElement('span');versus.className='lineup-versus';versus.textContent=lineupActiveSlot==='teammate'?'+':'VS';stage.appendChild(versus);
+  const focus=document.createElement('div');focus.className='lineup-focus';
+  const selectedId=lineupSelections[lineupActiveSlot]||'random',selected=CHARACTER_BY_ID[selectedId];
+  const portrait=document.createElement('span');portrait.className=selected?`character-portrait ${selectedId}`:'lineup-random';portrait.setAttribute('aria-hidden','true');if(!selected)portrait.textContent='?';
+  const label=document.createElement('strong');label.textContent=selected?.name||'RANDOM';focus.append(portrait,label);stage.appendChild(focus);choices.appendChild(stage);
+  for(const slot of [lineupActiveSlot]){
     const name=({teammate:'TEAMMATE',opponent:selectedFormat==='2v2'?'OPPONENT 1':'OPPONENT',opponent2:'OPPONENT 2'})[slot];
     const section=document.createElement('section');section.className='lineup-slot';
     const heading=document.createElement('h3');heading.textContent=name;section.appendChild(heading);
@@ -630,7 +663,7 @@ function renderLineup(){
       });
       row.appendChild(button);
     }
-    section.appendChild(row);choices.appendChild(section);row.scrollLeft=previousScroll[slot]||0;
+    section.appendChild(row);choices.appendChild(section);
   }
 }
 function startPreparedMatch(map){
@@ -819,6 +852,7 @@ window.addEventListener('focus',()=>{if(starting&&!document.hidden){countdownSus
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseOnFocusLoss();else if(starting){countdownSuspended=false;app.ticker.start();}});
 window.addEventListener('resize',()=>{
   sceneDirty=true;
+  requestAnimationFrame(()=>$('menu').querySelectorAll('.menu-card:not(.hidden) .weapon-picture[data-weapon]').forEach(icon=>fitWeaponIcon(icon,icon.dataset.weapon)));
   // The ticker sleeps on menu, pause, and result screens; redraw their HUD once
   // so a phone rotation also refits weapon icons and the opponent badge.
   if(app?.ticker&&!app.ticker.started&&!countdownSuspended)app.ticker.start();
@@ -1821,6 +1855,7 @@ async function boot(){
   world.addChildAt(draw,world.getChildIndex(environmentSky));
   app.stage.addChild(ashCloudLayer,phase6WeatherLayer,joystickDraw,screenHitDraw);
   buildWeaponChoices();
+  buildMenuArt();
   $('art-loading').hidden=true;
   $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
   const onlineConfigured=!!import.meta.env.VITE_MATCH_SERVER_URL||

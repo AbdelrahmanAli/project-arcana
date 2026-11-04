@@ -1,0 +1,237 @@
+/* Illustrated menu scenes. These rules deliberately stop at #menu. */
+.shell:has(.menu-open){display:block;max-width:none;padding:0;min-height:100dvh}
+.shell:has(.menu-open)>.briefing,.shell:has(.menu-open)>.field-notes{display:none}
+.game-unit.menu-open{width:100%;max-width:none;border:0;border-radius:0;box-shadow:none}
+.game-unit.menu-open #menu{display:block;min-height:100dvh;background:#091318;isolation:isolate;overflow:hidden}
+.game-unit.menu-open #menu::before{inset:0;opacity:1;transform:none;background:linear-gradient(#08111735,#0811177a),url('/art/ui/hangar.webp') center/cover;animation:scene-arrive .65s ease-out;z-index:-2}
+.game-unit.menu-open #menu::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,#00000012 3px 4px);opacity:.3;z-index:3}
+.game-unit.menu-open #menu[data-screen="menu-home"]::before{background:linear-gradient(90deg,#04131b20,transparent),url('/art/ui/division-title.webp') center/cover}
+#menu .menu-card{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:stretch;width:min(1120px,100%);min-height:100dvh;max-height:none;overflow:visible;margin:0 auto;padding:clamp(28px,5vh,64px) clamp(24px,5vw,80px);border:0;box-shadow:none;background:none;text-align:left;animation:menu-enter .35s ease-out}
+#menu .menu-card>h2{font-size:clamp(38px,5vw,68px);line-height:1;letter-spacing:.03em;margin:8px 0 28px;text-shadow:0 4px 0 #071216,0 0 30px #0008}
+#menu .menu-card>h2:focus{outline:none}
+#menu .menu-card>h2 br{display:none}
+#menu .menu-card>h2 em::before{content:' '}
+#menu .eyebrow{font-size:10px;letter-spacing:.32em;color:#eac47c}
+#menu .menu-card>p{margin:0 0 18px;max-width:650px;font-size:12px;line-height:1.65}
+#menu .primary,#menu .secondary{margin:14px 0 0;min-width:190px;width:max-content;max-width:100%;padding:15px 30px;box-shadow:none;letter-spacing:.12em;transition:transform .16s,color .16s,background .16s}
+#menu .primary{color:#172126;background:linear-gradient(115deg,#ffe1a0,#d6a04d);clip-path:polygon(0 0,calc(100% - 15px) 0,100% 15px,100% 100%,15px 100%,0 calc(100% - 15px));font-weight:800;border-bottom:3px solid #9a6733}
+#menu .primary:hover:not(:disabled){background:#ffe7b4;transform:translateX(4px)}
+#menu .secondary{border:0;border-left:2px solid #b19865;background:linear-gradient(90deg,#142c32a8,transparent);color:#d6ded5;min-height:44px;font-size:11px;text-align:left}
+#menu .secondary:hover{color:#ffe2a0;border-color:#ffe2a0;transform:translateX(4px)}
+#menu button:focus-visible{outline:3px solid #fff0b5;outline-offset:4px}
+#menu button:disabled{cursor:default}
+#menu-home{justify-content:center!important;align-items:flex-start!important;padding-left:8vw!important;padding-right:8vw!important;width:100%!important}
+#menu #menu-home>h2{font-size:clamp(76px,12vw,170px);letter-spacing:-.025em;line-height:.85;margin:18px 0 22px;color:#f4ead3;text-shadow:0 5px 0 #0b2027,4px 0 0 #17333a}
+#menu #menu-home .menu-tagline{font-size:clamp(13px,1.6vw,19px);font-style:italic;color:#e0c99a;margin-bottom:clamp(28px,7vh,70px)}
+#menu #menu-home>p:not(.menu-tagline){display:none}
+#menu #menu-home .primary,#menu #menu-home .secondary{background:linear-gradient(90deg,#061a25d9,#061a2580,transparent);border:0;border-left:4px solid transparent;clip-path:none;color:#f6e9c8;padding:14px 24px;min-width:290px;font:800 clamp(20px,2vw,28px)/1.2 'Barlow Condensed',Impact,sans-serif;letter-spacing:.08em;margin:2px 0;text-align:left}
+#menu #menu-home .primary{border-color:#edc474;color:#ffe1a2}
+#menu #menu-home button:hover:not(:disabled){border-color:#edc474;background:linear-gradient(90deg,#bc87394d,transparent);transform:translateX(8px)}
+#menu .art-loading{width:280px;max-width:90vw;margin:15px 0}
+#menu .mode-choice{position:relative;min-height:105px;padding:20px 24px 20px 150px;margin:8px 0;background:linear-gradient(100deg,#193238bb,#09171b66,transparent);border:0;border-bottom:1px solid #e2b96955;box-shadow:none;overflow:hidden;transition:transform .18s,background .18s}
+#menu .mode-choice:hover{background:linear-gradient(100deg,#81633388,#122b3188,transparent);transform:translateX(6px)}
+#menu .mode-choice strong{font:800 23px/1.15 'Barlow Condensed',Impact,sans-serif;color:#f3d59b;letter-spacing:.07em}
+#menu .mode-choice small{font-size:11px;line-height:1.5;max-width:560px;color:#c7d0c8}
+.choice-illustration{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:125px;height:96px;display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 5px 5px #0008)}
+.choice-illustration .character-portrait{width:72px;height:72px;background-size:288px 288px;border:0;flex-shrink:0}
+.choice-illustration .character-portrait+.character-portrait{margin-left:-38px;transform:translateY(7px)}
+.choice-illustration .weapon-picture{width:110px;height:76px;transform:rotate(-12deg)}
+#menu #map-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;align-content:center}
+#map-panel>.eyebrow,#map-panel>h2,#map-back{grid-column:1/-1}
+#menu #map-panel>h2{margin-bottom:10px}
+#menu .map-choice{position:relative;display:flex;align-items:flex-end;min-width:0;height:clamp(150px,24vh,240px);margin:0;padding:0;border:0;background:#101e23;box-shadow:0 8px 18px #0005;overflow:hidden;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%);transition:transform .2s}
+#menu .map-choice .map-thumb{position:absolute;inset:0;width:100%;height:100%;margin:0;background-size:cover;background-position:center;image-rendering:auto;filter:saturate(.85) brightness(.72);transition:transform .5s,filter .3s}
+#menu .map-choice>span:last-child{position:relative;z-index:1;width:100%;padding:35px 14px 14px;background:linear-gradient(transparent,#051015f5);border-bottom:3px solid #967044}
+#menu .map-choice strong{display:block;font:800 23px/1.1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.07em;color:#ffe0a0}
+#menu .map-choice small{display:block;font-size:9px;line-height:1.4;color:#e0e4d6;margin-top:5px}
+#menu .map-choice:hover .map-thumb,#menu .map-choice:focus-visible .map-thumb{transform:scale(1.08);filter:saturate(1.1) brightness(1)}
+#menu .map-choice:hover>span:last-child{border-color:#ffe2a2}
+#menu .map-thumb.random{display:grid;place-items:center;background:radial-gradient(ellipse,#476d71,#101f29);font:900 100px Impact,sans-serif;color:#e8c781}
+#menu .weapon-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:0 0 10px}
+#menu .weapon-choice{flex-direction:column;justify-content:center;min-height:165px;padding:15px;border:0;border-bottom:2px solid #5c6156;background:radial-gradient(ellipse at 50% 70%,#6074693b,transparent 70%);text-align:center;transition:background .25s,transform .2s}
+#menu .weapon-choice .weapon-picture{width:145px;height:95px;flex:0 0 95px;max-width:100%;filter:drop-shadow(0 8px 3px #0009);transition:transform .2s}
+#menu .weapon-choice:hover .weapon-picture,#menu .weapon-choice.selected .weapon-picture{transform:translateY(-6px) rotate(-5deg)}
+#menu .weapon-choice span:last-child{font:700 13px/1.2 'Barlow Condensed',Impact,sans-serif;letter-spacing:.12em;color:#d9d9bd}
+#menu .weapon-choice.selected{border-color:#f3cc7b;box-shadow:none;background:radial-gradient(ellipse at 50% 70%,#dbb76345,transparent 70%)}
+#menu .deal-preview{width:100%;max-width:700px;min-height:300px;border:0;border-bottom:2px solid #c6a866;background:radial-gradient(ellipse,#56777942,transparent 70%);padding:30px;margin:0 0 22px}
+#menu .deal-preview .weapon-picture{width:280px;height:160px;max-width:100%}
+#menu .deal-preview .map-thumb{width:100%;height:230px;background-size:cover;background-position:center}
+#menu .deal-preview strong{font:800 28px 'Barlow Condensed',Impact,sans-serif}
+#menu #lineup-panel{width:min(1120px,100%)}
+.lineup-tabs{display:flex;gap:12px;margin:12px 0}
+.lineup-tabs button{background:none;border-bottom:2px solid #56696b;padding:9px 15px;color:#aab8b5;font-size:11px;letter-spacing:.1em}
+.lineup-tabs button[aria-pressed="true"]{border-color:#f4ce82;color:#f4ce82}
+.lineup-stage{display:flex;align-items:center;justify-content:center;gap:clamp(10px,6vw,90px);min-height:230px;background:radial-gradient(ellipse at 50% 95%,#5b797742,transparent 65%)}
+#menu .lineup-player,.lineup-focus{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin:0;font:800 14px 'Barlow Condensed',Impact,sans-serif;letter-spacing:.1em}
+#menu .lineup-stage .character-portrait{width:190px;height:190px;background-size:760px 760px;border:0;filter:drop-shadow(0 10px 8px #000b);animation:fighter-arrive .3s ease-out}
+#menu .lineup-stage .character-portrait.dorian{background-position:10px 0}
+#menu .lineup-stage .lineup-random{width:190px;height:190px;font-size:130px;background:none;border:0;text-shadow:0 0 40px #bda36550}
+.lineup-versus{font:900 italic 50px Impact,sans-serif;color:#d9b16d;text-shadow:0 5px #101b20}
+#menu .lineup-slot h3{display:none}
+#menu .lineup-options{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;overflow:visible;padding:12px 0}
+#menu .lineup-option,#menu .character-choice,#menu .online-fighter{border:0;border-bottom:3px solid #516067;background:linear-gradient(0deg,#273c4280,transparent);box-shadow:none;transition:transform .2s,background .2s}
+#menu .lineup-option:hover,#menu .character-choice:hover,#menu .online-fighter:hover:not(:disabled){transform:translateY(-4px)}
+#menu .lineup-option[aria-pressed="true"],#menu .character-choice[aria-pressed="true"],#menu .online-fighter[aria-pressed="true"]{border-color:var(--character-color);background:linear-gradient(0deg,color-mix(in srgb,var(--character-color) 25%,transparent),transparent);box-shadow:none}
+#menu .lineup-option .character-portrait,#menu .lineup-option .lineup-random{width:72px;height:72px;background-size:288px 288px;border:0}
+#menu .character-choices,#menu .online-characters{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+#menu .character-choice,#menu .online-fighter{min-height:130px;padding:10px 0}
+#menu .character-choice .character-portrait,#menu .online-fighter .character-portrait{width:100px;height:100px;background-size:400px 400px;border:0;max-width:100%}
+#menu .character-portrait.dorian{background-position:5px 0}
+#menu .online-match-details{background:#10242a8a;border:0;border-left:3px solid #b89b62;padding:14px}
+#menu .online-match-details .map-thumb{width:130px;height:75px}
+#menu #online-status{min-height:0}
+#menu #online-error:empty,#menu #lineup-error:empty{display:none}
+#menu #online-code,#menu #online-invite-link{max-width:650px;background:#07191cd9;border:0;border-bottom:1px solid #b6ab83;font-size:13px;padding:14px;min-height:48px}
+#menu .setting-character>strong{color:#f3d29b;font-size:11px;letter-spacing:.2em}
+#menu .setting-toggle{max-width:460px;justify-content:flex-start;padding:15px 0;border:0}
+#menu .audio-credit{margin-top:18px;font-size:9px;color:#a5b9b7}
+@keyframes menu-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes scene-arrive{from{opacity:.4;transform:scale(1.02)}to{opacity:1;transform:none}}
+@keyframes fighter-arrive{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@media(max-width:700px){
+  #menu .menu-card{padding:28px 22px;justify-content:center}
+  #menu .menu-card>h2{font-size:38px;margin-bottom:20px}
+  #menu #menu-home{justify-content:flex-end!important;padding:30px 26px 9vh!important}
+  .game-unit.menu-open #menu[data-screen="menu-home"]::before{background:linear-gradient(0deg,#04131bf5 0%,#04131ba0 38%,transparent 75%),url('/art/ui/division-title.webp') 77% center/cover}
+  #menu #menu-home>h2{font-size:clamp(65px,18vw,110px);margin:12px 0}
+  #menu #menu-home .menu-tagline{margin-bottom:22px;font-size:13px}
+  #menu #menu-home .primary,#menu #menu-home .secondary{min-width:250px;padding:13px 18px;font-size:24px}
+  #menu #map-panel{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  #menu .map-choice{height:clamp(130px,19vh,190px)}
+  #menu .map-choice strong{font-size:20px}
+  #menu .map-choice small{font-size:8px}
+  #menu .map-choice>span:last-child{padding:22px 10px 10px}
+  #menu .weapon-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  #menu .weapon-choice{min-height:120px;padding:8px}
+  #menu .weapon-choice .weapon-picture{width:120px;height:72px;flex-basis:72px}
+  #menu .mode-choice{padding:15px 12px 15px 100px;min-height:110px}
+  #menu .mode-choice strong{font-size:21px}
+  #menu .mode-choice small{font-size:10px}
+  .choice-illustration{left:0;width:100px}
+  .choice-illustration .weapon-picture{width:90px}
+  .lineup-stage{gap:4px;min-height:180px}
+  #menu .lineup-stage .character-portrait{width:135px;height:135px;background-size:540px 540px}
+  #menu .lineup-stage .lineup-random{width:135px;height:135px;font-size:100px}
+  #menu .lineup-stage .character-portrait.dorian{background-position:7px 0}
+  .lineup-versus{font-size:32px}
+  .lineup-tabs{gap:5px}.lineup-tabs button{font-size:9px;padding:10px 8px;flex:1}
+  #menu .lineup-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #menu .character-choices,#menu .online-characters{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #menu .character-choice,#menu .online-fighter{min-height:96px;padding:3px}
+  #menu .character-choice .character-portrait,#menu .online-fighter .character-portrait{width:72px;height:72px;background-size:288px 288px}
+  #menu .online-match-details .map-thumb{width:86px;height:65px}
+  #menu .menu-card>p{font-size:10px;margin-bottom:12px}
+  #menu .primary,#menu .secondary{padding:13px 24px;font-size:11px;margin-top:10px}
+}
+@media(max-height:500px) and (min-width:701px){
+  #menu .menu-card{padding:20px 50px}
+  #menu .menu-card>h2{font-size:32px;margin:4px 0 12px}
+  #menu .mode-choice{min-height:64px;padding-top:9px;padding-bottom:9px}
+  #menu .mode-choice strong{font-size:19px}
+  #menu #menu-home>h2{font-size:75px}
+  #menu #menu-home .menu-tagline{margin-bottom:15px}
+  #menu #menu-home .primary,#menu #menu-home .secondary{font-size:20px;padding:9px 20px}
+  #menu .map-choice{height:112px}
+  #menu .map-choice small{display:none}
+  #menu .weapon-choice{min-height:105px;padding:5px}
+  #menu .weapon-choice .weapon-picture{height:65px;flex-basis:65px}
+  #menu .lineup-stage{min-height:100px}
+  #menu .lineup-stage .character-portrait{width:90px;height:90px;background-size:360px 360px}
+  #menu .lineup-stage .lineup-random{width:90px;height:90px;font-size:70px}
+  #menu .lineup-options{padding:5px 0}
+}
+@media(prefers-reduced-motion:reduce){#menu *,#menu::before{animation:none!important;transition:none!important}}
+/* Compact scenes keep every choice and navigation control in view. */
+@media(max-width:700px) and (max-height:740px){
+  #menu .menu-card{padding:18px 20px}
+  #menu .menu-card>h2{font-size:32px;margin:7px 0 14px}
+  #menu .mode-choice{min-height:88px;margin:5px 0;padding-top:10px;padding-bottom:10px}
+  #menu .map-choice{height:clamp(95px,17vh,125px)}
+  #menu .map-choice small{font-size:8px}
+  #menu .weapon-choice{min-height:100px}
+  #menu .weapon-choice .weapon-picture{height:60px;flex-basis:60px}
+  #menu .lineup-stage{min-height:130px}
+  #menu .lineup-stage .character-portrait{width:100px;height:100px;background-size:400px 400px}
+  #menu .lineup-stage .character-portrait.dorian{background-position:5px 0}
+  #menu .lineup-stage .lineup-random{width:100px;height:100px;font-size:75px}
+  #menu .lineup-options{gap:5px;padding:5px 0}
+  #menu .lineup-option .character-portrait,#menu .lineup-option .lineup-random{width:55px;height:55px;background-size:220px 220px}
+  #menu .lineup-tabs{margin:6px 0}
+  #menu .primary,#menu .secondary{margin-top:8px;margin-bottom:0;min-height:40px;padding:11px 20px}
+  #menu .online-characters{margin:6px 0;gap:5px}
+  #menu .online-fighter{min-height:80px}
+  #menu .online-fighter .character-portrait{width:60px;height:60px;background-size:240px 240px}
+  #menu .online-match-details{padding:8px}
+  #menu #online-code,#menu #online-invite-link{min-height:36px;padding:9px}
+  #menu #online-teams{margin:6px 0}
+}
+@media(orientation:landscape) and (max-height:520px){
+  #menu .menu-card{padding:16px 40px}
+  #menu #menu-home{padding:20px 40px!important;justify-content:center!important}
+  #menu #menu-home>h2{font-size:68px;margin:10px 0}
+  #menu #menu-home .menu-tagline{font-size:12px;margin-bottom:15px}
+  #menu #menu-home .primary,#menu #menu-home .secondary{font-size:20px;padding:9px 20px}
+  #menu .menu-card>h2{font-size:30px;margin:4px 0 10px}
+  #menu .primary,#menu .secondary{min-height:36px;padding:10px 20px;margin:5px 0 0;font-size:10px}
+  #menu #mode-panel,#menu #weapon-panel,#menu #lineup-panel{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;align-content:center}
+  #mode-panel>.eyebrow,#mode-panel>h2,#mode-back,#weapon-panel>.eyebrow,#weapon-panel>h2,#weapon-choices,#lineup-panel>.eyebrow,#lineup-panel>h2,#lineup-map,#lineup-choices,#lineup-error{grid-column:1/-1}
+  #menu #mode-panel .mode-choice{margin:0;min-height:90px;padding-left:120px}
+  #menu #mode-panel{padding-top:8px;padding-bottom:8px}
+  #menu #mode-panel .choice-illustration{width:100px}
+  #menu .weapon-choice{min-height:100px}
+  #menu .weapon-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+  #menu #map-panel{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  #menu .map-choice{height:100px}
+  #menu #lineup-choices{display:grid;grid-template-columns:38% 1fr;column-gap:20px}
+  #menu .lineup-tabs{grid-column:1/-1;margin:0 0 5px}
+  #menu .lineup-stage{gap:0;min-height:130px}
+  #menu .lineup-stage .character-portrait{width:90px;height:90px;background-size:360px 360px}
+  #menu .lineup-stage .character-portrait.dorian{background-position:5px 0}
+  #menu .lineup-stage .lineup-random{width:90px;height:90px;font-size:65px}
+  #menu .lineup-versus{font-size:25px}
+  #menu .lineup-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:0}
+  #menu .lineup-option{padding:2px}
+  #menu .lineup-option .character-portrait,#menu .lineup-option .lineup-random{width:48px;height:48px;background-size:192px 192px}
+  #menu .lineup-player,#menu .lineup-focus{font-size:11px;gap:3px}
+  #menu .character-choice,#menu .online-fighter{min-height:80px;padding:4px}
+  #menu .character-choices{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:6px 0}
+  #menu .character-choice .character-portrait,#menu .online-fighter .character-portrait{width:60px;height:60px;background-size:240px 240px}
+  #menu .setting-toggle{padding:10px 0}
+  #menu .audio-credit{margin:8px 0}
+  #menu #settings-panel{padding-top:8px;padding-bottom:8px}
+  #menu #online-panel{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:'eyebrow eyebrow' 'title title' 'status status' 'fighters details' 'fighters form' 'lock back';gap:3px 24px;align-content:center;padding-top:12px;padding-bottom:12px}
+  #online-panel>.eyebrow{grid-area:eyebrow}
+  #online-panel>h2{grid-area:title}
+  #menu #online-status{grid-area:status;margin:0 0 4px;font-size:9px}
+  #online-characters{grid-area:fighters}
+  #menu #online-characters{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:0;align-self:center}
+  #online-match-details{grid-area:details}
+  #menu .online-match-details{padding:6px}
+  #menu .online-match-details .map-thumb{width:65px;height:45px}
+  #menu .online-match-details small{font-size:8px;margin-top:2px}
+  #online-entry,#online-invite{grid-area:form}
+  #online-character-lock{grid-area:lock}
+  #online-back{grid-area:back}
+  #online-error{grid-column:1/-1}
+  #menu #online-code,#menu #online-invite-link{min-height:34px;padding:8px;font-size:11px}
+  #menu #online-panel .online-label{margin:4px 0;font-size:8px}
+  #menu #online-panel .primary,#menu #online-panel .secondary{margin:3px 0;min-height:32px;padding:8px 18px}
+  #menu #online-teams{margin:4px 0}
+  #menu .online-team{min-height:28px}
+}
+@media(max-width:350px) and (orientation:portrait){
+  #menu .menu-card{padding:14px 16px}
+  #menu .menu-card>h2{font-size:28px;margin-bottom:10px}
+  #menu .map-choice{height:94px}
+  #menu .map-choice small{display:none}
+  #menu .lineup-stage{min-height:110px}
+  #menu .lineup-stage .character-portrait{width:80px;height:80px;background-size:320px 320px}
+  #menu .lineup-stage .lineup-random{width:80px;height:80px;font-size:65px}
+  #menu .lineup-option .character-portrait,#menu .lineup-option .lineup-random{width:45px;height:45px;background-size:180px 180px}
+  #menu .weapon-choice{min-height:90px}
+  #menu .mode-choice{min-height:80px;padding-left:90px;padding-top:8px;padding-bottom:8px}
+  #menu .mode-choice strong{font-size:17px;letter-spacing:.03em}
+  #menu .mode-choice small{font-size:9px}
+  #menu .choice-illustration{width:85px}
+  #menu .choice-illustration .weapon-picture{width:80px}
+}
