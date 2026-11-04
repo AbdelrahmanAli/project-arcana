@@ -25,14 +25,14 @@ export function laserThreat(observed,state,time,bank){
 export function hazardZones(match,p,rules){
   const zones=[];
   const perceived=point=>match.canSee(p,{...point,hp:1},true)||distance(p,point)<60;
-  const circle=(object,radius,weight,urgent=false)=>{
+  const circle=(object,radius,weight,urgent=false,combat=false)=>{
     if(object.owner!==undefined&&object.owner!==p.bank)return;
-    if(perceived(object))zones.push({x:object.x,y:object.y,radius,weight,urgent});
+    if(perceived(object))zones.push({x:object.x,y:object.y,radius,weight,urgent,combat});
   };
-  const lane=(source,dx,dy,length,width,weight,urgent=false)=>{
+  const lane=(source,dx,dy,length,width,weight,urgent=false,combat=false)=>{
     const end={x:source.x+dx*length,y:source.y+dy*length};
     // A visible strip on this bank is enough to notice it even if its source is obscured.
-    if(perceived(source)||perceived(end)||lineDistance(p,source,end)<60)zones.push({a:source,b:end,radius:width,weight,urgent});
+    if(perceived(source)||perceived(end)||lineDistance(p,source,end)<60)zones.push({a:source,b:end,radius:width,weight,urgent,combat});
   };
   for(const waste of match.waste)circle(waste,rules.wasteRadius+16,14);
   for(const flame of match.flames)lane(flame,flame.dx,flame.dy,flame.maxReach,42,22,true);
@@ -61,13 +61,13 @@ export function hazardZones(match,p,rules){
     if(match.ownerOf(bullet.owner)?.team===p.team||bullet.life<=0)continue;
     if(['grenade','nuclear','missile'].includes(bullet.type)){
       const remaining=bullet.type==='missile'?(bullet.targetDistance-bullet.travel)/Math.hypot(bullet.vx,bullet.vy):bullet.duration-bullet.t;
-      circle({x:bullet.tx,y:bullet.ty},rules.blastRadius[bullet.type]+14,16,remaining<.45);
+      circle({x:bullet.tx,y:bullet.ty},rules.blastRadius[bullet.type]+14,16,remaining<.45,true);
     }else if(perceived(bullet)){
       const vy=bullet.vy||0,time=vy?(p.y-bullet.y)/vy:-1;
       const speed=Math.hypot(bullet.vx||0,vy);
       // React to a nearby incoming shot, rather than perfectly stepping out of
       // every distant trajectory before a roll could ever be useful.
-      if(time>.06&&time<.42&&speed>0)lane(bullet,(bullet.vx||0)/speed,vy/speed,speed*.42,30,9,true);
+      if(time>.06&&time<.42&&speed>0)lane(bullet,(bullet.vx||0)/speed,vy/speed,speed*.42,30,9,true,true);
     }
   }
   return zones;

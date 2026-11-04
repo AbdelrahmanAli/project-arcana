@@ -10,8 +10,8 @@ function arena(difficulty='easy'){
   return match;
 }
 
-test('difficulty defaults to Easy and is validated by both local and online games',()=>{
-  assert.equal(DEFAULT_DIFFICULTY,'easy');assert.equal(new Match().difficulty,'easy');
+test('difficulty defaults to Normal and is validated by both local and online games',()=>{
+  assert.equal(DEFAULT_DIFFICULTY,'normal');assert.equal(new Match().difficulty,'normal');
   for(const difficulty of Object.keys(AI_DIFFICULTIES)){
     const options=matchOptions({format:'2v2',teamMode:'coop',difficulty});
     assert.equal(new Match(()=>.5,options).difficulty,difficulty);
@@ -56,7 +56,7 @@ test('computer can dodge an approaching ordinary bullet between strategic decisi
 });
 
 test('live navigation does not sidestep every distant bullet before dodging can occur',()=>{
-  for(const difficulty of ['easy','normal','hard']){
+  for(const difficulty of ['normal','hard']){
     let seed=532;const random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
     const match=new Match(random,{difficulty});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
     let rolls=0;
@@ -68,6 +68,40 @@ test('live navigation does not sidestep every distant bullet before dodging can 
     }
     assert.ok(rolls>0,`${difficulty} uses rolls during real movement`);
   }
+});
+
+test('Easy leaves substantially more openings than Normal across repeated shooting scenarios',()=>{
+  const totals={};
+  for(const difficulty of ['easy','normal']){
+    totals[difficulty]={rolls:0,damage:0};
+    for(const initial of [532,81,222,1501,93]){
+      let seed=initial;const random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
+      const match=new Match(random,{difficulty});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
+      for(let i=0;i<1200&&!match.finished;i++){
+        match.players[1].pistolCooldown=10;match.players[0].x=match.players[1].x;
+        match.update(1/60,{pistol:true});
+        totals[difficulty].rolls+=match.events.filter(e=>e.type==='dodge'&&e.player===1).length;match.events=[];
+      }
+      totals[difficulty].damage+=100-match.players[1].hp;
+    }
+  }
+  assert.ok(totals.easy.damage>totals.normal.damage+150,'Easy actually takes more hits, not merely fewer dodge animations');
+  assert.ok(totals.easy.rolls<totals.normal.rolls/2,'Easy leaves longer openings between evasions');
+  assert.ok(totals.easy.rolls>0,'Easy still sometimes rolls');
+});
+
+test('Easy missed cues affect walking and rolling without forgetting permanent hazards',()=>{
+  const match=arena('easy'),bot=match.players[1],state=match.aiState.get(bot.id);
+  match.random=()=>.9;
+  match.bullets=[{owner:0,type:'pistol',x:bot.x,y:bot.y+120,vx:0,vy:-540,life:1}];
+  match.waste=[{x:bot.x+80,y:bot.y}];
+  match.think(1/120);
+  assert.equal(state.combatAware,false);
+  assert.ok(match.aiHazards(bot).length>0,'ground contamination is still noticed');
+  assert.equal(match.aiHazards(bot).some(zone=>zone.combat),false);
+  for(let i=0;i<12;i++){match.time+=1/120;match.think(1/120);}
+  assert.equal(state.combatAware,false,'fast dodge checks cannot turn a missed cue into perfect awareness');
+  assert.equal(bot.dodgeTime,0);
 });
 
 test('dodge clears human laser charge and requires release and a fresh press, including online release packets',()=>{

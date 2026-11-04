@@ -15,9 +15,9 @@ try{
     });
     await page.goto(origin);
     await page.locator('#menu-play:not([disabled])').waitFor({timeout:60000});await page.locator('#menu-play').click();
-    assert.equal(await page.locator('#format-panel [data-difficulty="easy"]').getAttribute('aria-pressed'),'true');
-    await page.locator('#format-panel [data-difficulty="normal"]').click();
-    assert.equal(await page.evaluate(()=>localStorage.getItem('division-difficulty-v1')),'normal');
+    assert.equal(await page.locator('#format-panel [data-difficulty="normal"]').getAttribute('aria-pressed'),'true');
+    await page.locator('#format-panel [data-difficulty="easy"]').click();
+    assert.equal(await page.evaluate(()=>localStorage.getItem('division-difficulty-v1')),'easy');
     async function bounds(selector){
       await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(400);
       const clipped=await page.locator(selector).evaluateAll(buttons=>buttons.filter(b=>{const r=b.getBoundingClientRect();return r.left<0||r.top<0||r.right>innerWidth||r.bottom>innerHeight;}).map(b=>b.textContent));
@@ -26,13 +26,13 @@ try{
     await bounds('#format-panel button');await page.screenshot({path:`test-output/ai-controls/${name}-difficulty.png`});
     // Vite has no room service; exercise setup layout here, real rooms in the online smoke test.
     await page.evaluate(()=>window.aiControlsOnlineSetup());
-    assert.equal(await page.locator('#online-format-panel [data-difficulty="normal"]').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#online-format-panel [data-difficulty="easy"]').getAttribute('aria-pressed'),'true');
     await bounds('#online-format-panel button');await page.screenshot({path:`test-output/ai-controls/${name}-coop.png`});
     await page.reload();await page.locator('#menu-play:not([disabled])').waitFor({timeout:60000});await page.locator('#menu-play').click();
-    assert.equal(await page.locator('#format-panel [data-difficulty="normal"]').getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('#format-panel [data-difficulty="easy"]').getAttribute('aria-pressed'),'true');
     await page.locator('[data-format="1v1"]').click();await page.locator('[data-mode="random"]').click();await page.locator('[data-map="riverside"]').click();await page.locator('#lineup-start').click();
     await page.waitForFunction(()=>window.arcana?.snapshot().time>.2);
-    assert.equal(await page.evaluate(()=>window.aiControlsFixture().difficulty),'normal');
+    assert.equal(await page.evaluate(()=>window.aiControlsFixture().difficulty),'easy');
     await page.locator('#pistol-fire').click();
     await page.evaluate(()=>{const m=window.aiControlsFixture();m.obstacles=[];m.nextDrop=Infinity;m.players[1].controller='human';m.players[0].slot={type:'laser',ammo:2};});
     await page.locator('#special-fire').hover();await page.mouse.down();await page.waitForTimeout(500);

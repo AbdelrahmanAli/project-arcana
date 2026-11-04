@@ -7,7 +7,7 @@ test('online room configuration accepts the existing formats, maps, and weapon r
   assert.equal(fighterCount('1v1'), 2);
   assert.equal(fighterCount('2v2'), 4);
   assert.deepEqual(matchOptions({ format: '2v2', mode: GAME_MODES.RANDOM, map: 'storm' }), {
-    format: '2v2', teamMode: 'versus', mode: GAME_MODES.RANDOM, map: 'storm', difficulty:'easy',
+    format: '2v2', teamMode: 'versus', mode: GAME_MODES.RANDOM, map: 'storm', difficulty:'normal',
   });
   assert.equal(matchOptions({ format: '2v2', teamMode: 'coop' }).teamMode, 'coop');
   assert.throws(() => matchOptions({ format: '1v1', teamMode: 'coop' }), /team mode/);

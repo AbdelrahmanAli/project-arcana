@@ -20,16 +20,18 @@ In 2v2, teammates separate, coordinate pickup claims, and prefer different visib
 
 ## Difficulty
 
-Match setup offers **Easy**, **Normal**, and **Hard**. Easy is the initial selection; the browser remembers the choice. Online co-op uses the host's selected difficulty, includes it in the invitation details, and preserves it for rematches. Human-versus-human combat is unaffected. All computer fighters in a match, including a computer teammate, use the chosen profile.
+Match setup offers **Easy**, **Normal**, and **Hard**. Normal is the initial selection; the browser remembers the choice. Online co-op uses the host's selected difficulty, includes it in the invitation details, and preserves it for rematches. Human-versus-human combat is unaffected. All computer fighters in a match, including a computer teammate, use the chosen profile.
 
 | Setting | Easy | Normal | Hard |
 | --- | --- | --- | --- |
-| Decision interval | 360–500 ms | 270–370 ms | 220–340 ms |
-| Target acquisition delay | 480 ms | 320 ms | 240 ms |
-| Aim variation per axis | ±24 px | ±12 px | ±6 px |
-| Pause beyond weapon cooldown | 280 ms | 120 ms | 0 ms |
-| Dodge reaction delay | 150 ms | 100 ms | 70 ms |
-| Dodge attempt probability | 55% | 75% | 90% |
+| Decision interval | 500â€“700 ms | 270â€“370 ms | 220â€“340 ms |
+| Target acquisition delay | 700 ms | 320 ms | 240 ms |
+| Aim variation per axis | Â±32 px | Â±12 px | Â±6 px |
+| Pause beyond weapon cooldown | 550 ms | 120 ms | 0 ms |
+| Dodge reaction delay | 180 ms | 100 ms | 70 ms |
+| Dodge attempt probability | 30% | 75% | 90% |
+
+Easy notices a combat threat on only 45% of decision updates and holds a missed cue for that entire 500-700 ms interval. Both walking routes and dodge reactions respect the same missed cues; permanent ground hazards remain visible. Easy retries dodge attempts no faster than every 1.25 seconds, compared with 300 ms on Normal and Hard. This produces actual missed evasions rather than replacing every failed roll with a perfect sidestep.
 
 Health, damage, movement speed, laser charge duration, and dodge invincibility/cooldown do not change with difficulty. Profiles live in `src/ai-difficulty.js`; both the browser and room server validate the setting.
 

@@ -921,7 +921,10 @@ export class Match {
     return length>.01?{x:dx/length,y:dy/length}:{x:0,y:0};
   }
   aiHazards(p){
-    return hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
+    const zones=hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
+    // A missed combat cue must affect walking as well as rolling. Otherwise an
+    // Easy fighter still perfectly sidesteps the shots it supposedly missed.
+    return this.aiState.get(p.id)?.combatAware===false?zones.filter(zone=>!zone.combat):zones;
   }
   reactToDanger(p,state,skill,dt){
     state.dodgeClock=(state.dodgeClock??0)-dt;
@@ -930,7 +933,7 @@ export class Match {
     if(p.dodgeTime>0||p.dodgeCooldown>0){state.dangerSince=null;return;}
     const zones=this.aiHazards(p),bank=BANK_BOUNDS[p.bank];
     const visible=this.players.find(other=>other.id===state.observed?.id&&this.canSee(p,other,true));
-    const laser=laserThreat(visible?state.observed:null,state,this.time,bank);
+    const laser=laserThreat(visible&&state.combatAware!==false?state.observed:null,state,this.time,bank);
     if(laser)zones.push(laser);
     // Keep a useful charge against light pistol pressure; still evade heavy
     // attacks or protect a critically wounded fighter, sacrificing the charge.
@@ -938,7 +941,7 @@ export class Match {
     if(!urgent){state.dangerSince=null;return;}
     state.dangerSince??=this.time;
     if(this.time-state.dangerSince<skill.dodgeReaction||this.time<(state.dodgeRetryAt??0))return;
-    state.dodgeRetryAt=this.time+.3;
+    state.dodgeRetryAt=this.time+skill.dodgeRetry;
     if(this.random()>skill.dodgeChance)return;
     const solid=this.obstacles.filter(o=>o.owner===p.bank&&!o.destroyed&&o.type!=='barrel');
     const escape=dodgeDestination(p,bank,zones,point=>!solid.some(o=>blocksFighter(o,point.x,point.y)),DODGE_DISTANCE);
@@ -950,6 +953,9 @@ export class Match {
     state.clock-=dt;
     if(state.clock<=0){
       state.clock=skill.decision+this.random()*skill.jitter;
+      // Hold an attention mistake for this entire decision interval. The fast
+      // dodge loop must not reroll the chance every frame and become infallible.
+      state.combatAware=skill.combatAwareness>=1||this.random()<skill.combatAwareness;
       // Low cover blocks bullets, not the player's overhead view. Weather blocks observation.
       const sighted=this.chooseAiOpponent(p,this.opponentsOf(p).filter(other=>this.canSee(p,other,true)));
       if(state.focusId!==(sighted?.id??null))state.acquiredAt=this.time;
@@ -973,7 +979,7 @@ export class Match {
       // vertically or retaining the 2v2 flank offset would prevent alignment.
       let desired={x:enemy?enemy.x+(chargingWeapon?0:offset):patrolX,y:enemy&&chargingWeapon?p.y:bank.minY+bankDepth*(lane+wave)};
       const zones=this.aiHazards(p);
-      const incomingLaser=laserThreat(state.observed,state,this.time,bank);
+      const incomingLaser=laserThreat(state.combatAware?state.observed:null,state,this.time,bank);
       if(incomingLaser)zones.push(incomingLaser);
       const solid=this.obstacles.filter(o=>o.owner===p.bank&&o.type!=='barrel'&&!o.destroyed);
       const free=point=>!solid.some(o=>blocksFighter(o,point.x,point.y));

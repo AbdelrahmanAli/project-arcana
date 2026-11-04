@@ -474,7 +474,7 @@ function updateOnlineLobby(){
   const details=$('online-match-details');details.hidden=false;
   $('online-map-art').style.backgroundImage=`url("${import.meta.env.BASE_URL}${MAP_ART[options.map]}")`;
   $('online-map-name').textContent=`${options.map.toUpperCase()} · ${options.format.toUpperCase()}`;
-  $('online-map-description').textContent=(MAP_DETAILS[options.map]||'')+(options.teamMode==='coop'?` � ${AI_DIFFICULTIES[options.difficulty||DEFAULT_DIFFICULTY].name.toUpperCase()} AI`:'');
+  $('online-map-description').textContent=(MAP_DETAILS[options.map]||'')+(options.teamMode==='coop'?` · ${AI_DIFFICULTIES[options.difficulty||DEFAULT_DIFFICULTY].name.toUpperCase()} AI`:'');
   $('online-mode-description').textContent=`${options.teamMode==='coop'?'CO-OP · 2 HUMANS VS 2 COMPUTERS':options.teamMode==='versus'?'VERSUS · 4 HUMANS':'DUEL · 2 HUMANS'} · ${options.mode.replaceAll('-',' ').toUpperCase()}${options.weapon?` · ${WEAPONS[options.weapon].name.toUpperCase()}`:''}`;
   const choosingTeams=options.teamMode==='versus'&&!onlineToken;
   $('online-teams').hidden=!choosingTeams;
@@ -619,7 +619,7 @@ function openLineup(map){
   if(playKind==='online'){createOnlineRoom(map);return;}
   revealedMap=map;
   lineupActiveSlot=selectedFormat==='2v2'?'teammate':'opponent';
-  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()} � ${selectedDifficulty.toUpperCase()} AI`;
+  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()} · ${selectedDifficulty.toUpperCase()} AI`;
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
 }
 function renderLineup(){
