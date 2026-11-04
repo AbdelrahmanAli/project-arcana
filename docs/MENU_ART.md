@@ -22,3 +22,17 @@ Use case: stylized-concept. Finished 1536x1024 landscape background asset for a 
 `node scripts/audit-menus.mjs` walks the computer-match setup and settings on desktop, portrait phones, small phones, and landscape phones. It captures screenshots under `test-output/menus`, checks control bounds and arena isolation, selects characters, and starts a match. `DIVISION_DEV_URL` overrides its default development URL.
 
 Online browser smoke scripts cover the invite and match-start flow using the same menu controls.
+
+## Combat interface
+
+`src/combat-ui.css` extends this art direction to the toolbar, fighter HUDs, touch controls, countdown, pause screen, results, and desktop surround. It preserves existing touch targets, positions, ammo/cooldown meter bindings, health anchors, and combat input handlers.
+
+`public/art/ui/combat-bezel.webp` is a transparent, painted metal control rim created with the built-in image generator. Both the center opening and outside retain alpha transparency. The generated PNG was converted to WebP without rescaling. Icons, labels, ammo values, and progress rings remain separate live elements.
+
+### Control bezel prompt
+
+Create one finished game UI asset: a front-facing circular military arcade control bezel, centered on a transparent square canvas. The center opening and the outside background must both be fully transparent. This is a thin ring frame for a mobile action-game button, not an illustration of a button on a panel. Outer diameter 90 percent of canvas; inner hole diameter 74 percent of canvas. Original high-quality hand-painted pixel-art metalwork, weathered blue-black gunmetal, subtle warm brass edge highlights, beveled industrial rim with four tiny inset bolts and machined segments, restrained scratches. Match detailed military arcade sprite art with clear readable silhouette at 64 pixels. Uniform straight-on orthographic view, no perspective tilt, symmetrical. Empty transparent center for an icon and label to be rendered by code. No icon, no words, no numbers, no background, no UI mockup, no drop shadow beyond the rim, no glow filling the hole. Only one ring.
+
+### Combat checks
+
+`node scripts/audit-combat-ui.mjs` checks phone, desktop, and landscape combat controls, laser charging and ammo, dodge, mute, pause/resume, results, and replay. It saves screenshots under `test-output/combat-ui`. Its deterministic fixture hook is added only to an intercepted development response, not to production code. Set `DIVISION_DEV_URL` to use another local development URL.

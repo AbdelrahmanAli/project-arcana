@@ -18,10 +18,9 @@
       <div class="rule"><span>02</span><p><strong>TAKE WHAT DROPS</strong>Carry one special weapon. Matching drops add ammo.</p></div>
       <div class="rule"><span>03</span><p><strong>WATCH THE PLATFORM</strong>On Riverside, its vents fire across both banks.</p></div>
       <div class="desktop-controls"><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>SPACE</kbd> pistol</p><p><kbd>E</kbd> special weapon &nbsp; <kbd>SHIFT</kbd> dodge &nbsp; <kbd>ESC</kbd> pause</p></div>
-      <p class="build-note">PLAYABLE PROTOTYPE <span>PHASE 8</span></p>
     </aside>
     <section class="game-unit menu-open" aria-label="Division game">
-      <header class="game-top"><span><b>D</b> DIVISION</span><div><button id="menu-open" aria-label="Open main menu">MENU</button><button id="sound" aria-label="Mute sound" title="Toggle sound">SOUND ON</button><button id="pause" aria-label="Pause game">Ⅱ</button></div></header>
+      <header class="game-top"><span><b>D</b> DIVISION</span><div><button id="menu-open" aria-label="Open main menu" title="Main menu">MENU</button><button id="sound" aria-label="Mute sound" title="Toggle sound">SOUND ON</button><button id="pause" aria-label="Pause game" title="Pause / resume">Ⅱ</button></div></header>
       <div id="arena" aria-label="Game arena. Drag anywhere here to move.">
         <div id="opponent-hud" class="opponent-hud">
           <div id="opponent-hp" class="health-segments" role="progressbar" aria-label="Opponent health" aria-valuemin="0" aria-valuemax="100"></div>
@@ -31,7 +30,7 @@
         <div id="opponent-toast" class="opponent-toast" aria-live="polite"></div>
         <div id="toast" aria-live="polite"></div>
         <div id="match-countdown" class="match-countdown" role="status" aria-live="assertive" hidden><strong id="countdown-word">READY!</strong></div>
-        <button id="pistol-fire" class="fire-control pistol-fire" aria-label="Fire pistol" aria-pressed="false"><svg aria-hidden="true" viewBox="0 0 36 36"><path d="M7 14h16l3 3-3 4H7zM10 21h8l-3 8h-5zM26 16h5M29 13l3-2M29 22l3 2" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><b id="pistol-label">PISTOL</b></button>
+        <button id="pistol-fire" class="fire-control pistol-fire" aria-label="Fire pistol" aria-pressed="false"><span class="pistol-art weapon-picture atlas-icon" aria-hidden="true"></span><b id="pistol-label">PISTOL</b></button>
         <div id="pistol-hint" class="pistol-hint" role="status" aria-live="polite" aria-hidden="true"></div>
         <div class="fire-controls" aria-label="Dodge and special weapon controls">
           <button id="dodge-fire" class="fire-control dodge-fire" aria-label="Dive roll"><svg class="meter-ring" aria-hidden="true" viewBox="0 0 100 100"><circle class="meter-track" cx="50" cy="50" r="45"/><circle id="dodge-meter" class="meter-fill" cx="50" cy="50" r="45" pathLength="100"/></svg><svg aria-hidden="true" viewBox="0 0 36 36"><path d="M29 14a12 12 0 1 0-3 14M29 14l-6-1 3-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="15" r="2.5" fill="currentColor"/><path d="m12 21 6-3 5 4m-5-4-2 7-6 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><b>DODGE</b><strong id="dodge-cooldown"></strong></button>
@@ -55,7 +54,7 @@
           <div class="menu-card phase4-panel hidden" id="settings-panel"><span class="eyebrow">GAME SETTINGS</span><h2>SETTINGS</h2><div class="setting-character"><strong>YOUR FIGHTER</strong><div id="character-choices" class="character-choices"></div></div><button id="settings-sound" class="secondary">SOUND ON</button><label class="setting-toggle" for="auto-pistol"><input id="auto-pistol" type="checkbox" checked><span>START WITH AUTO PISTOL</span></label><p class="audio-credit">Hawk call: <a href="https://commons.wikimedia.org/wiki/File:Buteo_jamaicensis_-_Red-tailed_Hawk_XC71575.mp3" target="_blank" rel="noreferrer">Jonathon Jongsma</a> · <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a></p><button id="settings-back" class="primary">BACK</button></div>
         </div>
     </section>
-    <aside class="field-notes"><span class="eyebrow">FIELD NOTES</span><h3>Weapons<br>&amp; rules</h3><p>Each platform launch sends supplies to both banks. On Riverside, its vents fire twice per cycle.</p><div class="weapon-list"><span>01 / ASSAULT RIFLE</span><span>02 / SHOTGUN</span><span>03 / STUN LAUNCHER</span><span>04 / SMART MISSILE</span><span>05 / LASER GUN</span><span>06 / NUCLEAR LAUNCHER</span></div><p class="hint">Hold the Laser Gun for up to 1.1 seconds; release for 16–46 damage.<br>Two direct shots break a crate; explosions break it instantly. Barrels can be walked past but explode when hit.<br>Nuclear waste stays for the round and harms anyone standing in it.<br>Pickups disappear after 12 seconds.</p><a href="%BASE_URL%art/visual-target.png" target="_blank" rel="noreferrer">VIEW ORIGINAL ART STUDY ↗</a></aside>
+
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

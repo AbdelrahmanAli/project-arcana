@@ -1,0 +1,108 @@
+/* Combat presentation only. Control positions, hit areas, and HUD anchors stay in phase3/hud.css. */
+.shell:not(:has(.menu-open)){
+  background:linear-gradient(90deg,#07131bdd,#07131b99 50%,#07131bdd),url('/art/ui/hangar.webp') center/cover fixed;
+  max-width:none;
+}
+.game-unit:not(.menu-open){border-color:#8e7952;border-radius:3px;box-shadow:0 0 0 3px #071419,0 18px 70px #000b}
+.game-top{
+  background:linear-gradient(110deg,#162a32e8,#07141be8),url('/art/ui/hangar.webp') center 32%/cover;
+  border-bottom:2px solid #9e7846;box-shadow:inset 0 1px #b4a27c55;
+}
+.game-top>span{font:800 15px/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.14em;color:#f2d7a3}
+.game-top>span b{display:none}
+.game-top>div{gap:5px;height:100%;align-items:center}
+.game-top #menu-open,.game-top #sound,.game-top #pause{
+  position:relative;width:31px;min-width:31px;height:28px;padding:5px;font-size:0;
+  border-left:1px solid #bd9e6555;background:linear-gradient(125deg,#a99b6320,transparent);color:#ead4a7;
+}
+.game-top button::before{content:'';display:block;width:17px;height:17px;margin:auto;background:currentColor;pointer-events:none}
+.game-top #menu-open::before{mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 5h18M3 12h18M3 19h18' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
+.game-top #sound::before{mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 9h4l5-5v16l-5-5H3zM16 7q6 5 0 10M19 3q9 9 0 18' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
+.game-top #sound[aria-label="Enable sound"]::after{content:'';position:absolute;width:23px;height:2px;background:#ed7966;left:4px;top:13px;transform:rotate(-45deg);box-shadow:0 1px #101b21}
+.game-top #pause::before{width:13px;height:15px;background:linear-gradient(90deg,currentColor 0 4px,transparent 4px 9px,currentColor 9px)}
+.game-unit.paused #pause::before{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:13px solid currentColor;background:none}
+.game-top button:hover:not(:disabled){color:#fff1cc;background:#d4aa5530}
+.game-top button:disabled{opacity:.35}
+
+/* Painted bezels surround translucent touch controls; the existing rings still communicate ammo and recovery. */
+.fire-control{
+  --control-accent:#e8c47d;
+  border:0;background:radial-gradient(circle,#0b1b26a8 0 48%,#0b1723b0 58%,transparent 69%);
+  box-shadow:none;color:#ffedc7;
+}
+.fire-control::before{inset:0;border:0;border-radius:0;background:url('/art/ui/combat-bezel.webp') center/111% 111% no-repeat;z-index:1}
+.fire-control .meter-ring{inset:3px;width:calc(100% - 6px);height:calc(100% - 6px);z-index:3}
+.fire-control .meter-track{stroke:#07121b80;stroke-width:3}
+.fire-control .meter-fill{stroke-width:3;filter:drop-shadow(0 0 2px var(--meter-color,#e8c47d))}
+.fire-control b{font:800 clamp(9px,2.2vw,11px)/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.09em;color:#fff0cf;text-shadow:0 1px 2px #000,0 0 5px #000}
+.fire-control.pressed{background:radial-gradient(circle,#b9893d88, #13222b88 60%,transparent 70%);box-shadow:none}
+.fire-control.pressed::before{filter:brightness(1.35)}
+.pistol-fire.auto{box-shadow:none;background:radial-gradient(circle,#86672e88,#12253099 56%,transparent 70%)}
+.pistol-fire.auto::before{border:0;filter:drop-shadow(0 0 3px #f5c36c99)}
+.pistol-fire .pistol-art{position:relative;z-index:2;display:block;width:54%;height:48%;margin:0 0 2px;transform:rotate(-9deg);filter:brightness(1.45) drop-shadow(0 1px 1px #000) drop-shadow(0 0 1px #f5d297)}
+.dodge-fire{--control-accent:#99dce8;color:#bceef2}
+.dodge-fire>svg:not(.meter-ring){z-index:2;filter:drop-shadow(0 2px 2px #000)}
+.dodge-fire.rolling{box-shadow:none;background:radial-gradient(circle,#65d5df66,#14323c99 55%,transparent 70%)}
+.dodge-fire.cooldown::before{filter:saturate(.35) brightness(.8)}
+.fire-control strong{top:8px;right:8px;min-width:15px;padding:1px 3px;border:0;border-bottom:1px solid var(--control-accent);border-radius:1px;background:#07151bf2;color:#fff4da;font:800 12px/1.15 'Barlow Condensed',Impact,sans-serif;letter-spacing:.03em}
+.special-fire .fire-control-art{position:relative;z-index:2;width:66%;height:44%;margin-top:4px}
+.special-fire.empty{opacity:.8}
+.special-fire.empty::after{content:'';position:absolute;width:22px;height:16px;top:25%;border:1px solid #d8d8b966;background:repeating-linear-gradient(90deg,transparent 0 5px,#e8d7a855 5px 6px);transform:skew(-8deg);pointer-events:none}
+.special-fire[data-weapon]{box-shadow:none}
+.special-fire.laser-charging{background:radial-gradient(circle,#a51b3f9c,#13222b88 60%,transparent 70%);box-shadow:none}
+.special-fire.laser-charging::before{filter:drop-shadow(0 0 4px #f84b65aa)}
+.special-fire #charge{left:16%;width:68%;max-height:68%;bottom:16%;border-radius:50%;background:linear-gradient(#ff969622,#ff274a66)}
+.pistol-hint,#toast{border:0;border-left:2px solid #ecc176;border-radius:0;background:linear-gradient(90deg,#0a1a24f2,#0a1a24c9);box-shadow:0 4px 12px #0005;color:#f7dfae}
+.pistol-hint{font-size:8px;padding:7px 9px;letter-spacing:.03em}
+
+/* The same compact red health treatment belongs to every fighter. */
+.opponent-hud .health-segments{border-color:#bca58380!important;background:#111c24;box-shadow:0 2px 3px #0009!important;clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.health-segments .health-cell{background:#392c31}
+.health-segments .health-cell i{background:linear-gradient(#ff9a84 0%,#ee4f50 45%,#ac2639 100%)}
+.player-hud-label,#opponent-hud::before,.phase7-fighter-name{font:800 calc(11px * var(--hud-scale))/1.1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.09em;color:#ffefd3;text-shadow:0 1px 2px #000,0 0 4px #000}
+.player-hud-label{color:#bde8f1}
+.opponent-weapon{border-color:#bca58340;border-radius:0;background:linear-gradient(90deg,transparent,#0c1a23c9 25% 75%,transparent);box-shadow:none;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+
+/* Full-bleed pause/results use the illustrated hangar, with the battle still visible at the edges. */
+#overlay{background:linear-gradient(#06141b99,#06141be6 40% 75%,#06141bba);backdrop-filter:blur(2px);overflow:hidden;isolation:isolate}
+#overlay::before{content:'';position:absolute;inset:0;background:url('/art/ui/hangar.webp') center/cover;opacity:.38;z-index:-1;pointer-events:none}
+#overlay .overlay-card{position:relative;padding:28px 24px;max-width:540px;text-align:left}
+#overlay .overlay-card::before{content:'';display:block;width:58px;height:4px;background:#ebc27a;margin-bottom:22px;box-shadow:68px 0 #ebc27a55,136px 0 #ebc27a22}
+#overlay h2{font-size:clamp(48px,12vw,74px);line-height:.91;letter-spacing:.01em;text-shadow:0 4px #07131b;margin:0 0 26px;color:#f3ebd5}
+#overlay h2 em{color:#efc780}
+#overlay .overlay-omen{color:#efce94;margin:0 0 15px;font-size:12px}
+#overlay #overlay-copy{font-size:10px;line-height:1.8;max-width:340px;color:#b9ccc8;margin:0 0 28px}
+#overlay .primary,#overlay .secondary{width:max-content;max-width:100%;min-width:180px;margin:12px 0 0;text-align:left;font:800 15px/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.1em;padding:17px 28px;box-shadow:none}
+#overlay .primary{color:#13222a;background:linear-gradient(110deg,#ffe3a7,#d6a252);border-bottom:3px solid #926c3e;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px))}
+#overlay .secondary{color:#e6d1ac;border:0;border-left:2px solid #a78c5e;background:linear-gradient(90deg,#233d4780,transparent)}
+#overlay button:hover:not(:disabled){filter:brightness(1.15)}
+.match-countdown{background:linear-gradient(90deg,#07192355,#07192388,#07192355)}
+.match-countdown strong{padding:10px 28px;border-top:2px solid #e8bf6c88;border-bottom:2px solid #e8bf6c88;background:linear-gradient(90deg,transparent,#12232bbd,transparent);font-style:italic;color:#ffebbc;text-shadow:3px 4px #07131b;letter-spacing:.05em}
+
+/* Desktop surround is part of the game scene instead of a prototype documentation page. */
+.briefing .build-note,.field-notes{display:none}
+.shell:not(:has(.menu-open)){grid-template-columns:minmax(180px,1fr) minmax(300px,470px) minmax(180px,1fr)}
+.briefing{max-width:280px;justify-self:center}
+.briefing .rule{border-left:2px solid #a78c5e66;padding-left:15px}
+.briefing .rule>span{display:none}
+.briefing h1{color:#f5e4bb;text-shadow:0 4px #07131b}
+.briefing .tagline{color:#ccae78}
+.briefing .desktop-controls{border-top:1px solid #c3a57555;padding-top:15px;color:#bdc5bc;line-height:2}
+@media(max-width:1100px){.shell:not(:has(.menu-open)){grid-template-columns:1fr minmax(300px,470px)}}
+@media(max-width:700px){.shell:not(:has(.menu-open)){display:block;background:#09171e}.game-unit:not(.menu-open){border:0;border-radius:0;box-shadow:none}.game-top>span{font-size:14px}.game-top #menu-open,.game-top #sound,.game-top #pause{height:26px}.game-top{flex-shrink:0}}
+@media(orientation:landscape) and (max-height:520px) and (max-width:950px){
+  .shell:not(:has(.menu-open)){display:block}
+  .game-top>span{font-size:10px;letter-spacing:.04em}
+  .game-top #menu-open,.game-top #sound,.game-top #pause{width:22px;min-width:22px;height:23px;padding:3px}
+  .game-top>div{gap:0}.game-top button::before{width:14px;height:14px}
+  .game-top #sound[aria-label="Enable sound"]::after{width:17px;left:3px;top:11px}
+  .fire-control b{font-size:7px}.fire-control strong{top:4px;right:4px;font-size:9px;padding:0 2px}
+  .special-fire.empty::after{width:15px;height:11px}
+  #overlay .overlay-card{padding:14px}
+  #overlay .overlay-card::before{margin-bottom:12px;width:24px;box-shadow:32px 0 #ebc27a55,64px 0 #ebc27a22}
+  #overlay h2{font-size:30px;margin-bottom:14px}
+  #overlay .overlay-omen{font-size:8px;margin-bottom:10px}
+  #overlay #overlay-copy{font-size:8px;margin-bottom:12px}
+  #overlay .primary,#overlay .secondary{padding:10px 15px;min-width:120px;font-size:11px;margin-top:8px}
+}
+@media(prefers-reduced-motion:reduce){.overlay.result,.overlay.result .overlay-card,.match-countdown strong{animation:none}}

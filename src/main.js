@@ -19,6 +19,7 @@ import './phase5.css';
 import './phase7.css';
 import './menu-scene.css';
 import './game-menus.css';
+import './combat-ui.css';
 
 const $=id=>document.getElementById(id);
 $('menu').style.setProperty('--menu-scene-art',`url("${import.meta.env.BASE_URL}art/arena.png")`);
@@ -862,6 +863,7 @@ window.addEventListener('resize',()=>{
 
 function updateHud(){
   const p=localFighter(),enemy=visibleOpponent();
+  fitWeaponIcon($('pistol-fire').querySelector('.pistol-art'),'pistol');
   const dodge=$('dodge-fire');
   dodge.classList.toggle('rolling',p.dodgeTime>0);
   dodge.classList.toggle('cooldown',p.dodgeCooldown>0&&p.dodgeTime<=0);
