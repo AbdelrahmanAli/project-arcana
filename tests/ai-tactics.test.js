@@ -4,7 +4,7 @@ import {Match,MAPS,BANK_BOUNDS,BARREL_BLAST_RADIUS,DEATH_DURATION,hailCloudVisua
 import {shotPlan,advantageousBarrel,laserThreat} from '../src/ai-tactics.js';
 
 function arena(map=MAPS.RIVERSIDE){
-  const match=new Match(()=>.5,{map});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
+  const match=new Match(()=>.5,{map,difficulty:'hard'});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
   const [target,bot]=match.players;target.x=bot.x=240;target.y=760;bot.y=240;
   return {match,target,bot,state:match.aiState.get(bot.id)};
 }

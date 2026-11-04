@@ -756,7 +756,8 @@ test('rolling ignores direct, blast, stun, and ground damage until animation end
 test('the opponent rolls away from a locked explosive shortly before impact',()=>{
   const m=new Match(()=>.5),enemy=m.players[1];m.nextDrop=Infinity;m.obstacles.forEach(o=>o.destroyed=true);
   m.bullets.push({owner:0,type:'grenade',t:.7,duration:.9,tx:enemy.x,ty:enemy.y});
-  m.think(1/120);
+  // React to the warning rather than dodging on the exact observation frame.
+  for(let i=0;i<23;i++){m.time+=1/120;m.think(1/120);}
   assert.ok(enemy.dodgeTime>0);
   assert.ok(enemy.dodgeCooldown>0);
 });
@@ -779,7 +780,7 @@ test('opponent escapes a Tower fire lane instead of retreating into the river co
   opponent.x=38;opponent.y=BANK_BOUNDS[1].maxY;
   const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
   m.flames=[{...source,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100}];
-  m.think(1/120);
+  for(let i=0;i<23;i++){m.time+=1/120;m.think(1/120);}
   assert.ok(m.aiState.get(1).target.x>70&&m.aiState.get(1).target.y<opponent.y,'fire escape points back into the bank');
   for(let i=0;i<180;i++)m.think(1/120);
   assert.ok(opponent.x>70,'opponent leaves the corner');
@@ -790,7 +791,7 @@ test('opponent dodges a marked Tower lane toward open ground at the bank edge',(
   opponent.x=38;opponent.y=BANK_BOUNDS[1].maxY;
   const source={x:304,y:501},length=Math.hypot(opponent.x-source.x,opponent.y-source.y);
   m.platformAttacks=[{owner:1,hit:false,sourceX:source.x,sourceY:source.y,dx:(opponent.x-source.x)/length,dy:(opponent.y-source.y)/length,maxReach:length+100,age:.35,warning:.5}];
-  m.think(1/120);
+  for(let i=0;i<23;i++){m.time+=1/120;m.think(1/120);}
   assert.ok(m.aiState.get(1).target.x>70&&m.aiState.get(1).target.y<opponent.y,'marked lane escape points inward');
   assert.ok(opponent.dodgeTime>0&&opponent.dodgeX>0&&opponent.dodgeY<0,'dodge heads away from both walls');
 });

@@ -1,3 +1,4 @@
+import {DEFAULT_DIFFICULTY,validDifficulty} from '../src/ai-difficulty.js';
 import { CHARACTERS, CHARACTER_BY_ID } from '../src/characters.js';
 import { DROP_TYPES, GAME_MODES, MAP_TYPES } from '../src/model.js';
 
@@ -7,6 +8,8 @@ export const SNAPSHOT_EVERY_TICKS = 2;
 export function matchOptions(value) {
   if (!value || typeof value !== 'object') throw new RangeError('Match options are required');
   const { format = '1v1', mode = GAME_MODES.RANDOM, map = MAP_TYPES[0], weapon } = value;
+  const difficulty=value.difficulty??DEFAULT_DIFFICULTY;
+  if(!validDifficulty(difficulty))throw new RangeError('Unknown computer difficulty');
   const teamMode = value.teamMode || (format === '1v1' ? 'duel' : 'versus');
   if (!['1v1', '2v2'].includes(format)) throw new RangeError('Unknown match format');
   if (format === '1v1' ? teamMode !== 'duel' : !['coop', 'versus'].includes(teamMode)) throw new RangeError('Unknown online team mode');
@@ -15,7 +18,7 @@ export function matchOptions(value) {
   if (mode === GAME_MODES.CHOOSE_FIXED && !DROP_TYPES.includes(weapon)) {
     throw new RangeError('Choose Fixed Weapon requires a valid weapon');
   }
-  return { format, teamMode, mode, map, ...(mode === GAME_MODES.CHOOSE_FIXED ? { weapon } : {}) };
+  return { format, teamMode, mode, map, difficulty, ...(mode === GAME_MODES.CHOOSE_FIXED ? { weapon } : {}) };
 }
 
 export function fighterCount(format) {
@@ -96,6 +99,7 @@ export function snapshot(match) {
     mode: match.mode,
     fixedWeapon: match.fixedWeapon,
     format: match.format,
+    difficulty: match.difficulty,
     launches: match.launches,
     marksRevision: match.marksRevision,
     players: match.players,

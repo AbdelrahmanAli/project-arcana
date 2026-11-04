@@ -11,11 +11,17 @@ async function host(teamMode){
   await page.locator('#menu-online').waitFor({state:'visible',timeout:60000});
   await page.locator('#menu-online').click();
   await page.locator('#online-host').click();
+  if(teamMode==='coop')await page.locator('#online-format-panel [data-difficulty="normal"]').click();
   await page.locator(`#online-format-panel [data-online-mode="${teamMode}"]`).click();
   await page.locator('#mode-panel [data-mode="random"]').click();
   await page.locator('#map-panel [data-map="snow"]').click();
   await page.locator('#online-invite-link').waitFor({state:'visible',timeout:15000});
-  return {page,inviteUrl:await page.locator('#online-invite-link').inputValue()};
+  const inviteUrl=await page.locator('#online-invite-link').inputValue();
+  if(teamMode==='coop'){
+    const status=await (await page.request.get(`${origin}/api/rooms/${new URL(inviteUrl).searchParams.get('room')}`)).json();
+    if(status.options.difficulty!=='normal')throw new Error('Host difficulty was not saved by the room server');
+  }
+  return {page,inviteUrl};
 }
 async function join(inviteUrl,character,team){
   const page=await browser.newPage({viewport:{width:470,height:940}});
@@ -27,6 +33,7 @@ async function join(inviteUrl,character,team){
     throw new Error(`Invite did not open for ${character}: ${JSON.stringify(state)}; page errors: ${errors.join('; ')}`,{cause:error});
   }
   await page.waitForFunction(()=>document.querySelector('#online-map-name')?.textContent.includes('SNOW'),null,{timeout:15000});
+  if((await page.locator('#online-mode-description').textContent()).includes('CO-OP')&&!(await page.locator('#online-map-description').textContent()).includes('NORMAL AI'))throw new Error('Invite guest cannot see computer difficulty');
   if(await page.locator('#online-host').isVisible())throw new Error('Invite guest has Create Invite');
   await page.locator(`#online-characters [data-character="${character}"]`).click();
   if(team!==undefined)await page.locator(`#online-teams [data-team="${team}"]`).click();

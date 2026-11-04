@@ -5,7 +5,7 @@
   z-index: 3;
   pointer-events: none;
   color: #ff4848;
-  font: 900 clamp(12px, 3vw, 17px) 'IBM Plex Mono', monospace;
+  font: 900 clamp(12px, 3vw, 17px) var(--font-ui);
   text-shadow: 1px 2px 0 #360b0b, 0 0 4px #000;
   animation: damage-float 1.5s ease-out forwards;
 }
@@ -82,13 +82,13 @@
   box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #ffe4af55, 0 0 17px #ffda7e99;
 }
 .pistol-fire { position: absolute; z-index: 4; right: clamp(8px, 3%, 16px); top: 61.8%; transform: translateY(-50%); }
-.pistol-hint { position: absolute; z-index: 4; right: clamp(8px, 3%, 16px); top: calc(61.8% - 44px); transform: translateY(-100%); padding: 5px 7px; border: 1px solid #e8c5738c; border-radius: 3px; background: #102022e8; color: #ffe4a0; font: 700 8px/1.5 'IBM Plex Mono', monospace; letter-spacing: .25px; text-align: center; white-space: pre-line; pointer-events: none; opacity: 0; transition: opacity .25s ease; }
+.pistol-hint { position: absolute; z-index: 4; right: clamp(8px, 3%, 16px); top: calc(61.8% - 44px); transform: translateY(-100%); padding: 5px 7px; border: 1px solid #e8c5738c; border-radius: 3px; background: #102022e8; color: #ffe4a0; font: 700 8px/1.5 var(--font-ui); letter-spacing: .25px; text-align: center; white-space: pre-line; pointer-events: none; opacity: 0; transition: opacity .25s ease; }
 .pistol-hint.visible { opacity: 1; }
 .pistol-fire.auto { border-color: #fff1b1; box-shadow: 0 0 19px #f4c454bb, inset 0 0 10px #f4c45477; }
 .pistol-fire.auto::before { border-style: solid; border-color: #ffeaa0; }
 .dodge-fire { border-color: #a7dbe0c9; color: #d5fbff; }
 .dodge-fire > svg:not(.meter-ring) { position: relative; width: 28px; height: 28px; margin-bottom: 1px; filter: drop-shadow(1px 1px 1px #000b); }
-.dodge-fire strong { position: absolute; top: 5px; right: 6px; font: 800 10px 'IBM Plex Mono', monospace; }
+.dodge-fire strong { position: absolute; top: 5px; right: 6px; font: 800 10px var(--font-ui); }
 .dodge-fire.cooldown > svg:not(.meter-ring), .dodge-fire.cooldown b { opacity: .6; }
 .dodge-fire.rolling { border-color: #d9ffff; box-shadow: 0 0 15px #80ecffbb, inset 0 0 8px #a4f1ff77; }
 .dodge-fire { --meter-color: #adf5ff; }
@@ -103,7 +103,7 @@
 .fire-control b {
   position: relative;
   z-index: 2;
-  font: 700 clamp(7px, 1.8vw, 9px) 'IBM Plex Mono', monospace;
+  font: 700 clamp(7px, 1.8vw, 9px) var(--font-ui);
   letter-spacing: .3px;
   text-shadow: 1px 1px #131d1d, 0 0 4px #131d1d;
 }
@@ -135,7 +135,7 @@
   top: 6px;
   min-width: 14px;
   color: #fff1c3;
-  font: 800 12px 'IBM Plex Mono', monospace;
+  font: 800 12px var(--font-ui);
 }
 .special-fire[data-weapon="grenade"] { border-color: #79d9ffcc; box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #73ccff33, 0 0 11px #5cc5ff77; }
 .special-fire[data-weapon="nuclear"] { border-color: #a4fa66dd; box-shadow: 0 2px 10px #0009, inset 0 0 0 3px #6fc33b33, 0 0 11px #8cf04f77; }

@@ -1,0 +1,44 @@
+@font-face {
+  font-family:'Black Ops One';src:url('/fonts/black-ops-one.ttf') format('truetype');
+  font-style:normal;font-weight:400;font-display:swap;
+}
+@font-face {
+  font-family:'Oxanium';src:url('/fonts/oxanium.ttf') format('truetype');
+  font-style:normal;font-weight:200 800;font-display:swap;
+}
+:root {
+  --font-display:'Black Ops One',Impact,sans-serif;
+  --font-ui:'Oxanium','Segoe UI',sans-serif;
+  font-family:var(--font-ui);font-weight:500;
+}
+input,select { font-family:var(--font-ui); }
+.briefing h1,.field-notes h3,#menu .menu-card>h2,#overlay h2,.match-countdown strong {
+  font-family:var(--font-display);font-weight:400;font-style:normal;
+}
+#menu .menu-card>h2 { font-size:clamp(30px,4.7vw,60px);line-height:1.08;letter-spacing:.015em; }
+#menu #menu-home>h2 { font-size:clamp(48px,10vw,138px); }
+#menu #menu-home .primary,#menu #menu-home .secondary { font-family:var(--font-display);font-weight:400;letter-spacing:.04em; }
+#menu .mode-choice strong { font-family:var(--font-display);font-weight:400;letter-spacing:.025em; }
+#menu .map-choice strong,#menu .deal-preview strong { font-weight:800;letter-spacing:.035em; }
+#menu .primary,#menu .secondary,#overlay .primary,#overlay .secondary { font-weight:700;letter-spacing:.07em; }
+#menu .menu-card>p,#menu .mode-choice small { font-weight:500; }
+#menu .eyebrow { font-weight:700;letter-spacing:.2em; }
+.fire-control b,.fire-control strong,.player-hud-label,#opponent-hud::before,.phase7-fighter-name {
+  font-family:var(--font-ui);font-weight:800;letter-spacing:.015em;
+}
+.fire-control strong,.health-value,.damage-number,#dodge-cooldown { font-variant-numeric:tabular-nums; }
+#overlay h2 { font-size:clamp(32px,9vw,53px);line-height:1.06;letter-spacing:0; }
+.briefing h1 { font-size:clamp(38px,4vw,64px);letter-spacing:0; }
+.match-countdown strong { font-size:clamp(42px,12vw,78px); }
+@media(max-width:700px) {
+  #menu .menu-card>h2 { font-size:clamp(26px,7.8vw,42px); }
+  #menu .mode-choice strong { font-size:18px; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:21px; }
+}
+@media(orientation:landscape) and (max-height:520px) {
+  #menu .menu-card>h2 { font-size:27px; }
+  #menu #menu-home>h2 { font-size:54px; }
+  #menu .mode-choice strong { font-size:17px; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:19px; }
+  #overlay h2 { font-size:24px; }
+}

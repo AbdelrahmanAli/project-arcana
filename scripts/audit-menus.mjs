@@ -12,6 +12,8 @@ try{
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto(origin);
     await page.locator('#menu-play:not([disabled])').waitFor({timeout:60000});
+    await page.evaluate(()=>document.fonts.ready);
+    assert.equal(await page.evaluate(()=>document.fonts.check('400 32px "Black Ops One"')&&document.fonts.check('700 14px Oxanium')),true,'bundled game fonts load');
     async function capture(screen){
       await page.waitForTimeout(400);
       await page.screenshot({path:`test-output/menus/${name}-${screen}.png`});

@@ -1,8 +1,9 @@
+import {AI_DIFFICULTIES,DEFAULT_DIFFICULTY,validDifficulty} from './ai-difficulty.js';
 import { CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { W, H, RIVER } from './arena-geometry.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, supplyPort, attackVent} from './platform.js';
-import {AI_TIMING,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition,laserThreat} from './ai-tactics.js';
+import {AI_MEMORY_SECONDS,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition,laserThreat,dodgeDestination} from './ai-tactics.js';
 
 export { W, H, RIVER };
 export {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE};
@@ -75,7 +76,7 @@ export function segmentRectHit(a,b,r) {
   return {x:a.x+dx*enter,y:a.y+dy*enter};
 }
 function soldier(id, x, y, team, characterId, controller) {
-  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,specialHeld:false,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,criticalLaserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
+  return { id,x,y,bank:team,team,characterId,controller,hp:100,stun:0,radiated:0,burning:0,scorpionSlow:0,iceSlip:0,iceSpray:0,iceVX:0,iceVY:0,iceEntryX:0,iceEntryY:0,lastMoveX:0,lastMoveY:0,onIce:false,slot:null,pistolCooldown:0,specialCooldown:0,specialHeld:false,laserCancelled:false,dodgeTime:0,dodgeCooldown:0,dodgeX:0,dodgeY:0,dodgeDir:0,charge:0,flash:0,hurt:0,laserHit:0,criticalLaserHit:0,moving:false,walk:0,shots:0,hits:0,deathAge:0,hazardDamage:0,hazardPopupClock:0 };
 }
 const OBSTACLE_HALF={crate:{x:16,y:13},barrel:{x:12,y:20},rock:{x:18,y:14}};
 export function obstacleBounds(o){const half=OBSTACLE_HALF[o.type];return {left:o.x-half.x,right:o.x+half.x,top:o.y-half.y,bottom:o.y+half.y};}
@@ -151,6 +152,8 @@ export class Match {
     if(this.format==='2v2')this.players.push(
       soldier(2,330,760,0,lineup.teammate,controller(2,'computer')),
       soldier(3,330,240,1,lineup.opponent2,controller(3,'computer')));
+    this.difficulty=options.difficulty??DEFAULT_DIFFICULTY;
+    if(!validDifficulty(this.difficulty))throw new RangeError('Unknown computer difficulty');
     this.mode=options.mode||GAME_MODES.RANDOM;
     if(!Object.values(GAME_MODES).includes(this.mode))throw new RangeError('Unknown game mode');
     this.map=options.map||MAPS.RIVERSIDE;
@@ -656,6 +659,7 @@ export class Match {
     p.dodgeX=length>.1?x/length:0;
     p.dodgeY=length>.1?y/length:(p.bank===0?-1:1);
     p.dodgeDir=Math.round(Math.atan2(p.dodgeX,-p.dodgeY)/(Math.PI/4)+8)%8;
+    if(p.controller==='human'&&p.slot?.type==='laser')p.laserCancelled=true;
     p.dodgeTime=DODGE_DURATION;p.dodgeCooldown=DODGE_COOLDOWN;p.charge=0;
     this.emit('dodge',{player:p.id,x:p.x});
     return true;
@@ -688,6 +692,7 @@ export class Match {
     if(p[cooldownKey]>0)return false;
     const type=special?p.slot.type:'pistol', def=WEAPONS[type], enemy=aim||this.targetFor(p);
     if(!enemy)return false;
+    if(type==='laser'&&p.laserCancelled)return false;
     const charge=type==='laser'?clamp(power,0,1):0;
     const dir=p.bank===0?-1:1;
     p[cooldownKey]=def.cooldown; p.flash=.09;p.lastShotSpecial=special; p.shots++; if(special)p.charge=0;
@@ -915,12 +920,36 @@ export class Match {
     const length=Math.hypot(dx,dy);
     return length>.01?{x:dx/length,y:dy/length}:{x:0,y:0};
   }
+  aiHazards(p){
+    return hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
+  }
+  reactToDanger(p,state,skill,dt){
+    state.dodgeClock=(state.dodgeClock??0)-dt;
+    if(state.dodgeClock>0)return;
+    state.dodgeClock=.04;
+    if(p.dodgeTime>0||p.dodgeCooldown>0){state.dangerSince=null;return;}
+    const zones=this.aiHazards(p),bank=BANK_BOUNDS[p.bank];
+    const visible=this.players.find(other=>other.id===state.observed?.id&&this.canSee(p,other,true));
+    const laser=laserThreat(visible?state.observed:null,state,this.time,bank);
+    if(laser)zones.push(laser);
+    // Keep a useful charge against light pistol pressure; still evade heavy
+    // attacks or protect a critically wounded fighter, sacrificing the charge.
+    const urgent=zones.some(zone=>zone.urgent&&(zone.weight>=12||p.charge<=0||p.hp<=35)&&dangerAt(p,[zone])>4);
+    if(!urgent){state.dangerSince=null;return;}
+    state.dangerSince??=this.time;
+    if(this.time-state.dangerSince<skill.dodgeReaction||this.time<(state.dodgeRetryAt??0))return;
+    state.dodgeRetryAt=this.time+.3;
+    if(this.random()>skill.dodgeChance)return;
+    const solid=this.obstacles.filter(o=>o.owner===p.bank&&!o.destroyed&&o.type!=='barrel');
+    const escape=dodgeDestination(p,bank,zones,point=>!solid.some(o=>blocksFighter(o,point.x,point.y)),DODGE_DISTANCE);
+    if(escape)this.dodge(p,escape.x-p.x,escape.y-p.y);
+  }
   thinkFighter(p,dt) {
-    const state=this.aiState.get(p.id);
+    const state=this.aiState.get(p.id),skill=AI_DIFFICULTIES[this.difficulty];
     if(p.stun>0){p.moving=false;p.charge=0;state.steerX=0;state.steerY=0;return;}
     state.clock-=dt;
     if(state.clock<=0){
-      state.clock=AI_TIMING.decision+this.random()*AI_TIMING.jitter;
+      state.clock=skill.decision+this.random()*skill.jitter;
       // Low cover blocks bullets, not the player's overhead view. Weather blocks observation.
       const sighted=this.chooseAiOpponent(p,this.opponentsOf(p).filter(other=>this.canSee(p,other,true)));
       if(state.focusId!==(sighted?.id??null))state.acquiredAt=this.time;
@@ -929,7 +958,7 @@ export class Match {
         state.lastSeen={x:sighted.x,y:sighted.y,id:sighted.id,hp:sighted.hp,stun:sighted.stun,charge:sighted.charge,weapon:this.weapon(sighted)};
         state.lastSeenAt=this.time;
       }
-      const remembered=this.time-state.lastSeenAt<AI_TIMING.memory?state.lastSeen:null;
+      const remembered=this.time-state.lastSeenAt<AI_MEMORY_SECONDS?state.lastSeen:null;
       state.observed=sighted?{...state.lastSeen}:null;
       const enemy=state.observed||remembered;
       const chargingWeapon=this.weapon(p)==='laser';
@@ -943,7 +972,7 @@ export class Match {
       // A laser fighter strafes into its firing lane while charging. Patrolling
       // vertically or retaining the 2v2 flank offset would prevent alignment.
       let desired={x:enemy?enemy.x+(chargingWeapon?0:offset):patrolX,y:enemy&&chargingWeapon?p.y:bank.minY+bankDepth*(lane+wave)};
-      const zones=hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
+      const zones=this.aiHazards(p);
       const incomingLaser=laserThreat(state.observed,state,this.time,bank);
       if(incomingLaser)zones.push(incomingLaser);
       const solid=this.obstacles.filter(o=>o.owner===p.bank&&o.type!=='barrel'&&!o.destroyed);
@@ -970,16 +999,12 @@ export class Match {
       const barrel=sighted&&advantageousBarrel(this,p,state.observed,BARREL_BLAST_RADIUS);
       const aim=barrel||state.observed;
       if(barrel&&!pickup&&!cover)desired.x=barrel.x;
-      state.aim=aim?{x:aim.x+(this.random()-.5)*12,y:aim.y+(this.random()-.5)*16,hp:aim.hp,stun:aim.stun}:null;
+      state.aim=aim?{x:aim.x+(this.random()-.5)*skill.aimError*2,y:aim.y+(this.random()-.5)*skill.aimError*2,hp:aim.hp,stun:aim.stun}:null;
       state.target=safeDestination(p,desired,bank,zones,free);
       state.waypoint=routeAroundCrates(p,state.target,solid,bank,zones);
-      const urgent=zones.some(zone=>zone.urgent&&(zone.weight>=12||p.hp<30)&&dangerAt(p,[zone])>5);
-      if(urgent&&p.dodgeCooldown<=0&&this.random()<.72){
-        const escape=state.waypoint;
-        if(distance(p,escape)>18)this.dodge(p,escape.x-p.x,escape.y-p.y);
-      }
       state.fire=!!sighted;
     }
+    this.reactToDanger(p,state,skill,dt);
     const waypoint=state.waypoint||p,l=distance(p,waypoint),movement=this.aiMoveVector(p,waypoint);
     const turn=1-Math.exp(-dt*12);
     state.steerX+=(movement.x-state.steerX)*turn;state.steerY+=(movement.y-state.steerY)*turn;
@@ -991,18 +1016,19 @@ export class Match {
     if(!liveTarget||!this.canSee(p,liveTarget,true)){
       state.fire=false;state.aim=null;state.focusId=null;p.charge=0;return;
     }
-    if(!state.fire||this.time-(state.acquiredAt??this.time)<AI_TIMING.reaction)return;
+    if(!state.fire||this.time-(state.acquiredAt??this.time)<skill.reaction)return;
     const type=this.weapon(p),plan=shotPlan(this,p,state.aim,type,BARREL_BLAST_RADIUS,state.covering);
+    const shoot=(power,mode)=>{if(this.time>=(state.nextFireAt??0)&&this.fire(p,power,mode,state.aim))state.nextFireAt=this.time+(mode==='special'?p.specialCooldown:p.pistolCooldown)+skill.firePause;};
     if(type==='laser'){
       // Charging does not require alignment. Keep the charge through strafing
       // and release only when a shot is viable; normal interruption rules above
       // still apply. A crate encountered after charging may take the shot.
       if(p.charge>0||p.specialCooldown<=0&&!plan.blocked&&!(state.aim?.hp>0&&state.aim.hp<=5)){
         p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);
-        if(p.charge>=1&&(plan.special||plan.blocked&&plan.pistol))this.fire(p,1,'special',state.aim);
+        if(p.charge>=1&&(plan.special||plan.blocked&&plan.pistol))shoot(1,'special');
       }
-    }else if(p.slot&&plan.special)this.fire(p,0,'special',state.aim);
-    if(plan.pistol&&p.charge<=0)this.fire(p,0,'pistol',state.aim);
+    }else if(p.slot&&plan.special)shoot(0,'special');
+    if(plan.pistol&&p.charge<=0)shoot(0,'pistol');
   }
   update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;
@@ -1035,12 +1061,14 @@ export class Match {
       const specialPressed=!!controls.special&&!p.specialHeld;
       p.specialHeld=!!controls.special;
       if(controls.dodge)this.dodge(p,controls.x||0,controls.y||0);
+      const cancelled=p.laserCancelled;
+      if(!controls.special)p.laserCancelled=false;
       this.move(p,controls.x||0,controls.y||0,dt);
-      if(controls.special&&p.slot){
+      if(controls.special&&p.slot&&!cancelled){
         if(p.slot.type==='laser'&&p.stun<=0&&p.dodgeTime<=0)p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);
         else if(!['grenade','nuclear'].includes(p.slot.type)||specialPressed)this.fire(p);
       }
-      if(controls.specialRelease&&!controls.special&&p.slot?.type==='laser')this.fire(p,p.charge,'special');
+      if(controls.specialRelease&&!controls.special&&!cancelled&&p.slot?.type==='laser')this.fire(p,p.charge,'special');
       if(controls.pistol)this.fire(p,0,'pistol');
     }
     this.think(dt);

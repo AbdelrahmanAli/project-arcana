@@ -73,7 +73,7 @@
   padding: 1px 2px;
   background: #330e17e8;
   color: #fff0e7;
-  font: 700 calc(7px * var(--hud-scale)) 'IBM Plex Mono', monospace;
+  font: 700 calc(7px * var(--hud-scale)) var(--font-ui);
   letter-spacing: .2px;
 }
 .opponent-charge-track {

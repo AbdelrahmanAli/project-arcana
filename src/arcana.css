@@ -7,19 +7,19 @@
 .game-top #menu-open { color: #e7c77e; }
 .main-menu { position:absolute; inset:0; z-index:6; display:grid; place-items:center; background:linear-gradient(155deg,#091819b8,#121e22e8 65%,#0e1213ee); backdrop-filter:blur(2px); }
 .menu-card { text-align:center; width:min(88%,330px); padding:23px 17px; border:1px solid #a0894b85; background:linear-gradient(#253636eb,#111e21ed); box-shadow:0 14px 42px #000a,inset 0 0 0 3px #0a151771; }
-.menu-card h2 { font:900 clamp(50px,9vw,68px)/.84 'Barlow Condensed',Impact,sans-serif; letter-spacing:1px; margin:15px 0 21px; text-shadow:4px 4px #091516; }
+.menu-card h2 { font:900 clamp(50px,9vw,68px)/.84 var(--font-ui); letter-spacing:1px; margin:15px 0 21px; text-shadow:4px 4px #091516; }
 .menu-card h2 em { font-style:normal; color:#e9b85d; }
 .menu-card p { color:#c3cfc1; font-size:11px; line-height:1.7; margin:0 auto 22px; }
 .menu-card .menu-tagline { color:#e9b85d; font-size:12px; margin:-8px auto 12px; }
 .overlay .overlay-omen { color:#f0c777; font-size:12px; line-height:1.5; margin:-10px 0 13px; }
 .menu-card .primary { margin-bottom:14px; }
-.art-loading { display:flex; align-items:center; gap:9px; margin:-4px auto 14px; width:min(100%,224px); color:#e9ca80; font:bold 9px 'IBM Plex Mono',monospace; letter-spacing:1px; }
+.art-loading { display:flex; align-items:center; gap:9px; margin:-4px auto 14px; width:min(100%,224px); color:#e9ca80; font:bold 9px var(--font-ui); letter-spacing:1px; }
 .art-loading[hidden] { display:none; }
 .art-progress { flex:1; height:9px; padding:1px; border:1px solid #cba657; background:#0a1819; box-shadow:inset 0 1px 4px #000b; }
 .art-progress i { display:block; width:0; height:100%; background:linear-gradient(90deg,#90612f,#f1c875); box-shadow:0 0 9px #f6c56a88; transition:width .14s ease-out; }
 .match-countdown { position:absolute; inset:0; z-index:5; display:grid; place-items:center; background:#07181970; pointer-events:auto; }
 .match-countdown[hidden] { display:none; }
-.match-countdown strong { color:#f6d78e; font:900 clamp(66px,17vw,104px)/1 'Barlow Condensed',Impact,sans-serif; letter-spacing:2px; text-shadow:4px 5px #172224,0 0 25px #e2a94799; animation:countdownPop .35s ease-out both; }
+.match-countdown strong { color:#f6d78e; font:900 clamp(66px,17vw,104px)/1 var(--font-ui); letter-spacing:2px; text-shadow:4px 5px #172224,0 0 25px #e2a94799; animation:countdownPop .35s ease-out both; }
 .match-countdown.fight strong { color:#fff5c6; text-shadow:4px 5px #172224,0 0 34px #ffbd57; }
 .game-unit.counting-down .fire-control { pointer-events:none; filter:grayscale(.5) brightness(.7); }
 @keyframes countdownPop { from { opacity:0; transform:scale(.72); } to { opacity:1; transform:scale(1); } }
@@ -30,7 +30,7 @@
 .setting-toggle input { width:17px; height:17px; margin:0; accent-color:#e6b85f; cursor:pointer; }
 .menu-card .audio-credit { margin:0 0 15px; font-size:8px; line-height:1.5; color:#a8b8aa; }
 .audio-credit a { color:#e9c878; }
-.opponent-toast { position:absolute; z-index:4; pointer-events:none; transform:translate(-50%,-50%); white-space:nowrap; opacity:0; transition:opacity .2s; color:#ffe5a6; background:#182022d9; border:1px solid #a98b4b; font:bold clamp(6px,1.5vw,9px) 'IBM Plex Mono',monospace; letter-spacing:.4px; padding:3px 5px; text-shadow:1px 1px #000; }
+.opponent-toast { position:absolute; z-index:4; pointer-events:none; transform:translate(-50%,-50%); white-space:nowrap; opacity:0; transition:opacity .2s; color:#ffe5a6; background:#182022d9; border:1px solid #a98b4b; font:bold clamp(6px,1.5vw,9px) var(--font-ui); letter-spacing:.4px; padding:3px 5px; text-shadow:1px 1px #000; }
 .weapon-picture.atlas-icon { transform:none; }
 .laser-icon { background-image:url('/art/laser-gun.png') !important; background-size:contain !important; background-position:center !important; }
 .weapon-picture.laser-icon { transform:scale(1.03) rotate(-3deg); }

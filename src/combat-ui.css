@@ -35,7 +35,7 @@
 .fire-control .meter-ring{inset:3px;width:calc(100% - 6px);height:calc(100% - 6px);z-index:3}
 .fire-control .meter-track{stroke:#07121b80;stroke-width:3}
 .fire-control .meter-fill{stroke-width:3;filter:drop-shadow(0 0 2px var(--meter-color,#e8c47d))}
-.fire-control b{font:800 clamp(9px,2.2vw,11px)/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.09em;color:#fff0cf;text-shadow:0 1px 2px #000,0 0 5px #000}
+.fire-control b{font:800 clamp(9px,2.2vw,11px)/1 var(--font-ui);letter-spacing:.09em;color:#fff0cf;text-shadow:0 1px 2px #000,0 0 5px #000}
 .fire-control.pressed{background:radial-gradient(circle,#b9893d88, #13222b88 60%,transparent 70%);box-shadow:none}
 .fire-control.pressed::before{filter:brightness(1.35)}
 .pistol-fire.auto{box-shadow:none;background:radial-gradient(circle,#86672e88,#12253099 56%,transparent 70%)}
@@ -45,7 +45,7 @@
 .dodge-fire>svg:not(.meter-ring){z-index:2;filter:drop-shadow(0 2px 2px #000)}
 .dodge-fire.rolling{box-shadow:none;background:radial-gradient(circle,#65d5df66,#14323c99 55%,transparent 70%)}
 .dodge-fire.cooldown::before{filter:saturate(.35) brightness(.8)}
-.fire-control strong{top:8px;right:8px;min-width:15px;padding:1px 3px;border:0;border-bottom:1px solid var(--control-accent);border-radius:1px;background:#07151bf2;color:#fff4da;font:800 12px/1.15 'Barlow Condensed',Impact,sans-serif;letter-spacing:.03em}
+.fire-control strong{top:8px;right:8px;min-width:15px;padding:1px 3px;border:0;border-bottom:1px solid var(--control-accent);border-radius:1px;background:#07151bf2;color:#fff4da;font:800 12px/1.15 var(--font-ui);letter-spacing:.03em}
 .special-fire .fire-control-art{position:relative;z-index:2;width:66%;height:44%;margin-top:4px}
 .special-fire.empty{opacity:.8}
 .special-fire.empty::after{content:'';position:absolute;width:22px;height:16px;top:25%;border:1px solid #d8d8b966;background:repeating-linear-gradient(90deg,transparent 0 5px,#e8d7a855 5px 6px);transform:skew(-8deg);pointer-events:none}
@@ -60,7 +60,7 @@
 .opponent-hud .health-segments{border-color:#bca58380!important;background:#111c24;box-shadow:0 2px 3px #0009!important;clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
 .health-segments .health-cell{background:#392c31}
 .health-segments .health-cell i{background:linear-gradient(#ff9a84 0%,#ee4f50 45%,#ac2639 100%)}
-.player-hud-label,#opponent-hud::before,.phase7-fighter-name{font:800 calc(11px * var(--hud-scale))/1.1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.09em;color:#ffefd3;text-shadow:0 1px 2px #000,0 0 4px #000}
+.player-hud-label,#opponent-hud::before,.phase7-fighter-name{font:800 calc(11px * var(--hud-scale))/1.1 var(--font-ui);letter-spacing:.09em;color:#ffefd3;text-shadow:0 1px 2px #000,0 0 4px #000}
 .player-hud-label{color:#bde8f1}
 .opponent-weapon{border-color:#bca58340;border-radius:0;background:linear-gradient(90deg,transparent,#0c1a23c9 25% 75%,transparent);box-shadow:none;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
 
@@ -73,7 +73,7 @@
 #overlay h2 em{color:#efc780}
 #overlay .overlay-omen{color:#efce94;margin:0 0 15px;font-size:12px}
 #overlay #overlay-copy{font-size:10px;line-height:1.8;max-width:340px;color:#b9ccc8;margin:0 0 28px}
-#overlay .primary,#overlay .secondary{width:max-content;max-width:100%;min-width:180px;margin:12px 0 0;text-align:left;font:800 15px/1 'Barlow Condensed',Impact,sans-serif;letter-spacing:.1em;padding:17px 28px;box-shadow:none}
+#overlay .primary,#overlay .secondary{width:max-content;max-width:100%;min-width:180px;margin:12px 0 0;text-align:left;font:800 15px/1 var(--font-ui);letter-spacing:.1em;padding:17px 28px;box-shadow:none}
 #overlay .primary{color:#13222a;background:linear-gradient(110deg,#ffe3a7,#d6a252);border-bottom:3px solid #926c3e;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px))}
 #overlay .secondary{color:#e6d1ac;border:0;border-left:2px solid #a78c5e;background:linear-gradient(90deg,#233d4780,transparent)}
 #overlay button:hover:not(:disabled){filter:brightness(1.15)}

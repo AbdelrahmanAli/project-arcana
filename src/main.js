@@ -1,3 +1,4 @@
+import {AI_DIFFICULTIES,DEFAULT_DIFFICULTY,validDifficulty} from './ai-difficulty.js';
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
 import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, hailCloudVisual } from './model.js';
 import { Sound } from './audio.js';
@@ -20,12 +21,15 @@ import './phase7.css';
 import './menu-scene.css';
 import './game-menus.css';
 import './combat-ui.css';
+import './typography.css';
 
 const $=id=>document.getElementById(id);
 $('menu').style.setProperty('--menu-scene-art',`url("${import.meta.env.BASE_URL}art/arena.png")`);
 const sound=new Sound();
 let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownStage='',countdownSuspended=false,paused=false,finishedShown=false,onlineOptionsOpen=false;
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
+let selectedDifficulty=DEFAULT_DIFFICULTY;
+try {const saved=localStorage.getItem('division-difficulty-v1');if(validDifficulty(saved))selectedDifficulty=saved;}catch{/* Storage is optional. */}
 let selectedFormat='1v1',selectedCharacter='elias',lineupSelections={opponent:'random',teammate:'random',opponent2:'random'},resolvedLineup=null;
 let playKind='computer',onlineClient=null,onlineSeat=0,onlineToken=null,onlineStatus=null,onlineActive=false,onlineConnected=false,onlineFrame=-1,onlineTargets=null,onlineEventQueue=[];
 let onlineTeamMode='duel',onlineSelectedTeam=1,invitedRoomId=null;
@@ -206,7 +210,7 @@ function releaseFire(mode,cancel=false){
   if(onlineOptionsOpen){input[mode]=false;return;}
   const held=firePointers[mode]!==null||keys.has(mode==='pistol'?'Space':'KeyE');
   const player=localFighter();
-  if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&player.slot?.type==='laser'){
+  if(mode==='special'&&!cancel&&input.special&&!held&&!paused&&started&&!input.dodge&&!player.laserCancelled&&player.slot?.type==='laser'){
     if(onlineActive)input.specialRelease=true;
     else game.fire(player,player.charge,'special');
   }
@@ -370,7 +374,7 @@ function prepareMatch(mapOverride=null){
   cancelMapDealAnimation();
   sound.stop();
   const map=mapOverride||selectedMap;
-  resetOnlineOptions();$('pause').setAttribute('aria-label','Pause game');game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map,format:selectedFormat,lineup:resolvedLineup});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;starting=false;paused=false;finishedShown=false;clearInput();
+  resetOnlineOptions();$('pause').setAttribute('aria-label','Pause game');game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map,format:selectedFormat,lineup:resolvedLineup,difficulty:selectedDifficulty});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;starting=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');
   document.querySelector('.game-unit').classList.remove('ended','paused');
@@ -470,7 +474,7 @@ function updateOnlineLobby(){
   const details=$('online-match-details');details.hidden=false;
   $('online-map-art').style.backgroundImage=`url("${import.meta.env.BASE_URL}${MAP_ART[options.map]}")`;
   $('online-map-name').textContent=`${options.map.toUpperCase()} · ${options.format.toUpperCase()}`;
-  $('online-map-description').textContent=MAP_DETAILS[options.map]||'';
+  $('online-map-description').textContent=(MAP_DETAILS[options.map]||'')+(options.teamMode==='coop'?` � ${AI_DIFFICULTIES[options.difficulty||DEFAULT_DIFFICULTY].name.toUpperCase()} AI`:'');
   $('online-mode-description').textContent=`${options.teamMode==='coop'?'CO-OP · 2 HUMANS VS 2 COMPUTERS':options.teamMode==='versus'?'VERSUS · 4 HUMANS':'DUEL · 2 HUMANS'} · ${options.mode.replaceAll('-',' ').toUpperCase()}${options.weapon?` · ${WEAPONS[options.weapon].name.toUpperCase()}`:''}`;
   const choosingTeams=options.teamMode==='versus'&&!onlineToken;
   $('online-teams').hidden=!choosingTeams;
@@ -576,7 +580,7 @@ async function createOnlineRoom(map){
   try{
     disconnectOnline();
     const client=new OnlineRoomClient();onlineClient=client;
-    const room=await client.create({format:selectedFormat,teamMode:onlineTeamMode,mode:selectedMode,map,weapon:selectedWeapon});
+    const room=await client.create({format:selectedFormat,teamMode:onlineTeamMode,mode:selectedMode,map,weapon:selectedWeapon,difficulty:selectedDifficulty});
     const seat=await client.join(room.id,selectedCharacter,undefined,0);
     onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
     selectedCharacter=onlineStatus.seats[onlineSeat].characterId;
@@ -615,7 +619,7 @@ function openLineup(map){
   if(playKind==='online'){createOnlineRoom(map);return;}
   revealedMap=map;
   lineupActiveSlot=selectedFormat==='2v2'?'teammate':'opponent';
-  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()}`;
+  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()} � ${selectedDifficulty.toUpperCase()} AI`;
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
 }
 function renderLineup(){
@@ -721,6 +725,23 @@ $('start').addEventListener('click',()=>{
 });
 $('pause').addEventListener('click',pause);
 function openMenu(){resetOnlineOptions();cancelDealAnimation();cancelMapDealAnimation();started=false;starting=false;paused=false;sceneDirty=true;disconnectOnline();invitedRoomId=null;$('online-code').readOnly=false;playKind='computer';clearInput();sound.stop();app.ticker.stop();document.querySelectorAll('.damage-number').forEach(label=>label.remove());document.querySelector('.game-unit').classList.remove('paused','counting-down');document.querySelector('.game-unit').classList.add('menu-open');$('match-countdown').hidden=true;$('pause').disabled=false;$('overlay').classList.add('hidden');$('menu').classList.remove('hidden');showMenuPanel('menu-home');}
+function syncDifficultyChoices(){
+  for(const button of document.querySelectorAll('[data-difficulty]'))button.setAttribute('aria-pressed',String(button.dataset.difficulty===selectedDifficulty));
+  for(const description of document.querySelectorAll('.difficulty-description'))description.textContent=AI_DIFFICULTIES[selectedDifficulty].description;
+}
+for(const panelId of ['format-panel','online-format-panel']){
+  const block=document.createElement('div');block.className='difficulty-setting';
+  const label=document.createElement('strong');label.textContent='COMPUTER DIFFICULTY';
+  const choices=document.createElement('div');choices.className='difficulty-choices';choices.setAttribute('role','group');choices.setAttribute('aria-label','Computer difficulty');
+  const description=document.createElement('p');description.className='difficulty-description';description.setAttribute('aria-live','polite');
+  for(const [id,profile] of Object.entries(AI_DIFFICULTIES)){
+    const button=document.createElement('button');button.type='button';button.dataset.difficulty=id;button.textContent=profile.name;
+    button.addEventListener('click',()=>{selectedDifficulty=id;try{localStorage.setItem('division-difficulty-v1',id);}catch{/* Session choice still works. */}syncDifficultyChoices();});
+    choices.appendChild(button);
+  }
+  block.append(label,choices,description);$(panelId).querySelector('h2').after(block);
+}
+syncDifficultyChoices();
 $('menu-play').addEventListener('click',()=>{playKind='computer';showMenuPanel('format-panel');});
 $('menu-online').addEventListener('click',()=>{playKind='online';showOnlinePanel();});
 $('online-host').addEventListener('click',()=>showMenuPanel('online-format-panel'));

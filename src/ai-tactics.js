@@ -1,7 +1,7 @@
 import { W } from './arena-geometry.js';
 
 // Tactics operate on observations supplied by Match. No private player input is read.
-export const AI_TIMING={decision:.22,jitter:.12,reaction:.24,memory:2.5};
+export const AI_MEMORY_SECONDS=2.5;
 export const AI_LASER={evadeThreshold:.78,evadeWindow:.45,counterWindow:1.05};
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -65,7 +65,9 @@ export function hazardZones(match,p,rules){
     }else if(perceived(bullet)){
       const vy=bullet.vy||0,time=vy?(p.y-bullet.y)/vy:-1;
       const speed=Math.hypot(bullet.vx||0,vy);
-      if(time>.06&&time<.65&&speed>0)lane(bullet,(bullet.vx||0)/speed,vy/speed,speed*.65,30,9,time<.25);
+      // React to a nearby incoming shot, rather than perfectly stepping out of
+      // every distant trajectory before a roll could ever be useful.
+      if(time>.06&&time<.42&&speed>0)lane(bullet,(bullet.vx||0)/speed,vy/speed,speed*.42,30,9,true);
     }
   }
   return zones;
@@ -91,6 +93,19 @@ export function safeDestination(p,desired,bank,zones,free){
     if(!free(point))continue;
     const next=distance(point,desired)*.025+dangerAt(point,zones)*5+pathDanger(p,point,zones)*.8;
     if(next<score){best=point;score=next;}
+  }
+  return best;
+}
+
+export function dodgeDestination(p,bank,zones,free,distanceLimit){
+  let best=null,score=Infinity;
+  for(let i=0;i<8;i++){
+    const angle=i*Math.PI/4;
+    const end={x:clamp(p.x+Math.cos(angle)*distanceLimit,38,W-38),y:clamp(p.y+Math.sin(angle)*distanceLimit,bank.minY,bank.maxY)};
+    const travel=distance(p,end);
+    if(travel<35||[.25,.5,.75,1].some(t=>!free({x:p.x+(end.x-p.x)*t,y:p.y+(end.y-p.y)*t})))continue;
+    const next=dangerAt(end,zones)*3+pathDanger(p,end,zones)-travel*.015;
+    if(next<score){score=next;best=end;}
   }
   return best;
 }
