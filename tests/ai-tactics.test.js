@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Match,MAPS,BANK_BOUNDS,BARREL_BLAST_RADIUS,DEATH_DURATION,hailCloudVisual,HAIL_CLUSTER} from '../src/model.js';
-import {shotPlan,advantageousBarrel} from '../src/ai-tactics.js';
+import {shotPlan,advantageousBarrel,laserThreat} from '../src/ai-tactics.js';
 
 function arena(map=MAPS.RIVERSIDE){
   const match=new Match(()=>.5,{map});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
@@ -115,12 +115,55 @@ test('both banks sidestep bullets approaching along their actual velocity',()=>{
   }
 });
 
-test('visible laser charging prompts a sidestep while a concealed charge does not',()=>{
-  const {match,target,bot,state}=arena(MAPS.DESERT);target.slot={type:'laser',ammo:1};target.charge=.7;
+test('visible near-ready laser prompts a sidestep while a concealed charge does not',()=>{
+  const {match,target,bot,state}=arena(MAPS.DESERT);target.slot={type:'laser',ammo:1};target.charge=.8;
   match.think(1/120);assert.ok(Math.abs(state.target.x-target.x)>30);
   const hidden=arena(MAPS.DESERT);hidden.target.slot={type:'laser',ammo:1};hidden.target.charge=.95;
   hidden.match.sandstorm={y:hidden.target.y,direction:1};hidden.match.think(1/120);
   assert.equal(hidden.state.observed,null);assert.equal(hidden.bot.dodgeTime,0);
+});
+
+test('laser charges during strafing and retains charge when the target changes lanes',()=>{
+  const {match,target,bot,state}=arena();bot.x=100;target.x=350;bot.slot={type:'laser',ammo:2};
+  think(match,.6);
+  assert.ok(bot.charge>.2);assert.ok(bot.x>110);assert.equal(bot.moving,true);assert.equal(bot.shots,0);
+  const charge=bot.charge;target.x=55;state.clock=0;
+  think(match,.2);assert.ok(bot.charge>charge,'changing lanes must not drain the charge');
+  match.move=()=>{};bot.x=target.x;state.clock=0;think(match,.7);
+  assert.equal(bot.slot.ammo,1);assert.equal(match.beams.length,1);assert.equal(match.beams[0].power,1);
+});
+
+test('computer can charge and fire at a target that keeps moving',()=>{
+  const {match,target,bot}=arena();bot.x=120;target.x=260;bot.slot={type:'laser',ammo:1};
+  let walkedWhileCharging=false;
+  for(let i=0;i<360&&!match.beams.length;i++){
+    target.x=260+Math.sin(i/60*1.5)*65;
+    match.update(1/60);
+    walkedWhileCharging ||= bot.moving&&bot.charge>0;
+  }
+  assert.ok(walkedWhileCharging);assert.equal(bot.slot,null,'fires without waiting for the target to stop');
+});
+
+test('laser evasion leaves counterattack windows and covers either bank',()=>{
+  for(const bank of [0,1]){
+    const state={},enemy={id:7,x:240,y:bank===0?200:740,weapon:'laser',charge:1};
+    const bounds=BANK_BOUNDS[bank];
+    const zone=laserThreat(enemy,state,10,bounds);assert.ok(zone);
+    assert.equal(zone.b.y,bank===0?bounds.maxY:bounds.minY);
+    assert.equal(laserThreat(enemy,state,10.6,bounds),null);
+    assert.equal(laserThreat(enemy,state,11.3,bounds),null);
+    assert.ok(laserThreat(enemy,state,11.6,bounds));
+    assert.equal(laserThreat(null,state,11.7,bounds),null);
+  }
+});
+
+test('charging opponents still receive pistol and arcing attacks',()=>{
+  const early=arena();early.match.move=()=>{};early.target.slot={type:'laser',ammo:1};early.target.charge=.5;
+  think(early.match,.5);assert.ok(early.bot.shots>0,'pistol pressure during early charge');
+  const arc=arena();arc.match.move=()=>{};arc.bot.x=340;arc.bot.slot={type:'missile',ammo:2};arc.target.slot={type:'laser',ammo:1};arc.target.charge=1;
+  think(arc.match,.5);assert.ok(arc.bot.shots>0,'missiles can fire while off the laser lane');
+  const held=arena();held.target.slot={type:'laser',ammo:1};held.target.charge=1;held.bot.dodgeCooldown=10;
+  think(held.match,4);assert.ok(held.bot.shots>0,'holding charge does not suppress all counterfire');
 });
 
 test('death completes its fall before results but does not hold the arena for several seconds',()=>{

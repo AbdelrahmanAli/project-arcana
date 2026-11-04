@@ -2,7 +2,7 @@ import { CHARACTER_BY_ID, resolveLineup } from './characters.js';
 import { W, H, RIVER } from './arena-geometry.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, supplyPort, attackVent} from './platform.js';
-import {AI_TIMING,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition} from './ai-tactics.js';
+import {AI_TIMING,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition,laserThreat} from './ai-tactics.js';
 
 export { W, H, RIVER };
 export {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE};
@@ -932,6 +932,7 @@ export class Match {
       const remembered=this.time-state.lastSeenAt<AI_TIMING.memory?state.lastSeen:null;
       state.observed=sighted?{...state.lastSeen}:null;
       const enemy=state.observed||remembered;
+      const chargingWeapon=this.weapon(p)==='laser';
       const bank=BANK_BOUNDS[p.bank],bankDepth=bank.maxY-bank.minY;
       const lane=this.format==='2v2'?(p.id===1?.38:p.id===3?.64:.55):.5;
       const teammate=this.fightersOnBank(p.bank).find(other=>other.id!==p.id&&other.controller==='computer');
@@ -939,12 +940,12 @@ export class Match {
       const offset=this.format==='2v2'?(sharedTarget&&p.id===3?80:p.id===1?-15:15):0;
       const patrolX=this.format==='2v2'?W/2+(p.id===1?-105:105)+Math.sin(this.time*.43+p.id)*52:W/2+Math.sin(this.time*.8+p.id)*145;
       const wave=this.format==='2v2'?.12*Math.sin(this.time*.6+p.id*1.7):.495*Math.sin(this.time*.6);
-      let desired={x:enemy?enemy.x+offset:patrolX,y:bank.minY+bankDepth*(lane+wave)};
+      // A laser fighter strafes into its firing lane while charging. Patrolling
+      // vertically or retaining the 2v2 flank offset would prevent alignment.
+      let desired={x:enemy?enemy.x+(chargingWeapon?0:offset):patrolX,y:enemy&&chargingWeapon?p.y:bank.minY+bankDepth*(lane+wave)};
       const zones=hazardZones(this,p,{wasteRadius:WASTE_RADIUS,barrelRadius:BARREL_BLAST_RADIUS,burningRockRadius:HAZARD_RULES.burningRockRadius,tornadoRadius:HAZARD_RULES.tornadoPullRadius,hailFall:HAIL_CLUSTER.fall,avalancheWidth:AVALANCHE.halfWidth,blastRadius:BLAST_RADIUS});
-      if(state.observed?.weapon==='laser'&&state.observed.charge>.35){
-        const source={x:state.observed.x,y:state.observed.y};
-        zones.push({a:source,b:{x:source.x,y:p.bank===0?H:0},radius:35,weight:16,urgent:state.observed.charge>.85});
-      }
+      const incomingLaser=laserThreat(state.observed,state,this.time,bank);
+      if(incomingLaser)zones.push(incomingLaser);
       const solid=this.obstacles.filter(o=>o.owner===p.bank&&o.type!=='barrel'&&!o.destroyed);
       const free=point=>!solid.some(o=>blocksFighter(o,point.x,point.y));
       const coverCandidate=coverPosition(this,p,enemy,bank,free);
@@ -993,10 +994,13 @@ export class Match {
     if(!state.fire||this.time-(state.acquiredAt??this.time)<AI_TIMING.reaction)return;
     const type=this.weapon(p),plan=shotPlan(this,p,state.aim,type,BARREL_BLAST_RADIUS,state.covering);
     if(type==='laser'){
-      if(plan.special){
+      // Charging does not require alignment. Keep the charge through strafing
+      // and release only when a shot is viable; normal interruption rules above
+      // still apply. A crate encountered after charging may take the shot.
+      if(p.charge>0||p.specialCooldown<=0&&!plan.blocked&&!(state.aim?.hp>0&&state.aim.hp<=5)){
         p.charge=Math.min(1,p.charge+dt/LASER_CHARGE_TIME);
-        if(p.charge>=1)this.fire(p,1,'special',state.aim);
-      }else p.charge=Math.max(0,p.charge-dt*2);
+        if(p.charge>=1&&(plan.special||plan.blocked&&plan.pistol))this.fire(p,1,'special',state.aim);
+      }
     }else if(p.slot&&plan.special)this.fire(p,0,'special',state.aim);
     if(plan.pistol&&p.charge<=0)this.fire(p,0,'pistol',state.aim);
   }

@@ -22,7 +22,8 @@ In 2v2, teammates separate, coordinate pickup claims, and prefer different visib
 
 - Direct specials wait for an aligned, clear lane. Unlimited pistol shots can break obstructing cover; useful friendly cover is preserved during a brief defensive pause.
 - Missiles and thrown grenades can clear low cover. Stun ammo is conserved while the observed target is already stunned. A nearly defeated target can be finished with the pistol.
-- The laser charges only with a viable firing lane. Visible enemy charging prompts lateral movement. Occlusion, stun, and dodging interrupt charging.
+- The laser can charge while strafing into alignment, retaining its charge when a visible target changes lanes. It releases at full power once a shot lines up; cover encountered after charging can receive the shot if safe. Occlusion, stun, and dodging still interrupt charging.
+- Enemy laser charging triggers short evasions near full charge, interleaved with counterattack windows. Early charging does not stop pistol pressure, and arcing weapons can keep firing from outside the beam lane. Holding a charge indefinitely does not suppress all counterfire.
 - Explosive barrels can be targeted near an opponent, provided their blast would not endanger a living teammate. Burning or cooling rocks do not receive wasted direct shots.
 - Supplies must be visible, collectible, and outside severe danger. Healing gains value with missing HP; matching weapons can be collected for additional ammunition.
 

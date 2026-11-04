@@ -2,11 +2,24 @@ import { W } from './arena-geometry.js';
 
 // Tactics operate on observations supplied by Match. No private player input is read.
 export const AI_TIMING={decision:.22,jitter:.12,reaction:.24,memory:2.5};
+export const AI_LASER={evadeThreshold:.78,evadeWindow:.45,counterWindow:1.05};
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 function lineDistance(p,a,b){
   const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);
   return Math.hypot(p.x-a.x-dx*t,p.y-a.y-dy*t);
+}
+
+// A held charge is a threat, not a permanent cease-fire. Commit to a short
+// evasion, then give the fighter a chance to line up a counterattack.
+export function laserThreat(observed,state,time,bank){
+  if(observed?.weapon!=='laser'||observed.charge<AI_LASER.evadeThreshold){
+    state.laserThreatId=null;state.laserEvadeAt=null;return null;
+  }
+  if(state.laserThreatId!==observed.id){state.laserThreatId=observed.id;state.laserEvadeAt=time;}
+  if(time-state.laserEvadeAt>=AI_LASER.evadeWindow+AI_LASER.counterWindow)state.laserEvadeAt=time;
+  if(time-state.laserEvadeAt>=AI_LASER.evadeWindow)return null;
+  return {a:{x:observed.x,y:observed.y},b:{x:observed.x,y:observed.y>bank.maxY?bank.minY:bank.maxY},radius:35,weight:16,urgent:observed.charge>.85};
 }
 
 export function hazardZones(match,p,rules){
