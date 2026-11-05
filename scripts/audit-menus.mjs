@@ -13,7 +13,7 @@ try{
     await page.goto(origin);
     await page.locator('#menu-play:not([disabled])').waitFor({timeout:60000});
     await page.evaluate(()=>document.fonts.ready);
-    assert.equal(await page.evaluate(()=>document.fonts.check('400 32px "Black Ops One"')&&document.fonts.check('700 14px Oxanium')),true,'bundled game fonts load');
+    assert.equal(await page.evaluate(()=>['Jersey 10','VT323'].every(family=>Array.from(document.fonts).some(face=>face.family.replaceAll('"','')===family&&face.status==='loaded'))),true,'bundled game fonts load');
     async function capture(screen){
       await page.waitForTimeout(400);
       await page.screenshot({path:`test-output/menus/${name}-${screen}.png`});

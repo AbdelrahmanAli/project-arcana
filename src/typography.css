@@ -1,44 +1,94 @@
+/* Local arcade faces: crisp display lettering and readable terminal labels. */
 @font-face {
-  font-family:'Black Ops One';src:url('/fonts/black-ops-one.ttf') format('truetype');
+  font-family:'Jersey 10';src:url('/fonts/jersey-10.ttf') format('truetype');
   font-style:normal;font-weight:400;font-display:swap;
 }
 @font-face {
-  font-family:'Oxanium';src:url('/fonts/oxanium.ttf') format('truetype');
-  font-style:normal;font-weight:200 800;font-display:swap;
+  font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');
+  font-style:normal;font-weight:400;font-display:swap;
 }
 :root {
-  --font-display:'Black Ops One',Impact,sans-serif;
-  --font-ui:'Oxanium','Segoe UI',sans-serif;
-  font-family:var(--font-ui);font-weight:500;
+  --font-display:'Jersey 10',Impact,sans-serif;
+  --font-ui:'VT323','Courier New',monospace;
+  font-family:var(--font-ui);font-weight:400;
 }
 input,select { font-family:var(--font-ui); }
 .briefing h1,.field-notes h3,#menu .menu-card>h2,#overlay h2,.match-countdown strong {
   font-family:var(--font-display);font-weight:400;font-style:normal;
+  text-shadow:2px 3px 0 #071216;
 }
-#menu .menu-card>h2 { font-size:clamp(30px,4.7vw,60px);line-height:1.08;letter-spacing:.015em; }
-#menu #menu-home>h2 { font-size:clamp(48px,10vw,138px); }
-#menu #menu-home .primary,#menu #menu-home .secondary { font-family:var(--font-display);font-weight:400;letter-spacing:.04em; }
-#menu .mode-choice strong { font-family:var(--font-display);font-weight:400;letter-spacing:.025em; }
-#menu .map-choice strong,#menu .deal-preview strong { font-weight:800;letter-spacing:.035em; }
-#menu .primary,#menu .secondary,#overlay .primary,#overlay .secondary { font-weight:700;letter-spacing:.07em; }
-#menu .menu-card>p,#menu .mode-choice small { font-weight:500; }
-#menu .eyebrow { font-weight:700;letter-spacing:.2em; }
+#menu .menu-card>h2 { font-size:clamp(40px,5.5vw,72px);line-height:.95;letter-spacing:.02em; }
+#menu #menu-home>h2 { font-size:clamp(72px,12vw,160px);text-shadow:3px 4px 0 #071216; }
+#menu #menu-home .menu-tagline { font-size:clamp(18px,2vw,24px);font-style:normal; }
+#menu #menu-home .primary,#menu #menu-home .secondary {
+  font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:.04em;text-shadow:2px 2px #071216;
+}
+#menu .mode-choice strong { font:400 30px/1 var(--font-display);letter-spacing:.025em;text-shadow:2px 2px #071216; }
+#menu .map-choice strong,#menu .deal-preview strong { font-family:var(--font-display);font-size:30px;font-weight:400;letter-spacing:.035em; }
+#menu .primary,#menu .secondary,#overlay .primary,#overlay .secondary { font-size:20px;font-weight:400;letter-spacing:.06em;line-height:1; }
+#menu .menu-card>p,#menu .mode-choice small { font-size:18px;line-height:1.25;font-weight:400; }
+#menu .eyebrow { font-size:16px;font-weight:400;letter-spacing:.16em;line-height:1.25; }
+#menu .map-choice small { font-size:16px;line-height:1.15; }
+#menu .weapon-choice span:last-child { font-size:18px;font-weight:400;letter-spacing:.04em; }
+#menu .lineup-player,#menu .lineup-focus { font-size:18px;font-weight:400; }
+#menu .lineup-versus { font-style:normal;font-weight:400; }
+#menu .lineup-tabs button,#menu .lineup-map { font-size:16px;letter-spacing:.04em; }
+#menu .lineup-option strong,#menu .character-choice strong,#menu .online-fighter strong { font-size:16px;font-weight:400;letter-spacing:.03em;line-height:1; }
+#menu .setting-character>strong,#menu .difficulty-setting>strong { font-size:16px;font-weight:400;letter-spacing:.08em; }
+#menu .difficulty-choices button { font-size:20px; }
+#menu .difficulty-description { font-size:16px;line-height:1.15; }
+#menu .setting-toggle,#menu .setting-slider,#menu .online-label,#menu #online-teams>span,#menu .online-team { font-size:16px; }
+#menu .audio-credit { font-size:14px;line-height:1.15; }
+#menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock { font-size:16px;line-height:1.15; }
+#menu #online-code,#menu #online-invite-link { font-size:18px; }
 .fire-control b,.fire-control strong,.player-hud-label,#opponent-hud::before,.phase7-fighter-name {
-  font-family:var(--font-ui);font-weight:800;letter-spacing:.015em;
+  font-family:var(--font-ui);font-weight:400;letter-spacing:.02em;text-shadow:1px 1px #071216;
 }
+.fire-control b { font-size:14px; }
+.fire-control strong { font-size:17px; }
+.player-hud-label,#opponent-hud::before,.phase7-fighter-name { font-size:calc(14px * var(--hud-scale));line-height:1;white-space:nowrap; }
+.player-hud-label strong { margin-left:calc(3px * var(--hud-scale)); }
 .fire-control strong,.health-value,.damage-number,#dodge-cooldown { font-variant-numeric:tabular-nums; }
-#overlay h2 { font-size:clamp(32px,9vw,53px);line-height:1.06;letter-spacing:0; }
-.briefing h1 { font-size:clamp(38px,4vw,64px);letter-spacing:0; }
-.match-countdown strong { font-size:clamp(42px,12vw,78px); }
+.pistol-hint,#toast { font-size:13px;letter-spacing:.02em; }
+#overlay .match-utilities .secondary { font-size:16px; }
+#overlay h2 { font-size:clamp(42px,12vw,68px);line-height:.95;letter-spacing:.02em; }
+#overlay .overlay-omen,#overlay #overlay-copy { font-size:16px;line-height:1.25; }
+.briefing h1 { font-size:clamp(48px,5vw,80px);letter-spacing:.02em; }
+.briefing .rule p,.briefing .desktop-controls { font-size:16px;line-height:1.35; }
+.briefing .rule strong { font-size:18px;font-weight:400; }
+.match-countdown strong { font-size:clamp(54px,14vw,96px); }
 @media(max-width:700px) {
-  #menu .menu-card>h2 { font-size:clamp(26px,7.8vw,42px); }
-  #menu .mode-choice strong { font-size:18px; }
-  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:21px; }
+  #menu .menu-card>h2 { font-size:clamp(36px,10vw,48px); }
+  #menu .mode-choice strong { font-size:26px; }
+  #menu .menu-card>p,#menu .mode-choice small { font-size:16px; }
+  #menu .map-choice strong { font-size:26px; }
+  #menu .map-choice small { font-size:14px; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:28px; }
+  #menu .primary,#menu .secondary { font-size:18px; }
+}
+@media(max-width:350px) and (orientation:portrait) {
+  #menu .menu-card>h2 { font-size:32px; }
+  #menu .mode-choice strong { font-size:23px; }
+  #menu .mode-choice small { font-size:14px; }
+  #menu .lineup-tabs button { font-size:14px; }
 }
 @media(orientation:landscape) and (max-height:520px) {
-  #menu .menu-card>h2 { font-size:27px; }
-  #menu #menu-home>h2 { font-size:54px; }
-  #menu .mode-choice strong { font-size:17px; }
-  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:19px; }
-  #overlay h2 { font-size:24px; }
+  #menu .menu-card>h2 { font-size:34px; }
+  #menu #menu-home>h2 { font-size:66px; }
+  #menu #menu-home .menu-tagline { font-size:16px; }
+  #menu .mode-choice strong { font-size:23px; }
+  #menu .mode-choice small,#menu .menu-card>p,#menu #online-status { font-size:14px;line-height:1.1; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:25px; }
+  #menu .primary,#menu .secondary { font-size:16px; }
+  #menu .eyebrow,#menu .difficulty-description,#menu .difficulty-setting>strong { font-size:14px; }
+  #menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock,#menu #online-panel .online-label { font-size:13px; }
+  #menu #online-code,#menu #online-invite-link { font-size:16px; }
+  #menu .lineup-tabs button,#menu .lineup-player,#menu .lineup-focus { font-size:14px; }
+  #menu .weapon-choice span:last-child { font-size:16px; }
+  .fire-control b { font-size:10px; }
+  .fire-control strong { font-size:12px; }
+  #overlay .match-utilities .secondary { font-size:12px; }
+  #overlay h2 { font-size:32px; }
+  #overlay .overlay-omen,#overlay #overlay-copy { font-size:12px; }
+  #overlay .primary,#overlay .secondary { font-size:16px; }
 }

@@ -164,6 +164,8 @@
   #menu .lineup-option .character-portrait,#menu .lineup-option .lineup-random{width:55px;height:55px;background-size:220px 220px}
   #menu .lineup-tabs{margin:6px 0}
   #menu .primary,#menu .secondary{margin-top:8px;margin-bottom:0;min-height:40px;padding:11px 20px}
+  #menu #online-panel{padding-top:10px;padding-bottom:10px}
+  #menu #online-panel>h2{margin-bottom:8px}
   #menu .online-characters{margin:6px 0;gap:5px}
   #menu .online-fighter{min-height:80px}
   #menu .online-fighter .character-portrait{width:60px;height:60px;background-size:240px 240px}
@@ -188,6 +190,9 @@
   #menu .weapon-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
   #menu #map-panel{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   #menu .map-choice{height:100px}
+  #menu #lineup-panel,#menu #weapon-panel{padding-top:8px;padding-bottom:8px;row-gap:6px}
+  #menu #lineup-panel>h2{margin-bottom:4px}
+  #menu #lineup-map{margin-bottom:4px}
   #menu #lineup-choices{display:grid;grid-template-columns:38% 1fr;column-gap:20px}
   #menu .lineup-tabs{grid-column:1/-1;margin:0 0 5px}
   #menu .lineup-stage{gap:0;min-height:130px}

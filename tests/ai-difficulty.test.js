@@ -42,11 +42,12 @@ test('easier computers react later, aim less accurately and fire less often with
 test('computer can dodge an approaching ordinary bullet between strategic decisions on both banks',()=>{
   for(const bank of [0,1]){
     const match=arena('normal'),bot=match.players[1],state=match.aiState.get(bot.id);
-    bot.bank=bot.team=bank;bot.y=bank===0?740:220;match.players[0].team=1-bank;
+    bot.bank=bot.team=bank;bot.y=bank===0?740:220;
+    match.players[0].team=match.players[0].bank=1-bank;match.players[0].y=bank===0?220:740;
     state.clock=10;state.waypoint={x:bot.x,y:bot.y};state.target={...state.waypoint};
     const vy=bank===0?540:-540;
     match.bullets=[{owner:0,type:'pistol',x:bot.x,y:bot.y-vy*.24,vx:0,vy,life:1}];
-    for(let i=0;i<17;i++){
+    for(let i=0;i<21;i++){
       match.time+=1/120;match.think(1/120);
       match.bullets[0].y+=vy/120;
     }
@@ -70,11 +71,11 @@ test('live navigation does not sidestep every distant bullet before dodging can 
   }
 });
 
-test('Easy leaves substantially more openings than Normal across repeated shooting scenarios',()=>{
+test('all three difficulties leave openings, with progressively stronger defense',()=>{
   const totals={};
-  for(const difficulty of ['easy','normal']){
+  for(const difficulty of ['easy','normal','hard']){
     totals[difficulty]={rolls:0,damage:0};
-    for(const initial of [532,81,222,1501,93]){
+    for(const initial of [532,81,222,1501,93,781,230,543]){
       let seed=initial;const random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
       const match=new Match(random,{difficulty});match.obstacles=[];match.nextDrop=Infinity;match.nextEnvironmentEvent=Infinity;
       for(let i=0;i<1200&&!match.finished;i++){
@@ -88,6 +89,19 @@ test('Easy leaves substantially more openings than Normal across repeated shooti
   assert.ok(totals.easy.damage>totals.normal.damage+150,'Easy actually takes more hits, not merely fewer dodge animations');
   assert.ok(totals.easy.rolls<totals.normal.rolls/2,'Easy leaves longer openings between evasions');
   assert.ok(totals.easy.rolls>0,'Easy still sometimes rolls');
+  assert.ok(totals.normal.damage>totals.hard.damage+100,'Normal leaves noticeably more openings than Hard');
+  assert.ok(totals.normal.rolls<totals.hard.rolls,'Hard rolls more often than Normal');
+  assert.ok(totals.hard.damage>40,'even Hard misses attacks in these repeated scenarios');
+});
+
+test('no difficulty has perfect awareness of every combat cue',()=>{
+  for(const difficulty of ['easy','normal','hard']){
+    const match=arena(difficulty),bot=match.players[1];match.random=()=>.99;
+    match.bullets=[{owner:0,type:'pistol',x:bot.x,y:bot.y+120,vx:0,vy:-540,life:1}];
+    match.think(1/120);
+    assert.equal(match.aiState.get(bot.id).combatAware,false,`${difficulty} can miss a cue`);
+    assert.equal(match.aiHazards(bot).some(zone=>zone.combat),false);
+  }
 });
 
 test('Easy missed cues affect walking and rolling without forgetting permanent hazards',()=>{

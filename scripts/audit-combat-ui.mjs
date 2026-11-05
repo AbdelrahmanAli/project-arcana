@@ -24,6 +24,8 @@ try{
     await page.waitForTimeout(150);
     await page.locator('#special-fire').hover();await page.mouse.down();await page.waitForTimeout(700);
     assert.ok(await page.locator('#special-fire').evaluate(el=>el.classList.contains('laser-charging')));
+    const label=await page.locator('.player-hud-label').evaluate(el=>({height:el.getBoundingClientRect().height,lineHeight:parseFloat(getComputedStyle(el).lineHeight)}));
+    assert.ok(label.height<=label.lineHeight+1,'Player name and HP stay on one line');
     await page.screenshot({path:`test-output/combat-ui/${name}-charging.png`});
     await page.mouse.up();await page.waitForFunction(()=>document.getElementById('special-ammo').textContent==='2');
     assert.equal(await page.locator('#special-ammo').textContent(),'2');

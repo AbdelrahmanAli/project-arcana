@@ -24,14 +24,16 @@ Match setup offers **Easy**, **Normal**, and **Hard**. Normal is the initial sel
 
 | Setting | Easy | Normal | Hard |
 | --- | --- | --- | --- |
-| Decision interval | 500–700 ms | 270–370 ms | 220–340 ms |
-| Target acquisition delay | 700 ms | 320 ms | 240 ms |
-| Aim variation per axis | ±32 px | ±12 px | ±6 px |
-| Pause beyond weapon cooldown | 550 ms | 120 ms | 0 ms |
-| Dodge reaction delay | 180 ms | 100 ms | 70 ms |
-| Dodge attempt probability | 30% | 75% | 90% |
+| Decision interval | 500–700 ms | 340–460 ms | 260–360 ms |
+| Target acquisition delay | 700 ms | 450 ms | 320 ms |
+| Aim variation per axis | ±32 px | ±18 px | ±10 px |
+| Pause beyond weapon cooldown | 550 ms | 280 ms | 140 ms |
+| Dodge reaction delay | 180 ms | 150 ms | 110 ms |
+| Dodge attempt probability | 30% | 50% | 70% |
 
-Easy notices a combat threat on only 45% of decision updates and holds a missed cue for that entire 500-700 ms interval. Both walking routes and dodge reactions respect the same missed cues; permanent ground hazards remain visible. Easy retries dodge attempts no faster than every 1.25 seconds, compared with 300 ms on Normal and Hard. This produces actual missed evasions rather than replacing every failed roll with a perfect sidestep.
+Combat-cue awareness is 45% on Easy, 70% on Normal, and 88% on Hard. A missed cue lasts for the complete decision interval, and both walking routes and dodge reactions respect it; permanent ground hazards remain visible. Failed dodge attempts cannot retry for 1.25 seconds on Easy, 800 ms on Normal, or 500 ms on Hard. These openings keep every level fallible instead of replacing failed rolls with perfect sidesteps.
+
+The repeated defensive-pressure regression compares all three profiles over eight fixed seeds. Each level must take hits, Normal must leave substantially more openings than Hard, and Easy must leave substantially more than Normal. This is a controlled tuning check, not a human win-rate estimate.
 
 Health, damage, movement speed, laser charge duration, and dodge invincibility/cooldown do not change with difficulty. Profiles live in `src/ai-difficulty.js`; both the browser and room server validate the setting.
 
