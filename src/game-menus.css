@@ -39,7 +39,10 @@
 .choice-illustration.squad-illustration .character-portrait+.character-portrait{margin-left:-30px}
 .choice-illustration.squad-illustration .character-portrait:nth-child(3){margin-left:-22px;transform:none}
 .choice-illustration .weapon-picture{width:110px;height:76px;transform:rotate(-12deg)}
-.choice-illustration .rule-icon{display:block;width:112px;height:80px;object-fit:contain;filter:drop-shadow(0 3px 2px #0009)}
+.choice-illustration .rule-icon{display:block;width:112px;height:80px;background:url('/art/ui/loadout-rule-sprites.webp') 0 0/200% 200% no-repeat;filter:drop-shadow(0 4px 3px #0009)}
+.choice-illustration .rule-icon-random-same{background-position:100% 0}
+.choice-illustration .rule-icon-random-fixed{background-position:0 100%}
+.choice-illustration .rule-icon-choose-fixed{background-position:100% 100%}
 #menu #map-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;align-content:center}
 #map-panel>.eyebrow,#map-panel>h2,#map-back{grid-column:1/-1}
 #menu #map-panel>h2{margin-bottom:10px}
