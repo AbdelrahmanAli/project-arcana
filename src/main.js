@@ -266,7 +266,9 @@ function buildMenuArt(){
   for(const button of document.querySelectorAll('#format-panel .mode-choice,#online-format-panel .mode-choice,#mode-panel .mode-choice')){
     const art=document.createElement('span');art.className='choice-illustration';art.setAttribute('aria-hidden','true');
     if(button.dataset.mode){
-      const icon=document.createElement('span');setWeaponPicture(icon,({random:'rifle','random-same':'shotgun','random-fixed':'nuclear','choose-fixed':'laser'})[button.dataset.mode]);art.appendChild(icon);
+      const icon=document.createElement('img');icon.className='rule-icon';
+      icon.src=`${import.meta.env.BASE_URL}art/ui/mode-${button.dataset.mode}.svg`;
+      icon.alt='';art.appendChild(icon);
     }else{
       const isTeamMatch=button.dataset.format==='2v2'||button.dataset.onlineMode==='coop'||button.dataset.onlineMode==='versus';
       const ids=isTeamMatch?['elias','mara','dorian','imani']:['elias','dorian'];

@@ -39,6 +39,7 @@
 .choice-illustration.squad-illustration .character-portrait+.character-portrait{margin-left:-30px}
 .choice-illustration.squad-illustration .character-portrait:nth-child(3){margin-left:-22px;transform:none}
 .choice-illustration .weapon-picture{width:110px;height:76px;transform:rotate(-12deg)}
+.choice-illustration .rule-icon{display:block;width:112px;height:80px;object-fit:contain;filter:drop-shadow(0 3px 2px #0009)}
 #menu #map-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;align-content:center}
 #map-panel>.eyebrow,#map-panel>h2,#map-back{grid-column:1/-1}
 #menu #map-panel>h2{margin-bottom:10px}
@@ -115,6 +116,7 @@
   .choice-illustration.squad-illustration .character-portrait+.character-portrait{margin-left:-25px}
   .choice-illustration.squad-illustration .character-portrait:nth-child(3){margin-left:-17px}
   .choice-illustration .weapon-picture{width:90px}
+  .choice-illustration .rule-icon{width:90px;height:68px}
   .lineup-stage{gap:4px;min-height:180px}
   #menu .lineup-stage .character-portrait{width:135px;height:135px;background-size:540px 540px}
   #menu .lineup-stage .lineup-random{width:135px;height:135px;font-size:100px}
