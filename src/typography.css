@@ -1,15 +1,15 @@
-/* Local arcade faces: crisp display lettering and readable terminal labels. */
+/* Illustrated title, condensed headings, and readable vintage labels. */
 @font-face {
-  font-family:'Jersey 10';src:url('/fonts/jersey-10.ttf') format('truetype');
+  font-family:'Anton';src:url('/fonts/anton.ttf') format('truetype');
   font-style:normal;font-weight:400;font-display:swap;
 }
 @font-face {
-  font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');
+  font-family:'Courier Prime';src:url('/fonts/courier-prime.ttf') format('truetype');
   font-style:normal;font-weight:400;font-display:swap;
 }
 :root {
-  --font-display:'Jersey 10',Impact,sans-serif;
-  --font-ui:'VT323','Courier New',monospace;
+  --font-display:'Anton',Impact,sans-serif;
+  --font-ui:'Courier Prime','Courier New',monospace;
   font-family:var(--font-ui);font-weight:400;
 }
 input,select { font-family:var(--font-ui); }
@@ -18,77 +18,79 @@ input,select { font-family:var(--font-ui); }
   text-shadow:2px 3px 0 #071216;
 }
 #menu .menu-card>h2 { font-size:clamp(40px,5.5vw,72px);line-height:.95;letter-spacing:.02em; }
-#menu #menu-home>h2 { font-size:clamp(72px,12vw,160px);text-shadow:3px 4px 0 #071216; }
+#menu #menu-home>h2 { font-size:0;line-height:0;margin-bottom:20px; }
+#menu #menu-home>h2::before { content:'';display:block;width:min(75vw,540px);aspect-ratio:3.12;background:url('/art/ui/division-logo.webp') center/contain no-repeat; }
 #menu #menu-home .menu-tagline { font-size:clamp(18px,2vw,24px);font-style:normal; }
 #menu #menu-home .primary,#menu #menu-home .secondary {
-  font-family:var(--font-display);font-size:32px;font-weight:400;letter-spacing:.04em;text-shadow:2px 2px #071216;
+  font-family:var(--font-display);font-size:26px;font-weight:400;letter-spacing:.04em;text-shadow:2px 2px #071216;
 }
-#menu .mode-choice strong { font:400 30px/1 var(--font-display);letter-spacing:.025em;text-shadow:2px 2px #071216; }
-#menu .map-choice strong,#menu .deal-preview strong { font-family:var(--font-display);font-size:30px;font-weight:400;letter-spacing:.035em; }
-#menu .primary,#menu .secondary,#overlay .primary,#overlay .secondary { font-size:20px;font-weight:400;letter-spacing:.06em;line-height:1; }
-#menu .menu-card>p,#menu .mode-choice small { font-size:18px;line-height:1.25;font-weight:400; }
-#menu .eyebrow { font-size:16px;font-weight:400;letter-spacing:.16em;line-height:1.25; }
-#menu .map-choice small { font-size:16px;line-height:1.15; }
-#menu .weapon-choice span:last-child { font-size:18px;font-weight:400;letter-spacing:.04em; }
+#menu .mode-choice strong { font:400 25px/1.1 var(--font-display);letter-spacing:.025em;text-shadow:2px 2px #071216; }
+#menu .map-choice strong,#menu .deal-preview strong { font-family:var(--font-display);font-size:25px;font-weight:400;letter-spacing:.035em; }
+#menu .primary,#menu .secondary,#overlay .primary,#overlay .secondary { font-size:15px;font-weight:400;letter-spacing:.06em;line-height:1; }
+#menu .menu-card>p,#menu .mode-choice small { font-size:13px;line-height:1.4;font-weight:400; }
+#menu .eyebrow { font-size:12px;font-weight:400;letter-spacing:.16em;line-height:1.25; }
+#menu .map-choice small { font-size:12px;line-height:1.35; }
+#menu .weapon-choice span:last-child { font-size:13px;font-weight:400;letter-spacing:.04em; }
 #menu .lineup-player,#menu .lineup-focus { font-size:18px;font-weight:400; }
 #menu .lineup-versus { font-style:normal;font-weight:400; }
-#menu .lineup-tabs button,#menu .lineup-map { font-size:16px;letter-spacing:.04em; }
-#menu .lineup-option strong,#menu .character-choice strong,#menu .online-fighter strong { font-size:16px;font-weight:400;letter-spacing:.03em;line-height:1; }
-#menu .setting-character>strong,#menu .difficulty-setting>strong { font-size:16px;font-weight:400;letter-spacing:.08em; }
-#menu .difficulty-choices button { font-size:20px; }
-#menu .difficulty-description { font-size:16px;line-height:1.15; }
-#menu .setting-toggle,#menu .setting-slider,#menu .online-label,#menu #online-teams>span,#menu .online-team { font-size:16px; }
-#menu .audio-credit { font-size:14px;line-height:1.15; }
-#menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock { font-size:16px;line-height:1.15; }
-#menu #online-code,#menu #online-invite-link { font-size:18px; }
+#menu .lineup-tabs button,#menu .lineup-map { font-size:12px;letter-spacing:.04em; }
+#menu .lineup-option strong,#menu .character-choice strong,#menu .online-fighter strong { font-size:12px;font-weight:400;letter-spacing:.03em;line-height:1; }
+#menu .setting-character>strong,#menu .difficulty-setting>strong { font-size:12px;font-weight:400;letter-spacing:.08em; }
+#menu .difficulty-choices button { font-size:15px; }
+#menu .difficulty-description { font-size:12px;line-height:1.35; }
+#menu .setting-toggle,#menu .setting-slider,#menu .online-label,#menu #online-teams>span,#menu .online-team { font-size:12px; }
+#menu .audio-credit { font-size:11px;line-height:1.25; }
+#menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock { font-size:12px;line-height:1.35; }
+#menu #online-code,#menu #online-invite-link { font-size:14px; }
 .fire-control b,.fire-control strong,.player-hud-label,#opponent-hud::before,.phase7-fighter-name {
   font-family:var(--font-ui);font-weight:400;letter-spacing:.02em;text-shadow:1px 1px #071216;
 }
-.fire-control b { font-size:14px; }
-.fire-control strong { font-size:17px; }
-.player-hud-label,#opponent-hud::before,.phase7-fighter-name { font-size:calc(14px * var(--hud-scale));line-height:1;white-space:nowrap; }
+.fire-control b { font-size:11px; }
+.fire-control strong { font-size:13px; }
+.player-hud-label,#opponent-hud::before,.phase7-fighter-name { font-size:calc(10px * var(--hud-scale));line-height:1;white-space:nowrap; }
 .player-hud-label strong { margin-left:calc(3px * var(--hud-scale)); }
 .fire-control strong,.health-value,.damage-number,#dodge-cooldown { font-variant-numeric:tabular-nums; }
-.pistol-hint,#toast { font-size:13px;letter-spacing:.02em; }
-#overlay .match-utilities .secondary { font-size:16px; }
-#overlay h2 { font-size:clamp(42px,12vw,68px);line-height:.95;letter-spacing:.02em; }
-#overlay .overlay-omen,#overlay #overlay-copy { font-size:16px;line-height:1.25; }
+.pistol-hint,#toast { font-size:10px;letter-spacing:.02em; }
+#overlay .match-utilities .secondary { font-size:12px; }
+#overlay h2 { font-size:clamp(36px,9vw,56px);line-height:.95;letter-spacing:.02em; }
+#overlay .overlay-omen,#overlay #overlay-copy { font-size:12px;line-height:1.4; }
 .briefing h1 { font-size:clamp(48px,5vw,80px);letter-spacing:.02em; }
 .briefing .rule p,.briefing .desktop-controls { font-size:16px;line-height:1.35; }
 .briefing .rule strong { font-size:18px;font-weight:400; }
-.match-countdown strong { font-size:clamp(54px,14vw,96px); }
+.match-countdown strong { font-size:clamp(46px,12vw,80px); }
 @media(max-width:700px) {
-  #menu .menu-card>h2 { font-size:clamp(36px,10vw,48px); }
-  #menu .mode-choice strong { font-size:26px; }
-  #menu .menu-card>p,#menu .mode-choice small { font-size:16px; }
-  #menu .map-choice strong { font-size:26px; }
-  #menu .map-choice small { font-size:14px; }
-  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:28px; }
-  #menu .primary,#menu .secondary { font-size:18px; }
+  #menu .menu-card>h2 { font-size:clamp(32px,8vw,44px); }
+  #menu .mode-choice strong { font-size:22px; }
+  #menu .menu-card>p,#menu .mode-choice small { font-size:12px; }
+  #menu .map-choice strong { font-size:22px; }
+  #menu .map-choice small { font-size:11px; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:24px; }
+  #menu .primary,#menu .secondary { font-size:14px; }
 }
 @media(max-width:350px) and (orientation:portrait) {
-  #menu .menu-card>h2 { font-size:32px; }
-  #menu .mode-choice strong { font-size:23px; }
-  #menu .mode-choice small { font-size:14px; }
+  #menu .menu-card>h2 { font-size:28px; }
+  #menu .mode-choice strong { font-size:20px; }
+  #menu .mode-choice small { font-size:11px; }
   #menu .lineup-tabs button { font-size:14px; }
 }
 @media(orientation:landscape) and (max-height:520px) {
-  #menu .menu-card>h2 { font-size:34px; }
-  #menu #menu-home>h2 { font-size:66px; }
-  #menu #menu-home .menu-tagline { font-size:16px; }
-  #menu .mode-choice strong { font-size:23px; }
-  #menu .mode-choice small,#menu .menu-card>p,#menu #online-status { font-size:14px;line-height:1.1; }
-  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:25px; }
-  #menu .primary,#menu .secondary { font-size:16px; }
-  #menu .eyebrow,#menu .difficulty-description,#menu .difficulty-setting>strong { font-size:14px; }
-  #menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock,#menu #online-panel .online-label { font-size:13px; }
-  #menu #online-code,#menu #online-invite-link { font-size:16px; }
-  #menu .lineup-tabs button,#menu .lineup-player,#menu .lineup-focus { font-size:14px; }
-  #menu .weapon-choice span:last-child { font-size:16px; }
-  .fire-control b { font-size:10px; }
-  .fire-control strong { font-size:12px; }
-  #overlay .match-utilities .secondary { font-size:12px; }
+  #menu .menu-card>h2 { font-size:28px; }
+  #menu #menu-home>h2 { font-size:0; }
+  #menu #menu-home>h2::before { width:min(40vw,320px); }
+  #menu #menu-home .menu-tagline { font-size:12px; }
+  #menu .mode-choice strong { font-size:20px; }
+  #menu .mode-choice small,#menu .menu-card>p,#menu #online-status { font-size:11px;line-height:1.1; }
+  #menu #menu-home .primary,#menu #menu-home .secondary { font-size:22px; }
+  #menu .primary,#menu .secondary { font-size:12px; }
+  #menu .eyebrow,#menu .difficulty-description,#menu .difficulty-setting>strong { font-size:11px; }
+  #menu .online-match-details strong,#menu .online-match-details small,#menu #online-character-lock,#menu #online-panel .online-label { font-size:10px; }
+  #menu #online-code,#menu #online-invite-link { font-size:12px; }
+  #menu .lineup-tabs button,#menu .lineup-player,#menu .lineup-focus { font-size:11px; }
+  #menu .weapon-choice span:last-child { font-size:12px; }
+  .fire-control b { font-size:8px; }
+  .fire-control strong { font-size:10px; }
+  #overlay .match-utilities .secondary { font-size:10px; }
   #overlay h2 { font-size:32px; }
-  #overlay .overlay-omen,#overlay #overlay-copy { font-size:12px; }
-  #overlay .primary,#overlay .secondary { font-size:16px; }
+  #overlay .overlay-omen,#overlay #overlay-copy { font-size:10px; }
+  #overlay .primary,#overlay .secondary { font-size:12px; }
 }
