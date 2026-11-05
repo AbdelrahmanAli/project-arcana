@@ -1602,31 +1602,48 @@ function render(){
       groundDraw.ellipse(b.x,b.y+3,7,3).fill({color:0x142526,alpha:.35});
     }
     if(b.type==='grenade'||b.type==='nuclear'){
-      const arc=Math.sin(b.t/b.duration*Math.PI)*GRENADE_ARC_HEIGHT;
+      const arc=Math.sin(b.t/b.duration*Math.PI)*(b.type==='nuclear'?GRENADE_ARC_HEIGHT*.85:GRENADE_ARC_HEIGHT*.63);
       groundDraw.ellipse(b.x,b.y,8,3).fill({color:b.type==='nuclear'?0x284716:0x1c241b,alpha:.4});
       activeAerialProjectiles.add(b.id);
       let sprite=aerialSprites.get(b.id);
-      if(!sprite){sprite=new Sprite(b.type==='nuclear'?nuclearGrenadeTexture:stunGrenadeTexture);sprite.anchor.set(.5);sprite.width=b.type==='nuclear'?28:25;sprite.height=b.type==='nuclear'?22:23;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+      if(!sprite){sprite=new Sprite(b.type==='nuclear'?nuclearGrenadeTexture:stunGrenadeTexture);sprite.anchor.set(.5);sprite.width=b.type==='nuclear'?30:20;sprite.height=b.type==='nuclear'?26:19;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
       const layer=game.players[b.owner].bank===0&&b.t<.055?rearAerialSpriteLayer:aerialSpriteLayer;
       if(sprite.parent!==layer)layer.addChild(sprite);
       sprite.position.set(b.x,b.y-arc);
-      sprite.rotation=Math.sin(b.t*9)*.16;
+      sprite.rotation=b.type==='nuclear'?Math.sin(b.t*5)*.08:b.t*7;
     }
     else{const v=Math.hypot(b.vx,b.vy),ux=b.vx/v,uy=b.vy/v;
       const missileBehindShooter=b.type==='missile'&&game.players[b.owner].bank===0&&b.travel<40;
       const shotDraw=b.type==='missile'?(missileBehindShooter?projectileDraw:aerialProjectileDraw):shotGraphics(directShotDepth(b,game.players[b.owner].bank));
       if(b.type==='missile'){
-        const flight=Math.min(1,b.travel/b.targetDistance),altitude=Math.sin(flight*Math.PI)*105;
-        const a=Math.atan2(uy,ux),cos=Math.cos(a),sin=Math.sin(a);
-        const pt=(forward,side)=>({x:b.x+cos*forward-sin*side,y:b.y-altitude+sin*forward+cos*side});
+        const flight=Math.min(1,b.travel/b.targetDistance);
+        // Powered climb, level cruise, and a late terminal dive. The ground
+        // marker remains at the locked impact point throughout the flight.
+        const altitudeAt=progress=>progress<.22?140*(progress/.22)**.8:progress<.7?140:140*(1-(progress-.7)/.3)**1.4;
+        const altitude=altitudeAt(flight);
+        const previousAltitude=altitudeAt(Math.max(0,flight-.015));
+        const nextAltitude=altitudeAt(Math.min(1,flight+.015));
+        const pitch=Math.atan2(uy-(nextAltitude-previousAltitude)/(.03*b.targetDistance),ux);
         activeAerialProjectiles.add(b.id);
         let sprite=aerialSprites.get(b.id);
-        if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=34;sprite.height=13;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+        if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=56;sprite.height=20;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
         const layer=missileBehindShooter?rearAerialSpriteLayer:aerialSpriteLayer;
         if(sprite.parent!==layer)layer.addChild(sprite);
-        sprite.position.set(b.x,b.y-altitude);sprite.rotation=a;
-        circle(shotDraw,pt(-18,0).x,pt(-18,0).y,5,0xff992e,.85);
-        for(let n=0;n<3;n++)circle(shotDraw,pt(-20-n*7,Math.sin(game.time*16+n)*3).x,pt(-20-n*7,Math.sin(game.time*16+n)*3).y,4+n,0xb8ad95,.35-n*.08);
+        sprite.position.set(b.x,b.y-altitude);sprite.rotation=pitch;
+        // A continuous motor flare and fading exhaust make the propulsion
+        // readable even on a small phone screen.
+        const rear={x:b.x-Math.cos(pitch)*28,y:b.y-altitude-Math.sin(pitch)*28};
+        const plume=7+2*Math.sin(game.time*32+b.id);
+        const flameEnd={x:rear.x-Math.cos(pitch)*plume,y:rear.y-Math.sin(pitch)*plume};
+        line(shotDraw,rear,flameEnd,7,0xff6a22,.83);
+        line(shotDraw,rear,flameEnd,3,0xffe2a1,.95);
+        for(let n=1;n<=5;n++){
+          const back=Math.min(b.travel,n*15),past=Math.max(0,flight-back/b.targetDistance);
+          if(back<5)continue;
+          const x=b.x-ux*back,y=b.y-uy*back-altitudeAt(past);
+          circle(shotDraw,x+Math.sin(game.time*6+n+b.id)*2,y,3+n*.9,0xa5a49a,.38-n*.055);
+        }
+        if(flight<.12)circle(shotDraw,b.x-ux*12,b.y-uy*12-altitude,5,0xffb458,.5);
       }else{line(shotDraw,{x:b.x-ux*14,y:b.y-uy*14},b,5,b.color);circle(shotDraw,b.x,b.y,3,0xfff1b3,.9);}
     }
   }
