@@ -1626,22 +1626,22 @@ function render(){
         const pitch=Math.atan2(uy-(nextAltitude-previousAltitude)/(.03*b.targetDistance),ux);
         activeAerialProjectiles.add(b.id);
         let sprite=aerialSprites.get(b.id);
-        if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=56;sprite.height=20;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
+        if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=40;sprite.height=15;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
         const layer=missileBehindShooter?rearAerialSpriteLayer:aerialSpriteLayer;
         if(sprite.parent!==layer)layer.addChild(sprite);
         sprite.position.set(b.x,b.y-altitude);sprite.rotation=pitch;
         // A continuous motor flare and fading exhaust make the propulsion
         // readable even on a small phone screen.
-        const rear={x:b.x-Math.cos(pitch)*28,y:b.y-altitude-Math.sin(pitch)*28};
-        const plume=7+2*Math.sin(game.time*32+b.id);
+        const rear={x:b.x-Math.cos(pitch)*20,y:b.y-altitude-Math.sin(pitch)*20};
+        const plume=5+1.5*Math.sin(game.time*32+b.id);
         const flameEnd={x:rear.x-Math.cos(pitch)*plume,y:rear.y-Math.sin(pitch)*plume};
         line(shotDraw,rear,flameEnd,7,0xff6a22,.83);
         line(shotDraw,rear,flameEnd,3,0xffe2a1,.95);
-        for(let n=1;n<=5;n++){
-          const back=Math.min(b.travel,n*15),past=Math.max(0,flight-back/b.targetDistance);
+        for(let n=1;n<=4;n++){
+          const back=Math.min(b.travel,n*12),past=Math.max(0,flight-back/b.targetDistance);
           if(back<5)continue;
           const x=b.x-ux*back,y=b.y-uy*back-altitudeAt(past);
-          circle(shotDraw,x+Math.sin(game.time*6+n+b.id)*2,y,3+n*.9,0xa5a49a,.38-n*.055);
+          circle(shotDraw,x+Math.sin(game.time*6+n+b.id)*2,y,2.5+n*.7,0xa5a49a,.34-n*.06);
         }
         if(flight<.12)circle(shotDraw,b.x-ux*12,b.y-uy*12-altitude,5,0xffb458,.5);
       }else{line(shotDraw,{x:b.x-ux*14,y:b.y-uy*14},b,5,b.color);circle(shotDraw,b.x,b.y,3,0xfff1b3,.9);}
