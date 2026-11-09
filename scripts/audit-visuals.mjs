@@ -8,6 +8,12 @@ try{
   for(const format of (process.argv[2]?[process.argv[2]]:['1v1','2v2']))for(const map of (process.argv[3]?[process.argv[3]]:['riverside','storm','magma','desert','snow'])){
     const page=await browser.newPage({viewport:{width:Number(process.env.AUDIT_WIDTH||480),height:Number(process.env.AUDIT_HEIGHT||980)}});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
+    // Keep idle fighters alive long enough to capture environmental effects.
+    // This hook exists only in the intercepted development response.
+    await page.route('**/src/main.js',async route=>{
+      const response=await route.fetch();
+      await route.fulfill({response,body:(await response.text())+'\nwindow.visualAuditMatch=()=>game;'});
+    });
     await page.goto(origin,{waitUntil:'domcontentloaded'});
     await page.locator('#menu-play:not([disabled])').waitFor({timeout:60000});
     await page.locator('#menu-play').click();
@@ -15,7 +21,23 @@ try{
     await page.locator('#mode-panel [data-mode="random"]').click();
     await page.locator(`[data-map="${map}"]`).click();
     await page.locator('#lineup-start').click();
-    await page.waitForFunction(()=>window.arcana?.snapshot().time>=12,null,{timeout:45000});
+    await page.evaluate(()=>{
+      const match=window.visualAuditMatch();
+      for(const method of ['damage','damageOverTime']){
+        const original=match[method];
+        match[method]=function(fighter,amount,...rest){
+          const capped=Math.min(amount,Math.max(0,fighter.hp-35));
+          return capped>0?original.call(this,fighter,capped,...rest):0;
+        };
+      }
+    });
+    try {
+      await page.waitForFunction(()=>window.arcana?.snapshot().time>=12,null,{timeout:60000});
+    } catch(error) {
+      console.error(`${format} ${map}:`,await page.evaluate(()=>window.arcana?.snapshot()),errors);
+      await page.screenshot({path:`test-output/depth-audit/${format}-${map}-failed.png`});
+      throw error;
+    }
     await page.screenshot({path:`test-output/depth-audit/${format}-${map}.png`});
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
     if(errors.length||overflow)throw new Error(`${format} ${map}: ${errors.join('; ')} overflow=${overflow}`);

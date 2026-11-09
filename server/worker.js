@@ -1,3 +1,4 @@
+import {encodeCheckpoint,decodeCheckpoint} from './checkpoint.js';
 import { DurableObject } from 'cloudflare:workers';
 import { Match } from '../src/model.js';
 import { availableSeat, bufferInput, consumeTransientInput, fighterCount, fillComputerSeats, humanSeats, lineupFromSeats, matchOptions, snapshot, SNAPSHOT_EVERY_TICKS, TICK_SECONDS, validCharacter } from './room-protocol.js';
@@ -69,10 +70,11 @@ export class MatchRoom extends DurableObject {
       if (this.room && checkpoint) {
         const restored = new Match(Math.random, this.matchConfig());
         const aiState = restored.aiState;
-        this.match = Object.assign(restored, checkpoint.match);
+        this.match = Object.assign(restored, decodeCheckpoint(checkpoint.match));
         this.match.random = Math.random;
-        this.match.aiState = aiState;
-        this.inputs = checkpoint.inputs || [];
+        for (const attack of this.match.platformAttacks) if (!(attack.damaged instanceof Set)) attack.damaged = new Set();
+        if (!(this.match.aiState instanceof Map)) this.match.aiState = aiState;
+        this.inputs = Array.from({length:this.match.players.length},()=>({...EMPTY_INPUT}));
         this.frame = checkpoint.frame || 0;
       }
       this.resumeIfReady();
@@ -199,6 +201,7 @@ export class MatchRoom extends DurableObject {
       this.ctx.acceptWebSocket(server);
       server.serializeAttachment({ seat });
       this.sockets.set(server, seat);
+      this.inputs[seat] = { ...EMPTY_INPUT };
       server.send(JSON.stringify({ type: 'welcome', seat, status: this.publicStatus() }));
       if (!this.match && this.sockets.size === humanSeats(this.room.options).length) {
         this.room.seats = fillComputerSeats(this.room.seats, this.room.options);
@@ -235,7 +238,7 @@ export class MatchRoom extends DurableObject {
   async saveCheckpoint() {
     if (!this.match) return;
     await this.ctx.storage.put('checkpoint', {
-      match: JSON.parse(JSON.stringify(this.match)), inputs: this.inputs, frame: this.frame,
+      match: encodeCheckpoint(this.match), frame: this.frame,
     });
   }
 
@@ -255,7 +258,9 @@ export class MatchRoom extends DurableObject {
   }
 
   webSocketClose(ws) {
+    const seat = this.sockets.get(ws);
     if (!this.sockets.delete(ws)) return;
+    this.inputs[seat] = { ...EMPTY_INPUT };
     if (this.sockets.size < humanSeats(this.room.options).length) this.stop();
     if (this.room) this.broadcast(this.publicStatus());
     if (this.match) this.ctx.waitUntil(this.saveCheckpoint());

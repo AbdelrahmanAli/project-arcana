@@ -1,3 +1,4 @@
+import {missileAltitude,missilePitch} from './missile-flight.js';
 import {AI_DIFFICULTIES,DEFAULT_DIFFICULTY,validDifficulty} from './ai-difficulty.js';
 import { Application, Assets, Sprite, Texture, Rectangle, Graphics, Container, TilingSprite } from 'pixi.js';
 import { Match, WEAPONS, DROP_TYPES, GAME_MODES, MAPS, MAP_TYPES, W, H, RIVER, BANK_BOUNDS, GRENADE_ARC_HEIGHT, GRENADE_STUN_DURATION, LASER_CHARGE_TIME, DODGE_DURATION, DODGE_COOLDOWN, BLAST_RADIUS, BARREL_BLAST_RADIUS, HAZARD_RULES, EAGLE_FLIGHT, HAIL_CLUSTER, SANDSTORM_WAVE_GAP, sandstormCovers, hailCloudVisual } from './model.js';
@@ -1620,11 +1621,8 @@ function render(){
         const flight=Math.min(1,b.travel/b.targetDistance);
         // Powered climb, level cruise, and a late terminal dive. The ground
         // marker remains at the locked impact point throughout the flight.
-        const altitudeAt=progress=>progress<.22?140*(progress/.22)**.8:progress<.7?140:140*(1-(progress-.7)/.3)**1.4;
-        const altitude=altitudeAt(flight);
-        const previousAltitude=altitudeAt(Math.max(0,flight-.015));
-        const nextAltitude=altitudeAt(Math.min(1,flight+.015));
-        const pitch=Math.atan2(uy-(nextAltitude-previousAltitude)/(.03*b.targetDistance),ux);
+        const altitude=missileAltitude(flight,b.targetDistance,uy);
+        const pitch=missilePitch(flight,b.targetDistance,ux,uy);
         activeAerialProjectiles.add(b.id);
         let sprite=aerialSprites.get(b.id);
         if(!sprite){sprite=new Sprite(missileTexture);sprite.anchor.set(.5);sprite.width=40;sprite.height=15;aerialSpriteLayer.addChild(sprite);aerialSprites.set(b.id,sprite);}
@@ -1641,7 +1639,7 @@ function render(){
         for(let n=1;n<=4;n++){
           const back=Math.min(b.travel,n*12),past=Math.max(0,flight-back/b.targetDistance);
           if(back<5)continue;
-          const x=b.x-ux*back,y=b.y-uy*back-altitudeAt(past);
+          const x=b.x-ux*back,y=b.y-uy*back-missileAltitude(past,b.targetDistance,uy);
           circle(shotDraw,x+Math.sin(game.time*6+n+b.id)*2,y,2.5+n*.7,0xa5a49a,.34-n*.06);
         }
         if(flight<.12)circle(shotDraw,b.x-ux*12,b.y-uy*12-altitude,5,0xffb458,.5);

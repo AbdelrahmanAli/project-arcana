@@ -12,7 +12,7 @@
     "native:sync": "pnpm build:native && cap sync",
     "online:dev": "wrangler dev",
     "online:deploy": "pnpm build:cloudflare && wrangler deploy",
-    "online:smoke": "node scripts/smoke-room.mjs && node scripts/smoke-online-rematch.mjs && node scripts/smoke-online-browser.mjs && node scripts/smoke-online-2v2-browser.mjs",
+    "online:smoke": "node scripts/smoke-room.mjs && node scripts/smoke-online-rematch.mjs && node scripts/smoke-online-reconnect.mjs && node scripts/smoke-online-browser.mjs && node scripts/smoke-online-2v2-browser.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js"
   },
