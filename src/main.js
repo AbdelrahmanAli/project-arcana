@@ -1507,9 +1507,10 @@ function render(){
   for(const decoy of bossDecoys)decoy.visible=false;
   if(game.bossMode){
     const boss=game.boss,frames=bossFrames.get(game.map),attackNames=BOSS_DEFINITIONS[game.map].attacks;
-    const frame=boss.hp<=0?(boss.deathAge>.35?7:6):boss.hitFlash>0?6:boss.current?(boss.current.fired?4+Math.floor(game.time*7)%2:2+Math.floor(game.time*5)%2):boss.weakPoint>0?4:Math.floor(game.time*1.8)%2;
-    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+Math.sin(game.time*2.2)*1.7+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
-    bossSprite.tint=boss.weakPoint>0?0xffd4b6:0xffffff;
+    const attack=boss.current;
+    const frame=boss.hp<=0?(boss.deathAge>.35?7:6):attack?(!attack.fired?(attack.age<attack.windup*.6?2:3):attack.age<attack.windup+.23?5:attack.age<attack.windup+(attack.active??.7)?4:boss.moving?Math.floor(game.time*1.4)%2:0):boss.moving?Math.floor(game.time*1.4)%2:Math.floor(game.time/3.2)%2;
+    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+(boss.moving?Math.sin(game.time*5)*.65:0)+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
+    bossSprite.tint=boss.hitFlash>0?0xffc6ad:boss.weakPoint>0?0xffd4b6:0xffffff;
     bossSprite.alpha=boss.hp<=0?Math.max(.75,1-boss.deathAge*.15):1;
     if(boss.weakPoint>0&&boss.hp>0){
       const cx=boss.x,cy=boss.y+18,pulse=.75+.25*Math.sin(game.time*19);

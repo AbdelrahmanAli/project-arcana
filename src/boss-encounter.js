@@ -34,7 +34,11 @@ const ATTACK_RULES = Object.freeze({
 });
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const BOSS_MOTION=Object.freeze({riverside:[54,10,.27],storm:[76,21,.38],magma:[32,5,.2],desert:[83,8,.31],snow:[29,7,.18]});
+const BOSS_MOTION=Object.freeze({
+  riverside:{patrol:70,evade:175},storm:{patrol:86,evade:190},
+  magma:{patrol:54,evade:135},desert:{patrol:91,evade:195},snow:{patrol:58,evade:145},
+});
+const BOSS_LIMITS=Object.freeze({minX:95,maxX:W-95,minY:BANK_BOUNDS[1].minY+74,maxY:BANK_BOUNDS[1].maxY-74});
 const point=(x,y,delay=0,scale=1)=>({x:clamp(x,30,W-30),y:clamp(y,BANK_BOUNDS[0].minY+20,BANK_BOUNDS[0].maxY-20),delay,scale});
 
 // Every attack exposes its landing pattern during the windup. Staggered
@@ -78,6 +82,15 @@ export class BossEncounter {
     this.hitFlash=0;
     this.deathAge=0;
     this.current = null;
+    this.patrolX=this.x;
+    this.patrolY=this.y;
+    this.nextPatrol=0;
+    this.evadeX=this.x;
+    this.evadeUntil=0;
+    this.evadeCooldown=1;
+    this.vx=0;
+    this.vy=0;
+    this.moving=false;
     this.random = random;
     this.defeated = false;
   }
@@ -91,16 +104,60 @@ export class BossEncounter {
     return dealt;
   }
 
-  update(dt, fighters) {
+  move(step, fighters, threats) {
+    const living=fighters.filter(fighter=>fighter.hp>0&&fighter.bank===0);
+    if(!living.length)return;
+    this.evadeCooldown=Math.max(0,this.evadeCooldown-step);
+    const attack=this.current;
+    const rules=attack&&ATTACK_RULES[attack.type];
+    // The release pose stays planted; early windup and recovery permit a
+    // sidestep without shifting a projectile already in flight.
+    const braced=attack&&attack.type!=='decoys'&&attack.age>=rules.windup*.45&&attack.age<rules.windup+rules.active;
+    if(!braced&&this.evadeCooldown<=0&&this.elapsed>=this.evadeUntil){
+      const incoming=threats.filter(threat=>threat.eta>.16&&threat.eta<1.05&&Math.abs(threat.x-this.x)<95);
+      if(incoming.length){
+        this.evadeCooldown=.85;
+        if(this.random()<.54){
+          const choices=[clamp(this.x-95,BOSS_LIMITS.minX,BOSS_LIMITS.maxX),clamp(this.x+95,BOSS_LIMITS.minX,BOSS_LIMITS.maxX)];
+          const safety=x=>Math.min(...incoming.map(threat=>Math.abs(x-threat.x)))-Math.abs(x-this.patrolX)*.08;
+          this.evadeX=choices[Number(safety(choices[1])>safety(choices[0]))];
+          if(Math.abs(this.evadeX-this.x)>25){
+            this.evadeUntil=this.elapsed+.65;
+            this.evadeCooldown=2.25+this.random()*.8;
+            this.nextPatrol=this.evadeUntil+1.1;
+          }
+        }
+      }
+    }
+    if(this.elapsed>=this.nextPatrol&&this.elapsed>=this.evadeUntil){
+      const focus=living[Math.floor(this.random()*living.length)];
+      const offset=(this.random()-.5)*190;
+      let x=clamp(focus.x+offset,BOSS_LIMITS.minX,BOSS_LIMITS.maxX);
+      if(Math.abs(x-this.x)<55)x=clamp(this.x+(this.x<W/2?85:-85),BOSS_LIMITS.minX,BOSS_LIMITS.maxX);
+      this.patrolX=x;
+      this.patrolY=clamp((BANK_BOUNDS[1].minY+BANK_BOUNDS[1].maxY)/2+(this.random()-.5)*84,BOSS_LIMITS.minY,BOSS_LIMITS.maxY);
+      this.nextPatrol=this.elapsed+2.4+this.random()*1.2;
+    }
+    const evading=this.elapsed<this.evadeUntil;
+    const targetX=evading?this.evadeX:this.patrolX;
+    const {patrol,evade}=BOSS_MOTION[this.map];
+    const speed=evading?evade:patrol;
+    const desiredX=braced?0:clamp((targetX-this.x)*2.8,-speed,speed);
+    const desiredY=braced||evading?0:clamp((this.patrolY-this.y)*2.5,-patrol*.55,patrol*.55);
+    const easing=1-Math.exp(-step*(evading?12:6));
+    this.vx+=(desiredX-this.vx)*easing;
+    this.vy+=(desiredY-this.vy)*easing;
+    this.x=clamp(this.x+this.vx*step,BOSS_LIMITS.minX,BOSS_LIMITS.maxX);
+    this.y=clamp(this.y+this.vy*step,BOSS_LIMITS.minY,BOSS_LIMITS.maxY);
+    this.moving=Math.hypot(this.vx,this.vy)>13;
+  }
+
+  update(dt, fighters, threats=[]) {
     if (this.defeated) return [];
     const events = [];
     const step = clamp(dt, 0, 1 / 30);
     this.elapsed += step;
-    if(!this.current||this.map==='storm'){
-      const [rangeX,rangeY,rate]=BOSS_MOTION[this.map];
-      this.x=W/2+Math.sin(this.elapsed*rate)*rangeX;
-      this.y=(BANK_BOUNDS[1].minY+BANK_BOUNDS[1].maxY)/2+Math.sin(this.elapsed*rate*.65)*rangeY;
-    }
+    this.move(step,fighters,threats);
     this.weakPoint = Math.max(0, this.weakPoint - step);
     this.hitFlash=Math.max(0,this.hitFlash-step);
     const nextPhase = this.hp <= this.maxHp * .35 ? 2 : this.hp <= this.maxHp * .7 ? 1 : 0;
@@ -134,7 +191,7 @@ export class BossEncounter {
     const types = BOSS_DEFINITIONS[this.map].attacks;
     const type = types[(this.sequence + Math.floor(this.random() * Math.min(2, types.length))) % types.length];
     this.sequence++;
-    this.current = { type, targetId: target.id, x: clamp(target.x, 35, W - 35), y: clamp(target.y, BANK_BOUNDS[0].minY + 25, BANK_BOUNDS[0].maxY - 25), age: 0, windup:ATTACK_RULES[type].windup, radius:ATTACK_RULES[type].radius, fired: false };
+    this.current = { type, targetId: target.id, x: clamp(target.x, 35, W - 35), y: clamp(target.y, BANK_BOUNDS[0].minY + 25, BANK_BOUNDS[0].maxY - 25), age: 0, windup:ATTACK_RULES[type].windup, active:ATTACK_RULES[type].active, radius:ATTACK_RULES[type].radius, fired: false };
     events.push({ type: 'bossWindup', attack: type, targetId: target.id, x: this.current.x, y: this.current.y, zones:bossAttackZones(type,this.current.x,this.current.y), duration: ATTACK_RULES[type].windup });
     return events;
   }

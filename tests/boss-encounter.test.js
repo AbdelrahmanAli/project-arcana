@@ -47,3 +47,30 @@ test('every boss attack marks a bounded player-bank pattern with a dodge route',
     assert.ok(boss.x>=70&&boss.x<=410&&boss.y>=BANK_BOUNDS[1].minY&&boss.y<=BANK_BOUNDS[1].maxY);
   }
 });
+
+test('boss patrols within its bank and sometimes sidesteps a visible incoming lane',()=>{
+  const boss=new BossEncounter('riverside',1,()=>0);
+  boss.nextAttack=Infinity;
+  boss.nextPatrol=Infinity;
+  boss.evadeCooldown=0;
+  const players=[fighter(0,240)];
+  for(let tick=0;tick<30;tick++)boss.update(1/60,players,[{x:240,eta:.65}]);
+  assert.ok(boss.x<210,'boss should leave the incoming shot lane');
+  assert.ok(boss.evadeCooldown>1,'one threat should not trigger a fresh dodge each frame');
+  assert.ok(boss.x>=95&&boss.y>=BANK_BOUNDS[1].minY+74);
+
+  const steady=new BossEncounter('riverside',1,()=>.9);
+  steady.nextAttack=Infinity;steady.nextPatrol=Infinity;steady.evadeCooldown=0;
+  for(let tick=0;tick<30;tick++)steady.update(1/60,players,[{x:240,eta:.65}]);
+  assert.ok(Math.abs(steady.x-240)<1,'a boss must still leave shots that can hit');
+});
+
+test('boss braces while releasing an attack instead of sliding through its firing pose',()=>{
+  const boss=new BossEncounter('storm',1,()=>0);
+  boss.nextPatrol=Infinity;boss.evadeCooldown=0;
+  boss.current={type:'chain',age:.6,windup:.9,active:.55,fired:false};
+  const x=boss.x;
+  for(let tick=0;tick<12;tick++)boss.update(1/60,[fighter(0,240)],[{x:240,eta:.6}]);
+  assert.equal(boss.x,x);
+  assert.equal(boss.evadeUntil,0);
+});

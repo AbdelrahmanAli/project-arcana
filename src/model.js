@@ -1051,6 +1051,25 @@ export class Match {
     }else if(p.slot&&plan.special)shoot(0,'special');
     if(plan.pistol&&p.charge<=0)shoot(0,'pistol');
   }
+  bossIncomingThreats(){
+    const threats=[];
+    for(const shot of this.bullets){
+      if(shot.life<=0)continue;
+      if(shot.type==='grenade'||shot.type==='nuclear'){
+        threats.push({x:shot.tx,eta:shot.duration-shot.t});
+      }else if(shot.type==='missile'){
+        threats.push({x:shot.tx,eta:(shot.targetDistance-shot.travel)/Math.hypot(shot.vx,shot.vy)});
+      }else if(shot.vy<0){
+        const eta=(this.boss.y-shot.y)/shot.vy;
+        threats.push({x:shot.x+shot.vx*eta,eta});
+      }
+    }
+    for(const fighter of this.fightersOnBank(0)){
+      if(fighter.slot?.type==='laser'&&fighter.charge>.65)
+        threats.push({x:fighter.x,eta:.3});
+    }
+    return threats;
+  }
   update(dt,input={x:0,y:0,pistol:false,special:false}) {
     if(this.finished)return;
     dt=Math.min(dt,1/30); this.time+=dt;
@@ -1095,7 +1114,7 @@ export class Match {
     }
     this.think(dt);
     if(this.bossMode){
-      for(const event of this.boss.update(dt,this.players)){
+      for(const event of this.boss.update(dt,this.players,this.bossIncomingThreats())){
         this.emit(event.type,event);
         if(event.type==='bossAttack'){
           const rules=this.boss.attackRules(event.attack);

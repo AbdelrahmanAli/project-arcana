@@ -33,6 +33,8 @@ test('each boss map keeps cover, hazards, and platform supplies on the player ba
 test('every weapon family can damage the boss and the fight ends when its health is gone',()=>{
   for(const type of ['pistol','rifle','shotgun','laser','grenade','nuclear','missile']){
     const match=create('riverside');match.obstacles=[];match.nextDrop=Infinity;match.boss.nextAttack=Infinity;
+    // Isolate weapon collision here; boss movement and evasion have their own tests.
+    match.boss.evadeCooldown=Infinity;match.boss.nextPatrol=Infinity;
     const player=match.players[0];player.x=match.boss.x;player.y=BANK_BOUNDS[0].minY+34;
     if(type!=='pistol')player.slot={type,ammo:WEAPONS[type].ammo,ammoReceived:WEAPONS[type].ammo};
     assert.equal(match.fire(player,type==='laser'?1:0,type==='pistol'?'pistol':'special'),true,type);
@@ -80,4 +82,16 @@ test('boss attacks respect dodge and create short-lived map-specific aftermath',
   assert.equal(snow.icePatches.length,initial+1);
   for(let n=0;n<190;n++)snow.update(1/60,{});
   assert.equal(snow.icePatches.length,initial);
+});
+
+test('incoming player shots and a charged laser provide boss evasion cues',()=>{
+  const match=create('riverside');match.obstacles=[];match.nextDrop=Infinity;
+  match.boss.nextAttack=Infinity;match.boss.nextPatrol=Infinity;match.boss.evadeCooldown=0;match.boss.random=()=>0;
+  const fighter=match.players[0];fighter.x=match.boss.x;
+  match.fire(fighter,0,'pistol');
+  assert.ok(match.bossIncomingThreats().some(threat=>Math.abs(threat.x-match.boss.x)<1&&threat.eta>0));
+  for(let tick=0;tick<25;tick++)match.update(1/60,{});
+  assert.ok(match.boss.x<220,'the model should deliver the projectile cue to the boss');
+  fighter.slot={type:'laser',ammo:1};fighter.charge=.8;
+  assert.ok(match.bossIncomingThreats().some(threat=>threat.eta===.3&&threat.x===fighter.x));
 });
