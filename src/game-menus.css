@@ -27,7 +27,11 @@
 #menu #menu-home .primary,#menu #menu-home .secondary{background:linear-gradient(90deg,#061a25d9,#061a2580,transparent);border:0;border-left:4px solid transparent;clip-path:none;color:#f6e9c8;padding:14px 24px;min-width:290px;font:800 clamp(20px,2vw,28px)/1.2 var(--font-ui);letter-spacing:.08em;margin:2px 0;text-align:left}
 #menu #menu-home .primary{border-color:#edc474;color:#ffe1a2}
 #menu #menu-home button:hover:not(:disabled){border-color:#edc474;background:linear-gradient(90deg,#bc87394d,transparent);transform:translateX(8px)}
-#menu .art-loading{width:280px;max-width:90vw;margin:15px 0}
+#menu .art-loading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;width:280px;max-width:90vw;margin:15px 0}
+#menu .art-loading[hidden]{display:none}
+#menu .art-loading>strong{grid-column:1/-1;color:#eac47c;font:700 14px var(--font-ui);letter-spacing:.12em}
+#menu #menu-actions{display:flex;flex-direction:column;align-items:flex-start;width:100%}
+#menu #menu-actions[hidden]{display:none}
 #menu .mode-choice{position:relative;min-height:105px;padding:20px 24px 20px 150px;margin:8px 0;background:linear-gradient(100deg,#193238bb,#09171b66,transparent);border:0;border-bottom:1px solid #e2b96955;box-shadow:none;overflow:hidden;transition:transform .18s,background .18s}
 #menu .mode-choice:hover{background:linear-gradient(100deg,#81633388,#122b3188,transparent);transform:translateX(6px)}
 #menu .mode-choice strong{font:800 23px/1.15 var(--font-ui);color:#f3d59b;letter-spacing:.07em}

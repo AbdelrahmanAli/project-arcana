@@ -2043,8 +2043,7 @@ async function boot(){
   app.stage.addChild(ashCloudLayer,phase6WeatherLayer,joystickDraw,screenHitDraw);
   buildWeaponChoices();
   buildMenuArt();
-  $('art-loading').hidden=true;
-  $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;$('menu-play').textContent='VS COMPUTER';
+  $('start').disabled=false;$('start').textContent='PLAY AGAIN';$('menu-play').disabled=false;
   const onlineConfigured=!!import.meta.env.VITE_MATCH_SERVER_URL||
     (!import.meta.env.DEV&&['http:','https:'].includes(location.protocol)&&!location.pathname.startsWith('/project-arcana/'));
   $('menu-online').disabled=!onlineConfigured;
@@ -2134,5 +2133,7 @@ async function boot(){
   // Read-only diagnostics for development and reproducible manual QA.
   if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,bossMode:game.bossMode,boss:game.bossMode?(typeof game.boss.snapshot==='function'?game.boss.snapshot():game.boss):null,bossEffects:game.bossEffects,bossHazards:game.bossHazards,platform:game.platform,platformAttacks:game.platformAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
   if(import.meta.env.DEV)window.arcana.forceBossDefeat=()=>{if(game.bossMode)game.damage(game.players[1],game.boss.hp);};
+  $('art-loading').hidden=true;
+  $('menu-actions').hidden=false;
 }
 boot().catch(error=>{console.error(error);$('menu').classList.add('hidden');$('overlay').classList.remove('hidden');$('overlay-title').textContent='LOAD FAILED';$('overlay-copy').textContent=import.meta.env.DEV?String(error):'The game could not load its graphics. Please reload in a browser with WebGL enabled.';$('start').textContent='RELOAD';$('start').disabled=false;$('start').onclick=()=>location.reload();});
