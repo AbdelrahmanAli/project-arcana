@@ -98,6 +98,30 @@ const rect=(g,x,y,w,h,color,alpha=1)=>g.rect(x,y,w,h).fill({color,alpha});
 const circle=(g,x,y,r,color,alpha=1)=>g.circle(x,y,r).fill({color,alpha});
 function line(g,a,b,width,color,alpha=1){g.moveTo(a.x,a.y).lineTo(b.x,b.y).stroke({width,color,alpha});}
 function shotGraphics(depth){return depth==='rear'?projectileDraw:depth==='between'?fighterFrontProjectileDraw:frontProjectileDraw;}
+function drawBossGroundContact(graphics,boss,map,time){
+  if(boss.hp<=0)return;
+  const foot=(offset,width,height,color,alpha)=>graphics.ellipse(boss.x+offset,boss.y+35,width,height).fill({color,alpha});
+  if(map===MAPS.RIVERSIDE){
+    foot(-49,21,5,0x191610,.24);foot(49,21,5,0x191610,.24);
+  }else if(map===MAPS.MAGMA){
+    foot(-29,18,5,0x281910,.22);foot(29,18,5,0x281910,.22);
+  }else if(map===MAPS.SNOW){
+    foot(-28,17,4,0x304559,.20);foot(28,17,4,0x304559,.20);
+  }else if(map===MAPS.STORM){
+    foot(0,29,6,0x29203e,.14);
+  }
+  // Dune Maw's painted sand already provides its contact patch. A separate
+  // oval beneath it reads as a hovering shadow, so only motion kicks up sand.
+  const dust={riverside:0x9f8868,magma:0x8a5540,desert:0xc79a5b,snow:0xdcefff}[map];
+  const speed=Math.hypot(boss.vx||0,boss.vy||0);
+  if(!dust||speed<20)return;
+  const side=Math.sign(boss.vx)||1;
+  for(let i=0;i<3;i++){
+    const x=boss.x-side*(map===MAPS.DESERT?59:48)-side*i*7;
+    const y=boss.y+31+(i%2)*4+Math.sin(time*7+i)*1.5;
+    graphics.ellipse(x,y,3+i,1.5+i*.5).fill({color:dust,alpha:.13+.1*Math.min(1,speed/120)});
+  }
+}
 const laserWhitePhase=(time,ready)=>Math.sin(time*(ready?28:16))>0;
 // Source-pixel centers of the painted ground burst in each 543 x 724 frame.
 const MUSHROOM_IMPACT_POINTS=[[254,593],[260,594],[269,595],[285,594]];
@@ -1509,7 +1533,8 @@ function render(){
     const boss=game.boss,frames=bossFrames.get(game.map),attackNames=BOSS_DEFINITIONS[game.map].attacks;
     const attack=boss.current;
     const frame=boss.hp<=0?(boss.deathAge>.35?7:6):attack?(!attack.fired?(attack.age<attack.windup*.6?2:3):attack.age<attack.windup+.23?5:attack.age<attack.windup+(attack.active??.7)?4:boss.moving?Math.floor(game.time*1.4)%2:0):boss.moving?Math.floor(game.time*1.4)%2:Math.floor(game.time/3.2)%2;
-    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+(boss.moving?Math.sin(game.time*5)*.65:0)+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
+    const hover=game.map===MAPS.STORM?Math.sin(game.time*2.2)*1.4:0;
+    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+hover+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
     bossSprite.tint=boss.hitFlash>0?0xffc6ad:boss.weakPoint>0?0xffd4b6:0xffffff;
     bossSprite.alpha=boss.hp<=0?Math.max(.75,1-boss.deathAge*.15):1;
     if(boss.weakPoint>0&&boss.hp>0){
@@ -1535,7 +1560,7 @@ function render(){
       }
       draw.ellipse(boss.x,boss.y+30,30+boss.deathAge*68,14+boss.deathAge*32).stroke({color,width:3,alpha:fade*.75});
     }
-    groundDraw.ellipse(boss.x,boss.y+48,65,18).fill({color:0x101614,alpha:.45});
+    drawBossGroundContact(groundDraw,boss,game.map,game.time);
     const warning=boss.current;
     if(warning&&!warning.fired)for(const zone of bossAttackZones(warning.type,warning.x,warning.y)){
       const color=game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':game.map===MAPS.MAGMA?'fire':'missile';
