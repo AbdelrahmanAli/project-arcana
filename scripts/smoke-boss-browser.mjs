@@ -29,9 +29,9 @@ try{
     if(!snapshot.bossMode||snapshot.boss.map!==map||snapshot.players.length!==2)throw new Error(`Invalid ${map} solo boss state`);
     if(snapshot.platformAttacks.length)throw new Error(`${map} platform attacked boss match`);
     await page.screenshot({path:`test-output/boss-${map}.png`});
+    await page.waitForFunction(()=>window.arcana.snapshot().bossEffects.some(effect=>effect.age>.12&&effect.age<.42),null,{timeout:10000});
+    await page.screenshot({path:`test-output/boss-${map}-attack.png`});
     if(map==='riverside'){
-      await page.waitForFunction(()=>window.arcana.snapshot().bossEffects.length>0,null,{timeout:10000});
-      await page.screenshot({path:'test-output/boss-riverside-attack.png'});
       await page.setViewportSize({width:320,height:740});
       await page.screenshot({path:'test-output/boss-riverside-small-phone.png'});
       const hud=await page.locator('#boss-hud').boundingBox();

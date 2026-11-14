@@ -1,4 +1,5 @@
 import { BANK_BOUNDS, W } from './arena-geometry.js';
+import {bossDirection} from './boss-animation.js';
 
 // Boss state has no soldier inventory, bank hazards, or controller input. The
 // authoritative match owns it; clients only render snapshots of this state.
@@ -91,6 +92,7 @@ export class BossEncounter {
     this.vx=0;
     this.vy=0;
     this.moving=false;
+    this.facing=4;
     this.random = random;
     this.defeated = false;
   }
@@ -150,6 +152,7 @@ export class BossEncounter {
     this.x=clamp(this.x+this.vx*step,BOSS_LIMITS.minX,BOSS_LIMITS.maxX);
     this.y=clamp(this.y+this.vy*step,BOSS_LIMITS.minY,BOSS_LIMITS.maxY);
     this.moving=Math.hypot(this.vx,this.vy)>13;
+    if(this.moving)this.facing=bossDirection(this.vx,this.vy,this.facing);
   }
 
   update(dt, fighters, threats=[]) {

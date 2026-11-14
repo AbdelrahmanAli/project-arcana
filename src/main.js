@@ -11,6 +11,7 @@ import { directShotDepth, laserDepthSegments } from './projectile-depth.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import { OnlineRoomClient } from './online.js';
 import {BOSS_DEFINITIONS,bossAttackZones} from './boss-encounter.js';
+import {bossMotionFrame,bossAttackFrame,BOSS_ATTACK_VISUALS} from './boss-animation.js';
 import { inputForSeat, projectOnlineState } from './online-perspective.js';
 import './style.css';
 import './hud.css';
@@ -55,7 +56,7 @@ const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
-const bossFrames=new Map(),bossAttackFrames=new Map(),bossAttackSprites=new Map(),bossHazardSprites=new Map(),bossDecoys=[];let bossSprite;
+const bossFrames=new Map(),bossMotionFrames=new Map(),bossAttackFrames=new Map(),bossAttackSprites=new Map(),bossHazardSprites=new Map(),bossDecoys=[];let bossSprite;
 let sceneDirty=true;
 const BASE_Y=PLATFORM_GEOMETRY.y;
 const PLATFORM_SIDE_FOAM_RISE=8;
@@ -1530,11 +1531,14 @@ function render(){
   bossSprite.visible=!!game.bossMode;
   for(const decoy of bossDecoys)decoy.visible=false;
   if(game.bossMode){
-    const boss=game.boss,frames=bossFrames.get(game.map),attackNames=BOSS_DEFINITIONS[game.map].attacks;
+    const boss=game.boss,frames=bossFrames.get(game.map),motionFrames=bossMotionFrames.get(game.map);
     const attack=boss.current;
-    const frame=boss.hp<=0?(boss.deathAge>.35?7:6):attack?(!attack.fired?(attack.age<attack.windup*.6?2:3):attack.age<attack.windup+.23?5:attack.age<attack.windup+(attack.active??.7)?4:boss.moving?Math.floor(game.time*1.4)%2:0):boss.moving?Math.floor(game.time*1.4)%2:Math.floor(game.time/3.2)%2;
+    const frame=boss.hp<=0?(boss.deathAge>.35?7:6):attack?(!attack.fired?(attack.age<attack.windup*.6?2:3):attack.age<attack.windup+.23?5:attack.age<attack.windup+(attack.active??.7)?4:0):0;
     const hover=game.map===MAPS.STORM?Math.sin(game.time*2.2)*1.4:0;
-    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+hover+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
+    const holdingAttackPose=attack&&(!boss.moving||attack.fired&&attack.age<attack.windup+.23);
+    const motionIndex=boss.moving?bossMotionFrame(boss.facing??4,game.time,Math.hypot(boss.vx||0,boss.vy||0)):(boss.facing??4);
+    bossSprite.texture=boss.hp<=0||holdingAttackPose?frames[frame]:motionFrames[motionIndex];
+    bossSprite.position.set(boss.x,boss.y-10+hover+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
     bossSprite.tint=boss.hitFlash>0?0xffc6ad:boss.weakPoint>0?0xffd4b6:0xffffff;
     bossSprite.alpha=boss.hp<=0?Math.max(.75,1-boss.deathAge*.15):1;
     if(boss.weakPoint>0&&boss.hp>0){
@@ -1569,9 +1573,19 @@ function render(){
       if(travel>0){
         const sx=boss.x,sy=boss.y+48,px=sx+(zone.x-sx)*travel,py=sy+(zone.y-sy)*travel-22*Math.sin(Math.PI*travel);
         const shotColor=game.map===MAPS.SNOW?0xc2f4ff:game.map===MAPS.STORM?0xb59bff:game.map===MAPS.MAGMA?0xff7b1f:game.map===MAPS.DESERT?0xf4ca75:0xffa843;
-        line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},2.2,shotColor,.38);
-        circle(aerialProjectileDraw,px,py,4+zone.scale*2,shotColor,.93);
-        circle(aerialProjectileDraw,px,py,2,0xffffff,.9);
+        const delivery=BOSS_ATTACK_VISUALS[warning.type].delivery;
+        if(delivery==='beam'){
+          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},5,shotColor,.19);
+          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},1.6,shotColor,.7);
+        }else if(delivery==='ground'){
+          groundDraw.ellipse(zone.x,zone.y+3,warning.radius*zone.scale*(.25+travel*.55),warning.radius*zone.scale*(.12+travel*.2))
+            .stroke({color:shotColor,width:2,alpha:.18+travel*.28});
+        }else{
+          const tail=Math.max(0,travel-.13),tx=sx+(zone.x-sx)*tail,ty=sy+(zone.y-sy)*tail-22*Math.sin(Math.PI*tail);
+          line(aerialProjectileDraw,{x:tx,y:ty},{x:px,y:py},2.2,shotColor,.65);
+          circle(aerialProjectileDraw,px,py,4+zone.scale*2,shotColor,.93);
+          circle(aerialProjectileDraw,px,py,2,0xffffff,.9);
+        }
       }
     }
     const active=new Set();
@@ -1579,10 +1593,13 @@ function render(){
       active.add(effect.id);
       if(effect.age<0){drawTargetLock(groundDraw,effect.x,effect.y,effect.radius,game.time,game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'fire');continue;}
       let sprite=bossAttackSprites.get(effect.id);
-      if(!sprite){sprite=new Sprite(bossAttackFrames.get(game.map)[attackNames.indexOf(effect.attack)]);sprite.anchor.set(.5);obstacleLayer.addChild(sprite);bossAttackSprites.set(effect.id,sprite);}
+      const visuals=BOSS_ATTACK_VISUALS[effect.attack],frames=bossAttackFrames.get(game.map)?.get(effect.attack);
+      if(!frames)continue;
+      if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,visuals.anchor);obstacleLayer.addChild(sprite);bossAttackSprites.set(effect.id,sprite);}
       const progress=Math.max(0,Math.min(1,effect.age/effect.life));
-      sprite.position.set(effect.x,effect.y-8*(1-progress));sprite.width=effect.radius*2.6*(.7+progress*.45);sprite.height=effect.radius*2.6*(.7+progress*.45);sprite.alpha=(1-progress)*.9;sprite.zIndex=effect.y+FIGHTER_DEPTH_OFFSET+12;
-      drawBlastZone(groundDraw,effect.x,effect.y,effect.radius,progress,game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'fire');
+      sprite.texture=frames[bossAttackFrame(effect.age,effect.life)];
+      sprite.position.set(effect.x,effect.y+4);sprite.width=effect.radius*visuals.width;sprite.height=effect.radius*visuals.height;
+      sprite.alpha=progress>.82?Math.max(0,(1-progress)/.18):1;sprite.zIndex=effect.y+FIGHTER_DEPTH_OFFSET+12;
     }
     for(const [id,sprite] of bossAttackSprites)if(!active.has(id)){sprite.destroy();bossAttackSprites.delete(id);}
   }else for(const [id,sprite] of bossAttackSprites){sprite.destroy();bossAttackSprites.delete(id);}
@@ -1903,7 +1920,8 @@ async function boot(){
   const phase7Art=[...fighterIds.map(id=>`${id}-frontfire.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
   const phase7SideArt=fighterIds.map(id=>`${id}-sidewalk.webp`);
   const bossMaps=Object.keys(BOSS_DEFINITIONS);
-  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length+bossMaps.length*2;
+  const bossAttackCount=bossMaps.reduce((count,map)=>count+BOSS_DEFINITIONS[map].attacks.length,0);
+  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length+bossMaps.length*2+bossAttackCount;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{
     const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
@@ -1930,14 +1948,18 @@ async function boot(){
   const phase7Sheets=await Promise.all(phase7Art.map(path=>loadArt('phase7/',path)));
   const sideSheets=await Promise.all(phase7SideArt.map(path=>loadArt('phase7/',path)));
   const bossSheets=await Promise.all(bossMaps.map(map=>loadArt('bosses/',`${BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase()}-sheet.webp`)));
-  const bossAttackSheets=await Promise.all(bossMaps.map(map=>loadArt('bosses/',`${BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase()}-attacks.webp`)));
+  const bossMotionSheets=await Promise.all(bossMaps.map(map=>loadArt('bosses/',`${BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase()}-motion.webp`)));
+  const bossAttackSheets=await Promise.all(bossMaps.map(async map=>{
+    const id=BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase();
+    return Promise.all(BOSS_DEFINITIONS[map].attacks.map(attack=>loadArt('bosses/',`${id}-${attack.replace(/([A-Z])/g,'-$1').toLowerCase()}.webp`)));
+  }));
   for(const art of [bg,atlas,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
   for(const art of [platformArt,launchFxArt])art.source.scaleMode='nearest';
   for(const art of phase7Sheets)art.source.scaleMode='nearest';
   for(const art of sideSheets)art.source.scaleMode='nearest';
-  for(const art of [...bossSheets,...bossAttackSheets])art.source.scaleMode='nearest';
+  for(const art of [...bossSheets,...bossMotionSheets,...bossAttackSheets.flat()])art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
@@ -1968,7 +1990,8 @@ async function boot(){
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
   for(const [index,map] of bossMaps.entries()){
     bossFrames.set(map,cut(bossSheets[index],4,2));
-    bossAttackFrames.set(map,cut(bossAttackSheets[index],4,1));
+    bossMotionFrames.set(map,cut(bossMotionSheets[index],8,4));
+    bossAttackFrames.set(map,new Map(BOSS_DEFINITIONS[map].attacks.map((attack,attackIndex)=>[attack,cut(bossAttackSheets[index][attackIndex],3,2)])));
   }
   tornadoFrames=cut(tornadoAnimationArt,8,1);
   lightningFrames=cut(lightningAnimationArt,6,1);
