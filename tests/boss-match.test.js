@@ -84,6 +84,23 @@ test('boss attacks respect dodge and create short-lived map-specific aftermath',
   assert.equal(snow.icePatches.length,initial);
 });
 
+test('wider boss volleys hit a fighter once and the nuclear strike leaves radiation',()=>{
+  const match=create('riverside');match.boss.nextAttack=Infinity;match.nextDrop=Infinity;
+  const fighter=match.players[0];
+  match.bossEffects.push(
+    {id:910,groupId:909,hitFighters:[],x:fighter.x,y:fighter.y,radius:45,damage:28,attack:'missileBarrage',age:-.01,life:.62,hit:false},
+    {id:911,groupId:909,hitFighters:[],x:fighter.x,y:fighter.y,radius:45,damage:28,attack:'missileBarrage',age:-.01,life:.62,hit:false},
+  );
+  match.update(1/60,{});
+  assert.equal(fighter.hp,72,'overlapping missiles are one volley');
+  assert.deepEqual(match.bossEffects.map(effect=>effect.hitFighters),[[fighter.id],[fighter.id]]);
+  match.bossEffects.push({id:912,groupId:912,hitFighters:[],x:fighter.x,y:fighter.y,radius:64,damage:40,attack:'nuclearStrike',age:-.01,life:.8,hit:false});
+  match.update(1/60,{});
+  assert.ok(fighter.hp<=32&&fighter.hp>=31.8,'blast and the first radiation tick both apply');
+  assert.equal(match.bossHazards[0].kind,'radiation');
+  assert.ok(match.bossHazards[0].dps>0);
+});
+
 test('incoming player shots and a charged laser provide boss evasion cues',()=>{
   const match=create('riverside');match.obstacles=[];match.nextDrop=Infinity;
   match.boss.nextAttack=Infinity;match.boss.nextPatrol=Infinity;match.boss.evadeCooldown=0;match.boss.random=()=>0;

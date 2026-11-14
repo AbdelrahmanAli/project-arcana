@@ -57,7 +57,7 @@ const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
-const bossFrames=new Map(),bossMotionFrames=new Map(),bossAttackFrames=new Map(),bossAttackSprites=new Map(),bossHazardSprites=new Map(),bossDecoys=[];let bossSprite;
+const bossFrames=new Map(),bossMotionFrames=new Map(),bossAttackFrames=new Map(),bossAttackSprites=new Map(),bossFlightSprites=new Map(),bossHazardSprites=new Map(),bossDecoys=[];let bossSprite,bossTankPoseFrames=[],bossMissileFrames=[],bossNuclearFrames=[];
 let sceneDirty=true;
 const BASE_Y=PLATFORM_GEOMETRY.y;
 const PLATFORM_SIDE_FOAM_RISE=8;
@@ -140,6 +140,7 @@ const AREA_COLORS={
   missile:{fill:0x9b1524,halo:0xe71129,edge:0xff5445,spark:0xff9e55,center:0xffa46e},
   grenade:{fill:0x0c4e9e,halo:0x0b73dd,edge:0x69d8ff,spark:0xa1eeff,center:0xc2f7ff},
   nuclear:{fill:0x255c13,halo:0x4fbd16,edge:0xa8f75a,spark:0xe4ff85,center:0xf2ffac},
+  laser:{fill:0x751019,halo:0xd91325,edge:0xff5361,spark:0xffbbc2,center:0xffffff},
   lightning:{fill:0x0c4e9e,halo:0x0b73dd,edge:0x69d8ff,spark:0xa1eeff,center:0xc2f7ff},
   icicle:{fill:0x215d78,halo:0x64c8ed,edge:0xb8efff,spark:0xe1faff,center:0xffffff},
   fire:{fill:0x9b3215,halo:0xe75517,edge:0xffa045,spark:0xffd675,center:0xffedac},
@@ -426,7 +427,7 @@ function prepareMatch(mapOverride=null){
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,launchFxSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,platformAttackSprites,bossAttackSprites,bossHazardSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,launchFxSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,platformAttackSprites,bossAttackSprites,bossFlightSprites,bossHazardSprites])clearSpriteMap(map);
   for(const sprite of sandstormSprites)sprite.visible=false;
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;
@@ -1525,8 +1526,9 @@ function render(){
   for(const hazard of game.bossHazards||[]){
     liveBossHazards.add(hazard.id);
     let sprite=bossHazardSprites.get(hazard.id);
-    if(!sprite){sprite=new Sprite(lavaPoolFrames[0]);sprite.anchor.set(.5);hazardLayer.addChild(sprite);bossHazardSprites.set(hazard.id,sprite);}
-    sprite.texture=lavaPoolFrames[Math.floor(hazard.age*9)%lavaPoolFrames.length];sprite.position.set(hazard.x,hazard.y+4);
+    const frames=hazard.kind==='radiation'?wasteFrames:lavaPoolFrames;
+    if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5);hazardLayer.addChild(sprite);bossHazardSprites.set(hazard.id,sprite);}
+    sprite.texture=frames[Math.floor(hazard.age*9)%frames.length];sprite.position.set(hazard.x,hazard.y+4);
     sprite.width=hazard.radius*2.6;sprite.height=hazard.radius*1.8;sprite.alpha=Math.min(1,(hazard.life-hazard.age)*1.2);
   }
   for(const [id,sprite] of bossHazardSprites)if(!liveBossHazards.has(id)){sprite.destroy();bossHazardSprites.delete(id);}
@@ -1537,13 +1539,13 @@ function render(){
     const attack=boss.current;
     const frame=boss.hp<=0?(boss.deathAge>.35?7:6):attack?(!attack.fired?(attack.age<attack.windup*.6?2:3):attack.age<attack.windup+.23?5:attack.age<attack.windup+(attack.active??.7)?4:0):0;
     const hover=game.map===MAPS.STORM?Math.sin(game.time*2.2)*1.4:0;
-    const holdingAttackPose=attack&&(!boss.moving||attack.fired&&attack.age<attack.windup+.23);
+    const holdingAttackPose=attack&&(!boss.moving||attack.age>=attack.windup*.45&&attack.age<attack.windup+(attack.active??.7));
     const motionIndex=boss.moving?bossMotionFrame(boss.facing??4,game.time,Math.hypot(boss.vx||0,boss.vy||0)):(boss.facing??4);
     const usingPose=boss.hp<=0||holdingAttackPose;
     const motionLayout=bossMotionMetrics[game.map],motionMetric=motionLayout.frames[motionIndex];
     const motionHeight=motionLayout.targetHeight/motionMetric.h;
     const motionOffset=motionLayout.targetContact-(motionMetric.bottom-.5)*motionHeight;
-    bossSprite.texture=usingPose?frames[frame]:motionFrames[motionIndex];
+    bossSprite.texture=usingPose?(game.map===MAPS.RIVERSIDE&&boss.hp>0&&attack?bossTankPoseFrames[(BOSS_DEFINITIONS.riverside.attacks.indexOf(attack.type))+(attack.fired?4:0)]||frames[frame]:frames[frame]):motionFrames[motionIndex];
     bossSprite.position.set(boss.x,boss.y-10+hover+(usingPose?0:motionOffset)+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));
     bossSprite.width=usingPose?168:motionHeight*motionLayout.xScale;bossSprite.height=usingPose?168:motionHeight;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
     bossSprite.tint=boss.hitFlash>0?0xffc6ad:boss.weakPoint>0?0xffd4b6:0xffffff;
@@ -1574,42 +1576,53 @@ function render(){
     drawBossGroundContact(groundDraw,boss,game.map,game.time);
     const warning=boss.current;
     if(warning&&!warning.fired)for(const zone of bossAttackZones(warning.type,warning.x,warning.y)){
-      const color=game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':game.map===MAPS.MAGMA?'fire':'missile';
+      const color=warning.type==='nuclearStrike'?'nuclear':warning.type==='laserSweep'?'laser':game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':game.map===MAPS.MAGMA?'fire':'missile';
       drawTargetLock(groundDraw,zone.x,zone.y,warning.radius*zone.scale,game.time,color);
-      const travel=Math.max(0,Math.min(1,(warning.age/warning.windup-.4)/.6));
-      if(travel>0){
-        const sx=boss.x,sy=boss.y+48,px=sx+(zone.x-sx)*travel,py=sy+(zone.y-sy)*travel-22*Math.sin(Math.PI*travel);
-        const shotColor=game.map===MAPS.SNOW?0xc2f4ff:game.map===MAPS.STORM?0xb59bff:game.map===MAPS.MAGMA?0xff7b1f:game.map===MAPS.DESERT?0xf4ca75:0xffa843;
-        const delivery=BOSS_ATTACK_VISUALS[warning.type].delivery;
-        if(delivery==='beam'){
-          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},5,shotColor,.19);
-          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},1.6,shotColor,.7);
-        }else if(delivery==='ground'){
-          groundDraw.ellipse(zone.x,zone.y+3,warning.radius*zone.scale*(.25+travel*.55),warning.radius*zone.scale*(.12+travel*.2))
-            .stroke({color:shotColor,width:2,alpha:.18+travel*.28});
-        }else{
-          const tail=Math.max(0,travel-.13),tx=sx+(zone.x-sx)*tail,ty=sy+(zone.y-sy)*tail-22*Math.sin(Math.PI*tail);
-          line(aerialProjectileDraw,{x:tx,y:ty},{x:px,y:py},2.2,shotColor,.65);
-          circle(aerialProjectileDraw,px,py,4+zone.scale*2,shotColor,.93);
-          circle(aerialProjectileDraw,px,py,2,0xffffff,.9);
-        }
-      }
     }
     const active=new Set();
+    const liveFlights=new Set();
     for(const effect of game.bossEffects||[]){
       active.add(effect.id);
-      if(effect.age<0){drawTargetLock(groundDraw,effect.x,effect.y,effect.radius,game.time,game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'fire');continue;}
+      if(effect.age<0){
+        const progress=Math.max(0,Math.min(1,1+effect.age/effect.travel));
+        const sx=effect.sourceX??boss.x,sy=effect.sourceY??boss.y+36;
+        const px=sx+(effect.x-sx)*progress,py=sy+(effect.y-sy)*progress-28*Math.sin(Math.PI*progress);
+        drawTargetLock(groundDraw,effect.x,effect.y,effect.radius,game.time,effect.attack==='nuclearStrike'?'nuclear':effect.attack==='laserSweep'?'laser':game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'missile');
+        const flightFrames=effect.attack==='nuclearStrike'?bossNuclearFrames:effect.attack==='missileBarrage'?bossMissileFrames:null;
+        if(flightFrames?.length){
+          liveFlights.add(effect.id);let flight=bossFlightSprites.get(effect.id);
+          if(!flight){flight=new Sprite(flightFrames[0]);flight.anchor.set(.5);aerialSpriteLayer.addChild(flight);bossFlightSprites.set(effect.id,flight);}
+          flight.texture=flightFrames[Math.min(5,Math.floor(progress*6))];flight.position.set(px,py);flight.width=effect.attack==='nuclearStrike'?34:31;flight.height=effect.attack==='nuclearStrike'?48:44;
+        }else if(BOSS_ATTACK_VISUALS[effect.attack].delivery==='beam'){
+          const color=effect.attack==='laserSweep'?0xff202a:game.map===MAPS.SNOW?0xb6efff:0xbd91ff;
+          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},effect.attack==='laserSweep'?11:6,color,.28);
+          line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},effect.attack==='laserSweep'?4:2,0xffffff,.8);
+        }else{
+          circle(aerialProjectileDraw,px,py,effect.attack==='cannon'?7:5,game.map===MAPS.SNOW?0xc2f4ff:0xffa843,.95);
+        }
+        continue;
+      }
       let sprite=bossAttackSprites.get(effect.id);
       const visuals=BOSS_ATTACK_VISUALS[effect.attack],frames=bossAttackFrames.get(game.map)?.get(effect.attack);
       if(!frames)continue;
       if(!sprite){sprite=new Sprite(frames[0]);sprite.anchor.set(.5,visuals.anchor);obstacleLayer.addChild(sprite);bossAttackSprites.set(effect.id,sprite);}
       const progress=Math.max(0,Math.min(1,effect.age/effect.life));
+      if(effect.attack==='laserSweep'&&progress<.7){
+        const alpha=Math.min(1,(.7-progress)*4);
+        line(aerialProjectileDraw,{x:effect.sourceX,y:effect.sourceY},{x:effect.x,y:effect.y},15,0xf40020,.26*alpha);
+        line(aerialProjectileDraw,{x:effect.sourceX,y:effect.sourceY},{x:effect.x,y:effect.y},5,0xff3640,.88*alpha);
+        line(aerialProjectileDraw,{x:effect.sourceX,y:effect.sourceY},{x:effect.x,y:effect.y},2,0xffffff,.93*alpha);
+      }
       sprite.texture=frames[bossAttackFrame(effect.age,effect.life)];
       sprite.position.set(effect.x,effect.y+4);sprite.width=effect.radius*visuals.width;sprite.height=effect.radius*visuals.height;
       sprite.alpha=progress>.82?Math.max(0,(1-progress)/.18):1;sprite.zIndex=effect.y+FIGHTER_DEPTH_OFFSET+12;
     }
     for(const [id,sprite] of bossAttackSprites)if(!active.has(id)){sprite.destroy();bossAttackSprites.delete(id);}
-  }else for(const [id,sprite] of bossAttackSprites){sprite.destroy();bossAttackSprites.delete(id);}
+    for(const [id,sprite] of bossFlightSprites)if(!liveFlights.has(id)){sprite.destroy();bossFlightSprites.delete(id);}
+  }else{
+    for(const [id,sprite] of bossAttackSprites){sprite.destroy();bossAttackSprites.delete(id);}
+    for(const [id,sprite] of bossFlightSprites){sprite.destroy();bossFlightSprites.delete(id);}
+  }
   const activeLane=game.platformAttacks.find(attack=>!attack.hit&&attack.age>=0);
   const indicatorColor=activeLane?AREA_COLORS[activeLane.type].edge:0xffb553;
   const indicatorAlpha=platformState.phase==='idle'?.08+.07*Math.sin(game.time*2.5)**2:.12+.2*Math.sin(game.time*10)**2;
@@ -1928,7 +1941,7 @@ async function boot(){
   const phase7SideArt=fighterIds.map(id=>`${id}-sidewalk.webp`);
   const bossMaps=Object.keys(BOSS_DEFINITIONS);
   const bossAttackCount=bossMaps.reduce((count,map)=>count+BOSS_DEFINITIONS[map].attacks.length,0);
-  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length+bossMaps.length*2+bossAttackCount;
+  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length+bossMaps.length*2+bossAttackCount+3;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{
     const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
@@ -1960,13 +1973,14 @@ async function boot(){
     const id=BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase();
     return Promise.all(BOSS_DEFINITIONS[map].attacks.map(attack=>loadArt('bosses/',`${id}-${attack.replace(/([A-Z])/g,'-$1').toLowerCase()}.webp`)));
   }));
+  const [tankPoseArt,bossMissileArt,bossNuclearArt]=await Promise.all(['siegebreaker-attack-poses.webp','siegebreaker-missile-flight.webp','siegebreaker-nuclear-flight.webp'].map(path=>loadArt('bosses/',path)));
   for(const art of [bg,atlas,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
   for(const art of [platformArt,launchFxArt])art.source.scaleMode='nearest';
   for(const art of phase7Sheets)art.source.scaleMode='nearest';
   for(const art of sideSheets)art.source.scaleMode='nearest';
-  for(const art of [...bossSheets,...bossMotionSheets,...bossAttackSheets.flat()])art.source.scaleMode='nearest';
+  for(const art of [...bossSheets,...bossMotionSheets,...bossAttackSheets.flat(),tankPoseArt,bossMissileArt,bossNuclearArt])art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
@@ -2000,6 +2014,7 @@ async function boot(){
     bossMotionFrames.set(map,cut(bossMotionSheets[index],8,4));
     bossAttackFrames.set(map,new Map(BOSS_DEFINITIONS[map].attacks.map((attack,attackIndex)=>[attack,cut(bossAttackSheets[index][attackIndex],3,2)])));
   }
+  bossTankPoseFrames=cut(tankPoseArt,4,2);bossMissileFrames=cut(bossMissileArt,6,1);bossNuclearFrames=cut(bossNuclearArt,6,1);
   tornadoFrames=cut(tornadoAnimationArt,8,1);
   lightningFrames=cut(lightningAnimationArt,6,1);
   lavaProjectileFrames=cut(lavaProjectileArt,6,1);lavaPoolFrames=cut(lavaPoolArt,6,1);
@@ -2164,6 +2179,12 @@ async function boot(){
   // Read-only diagnostics for development and reproducible manual QA.
   if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,bossMode:game.bossMode,boss:game.bossMode?(typeof game.boss.snapshot==='function'?game.boss.snapshot():game.boss):null,bossEffects:game.bossEffects,bossHazards:game.bossHazards,platform:game.platform,platformAttacks:game.platformAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
   if(import.meta.env.DEV)window.arcana.forceBossDefeat=()=>{if(game.bossMode)game.damage(game.players[1],game.boss.hp);};
+  if(import.meta.env.DEV)window.arcana.previewBossAttack=type=>{
+    if(!game.bossMode||!BOSS_DEFINITIONS[game.map].attacks.includes(type))return false;
+    const rules=game.boss.attackRules(type),target=game.players[0];
+    game.bossEffects=[];game.boss.current={type,targetId:target.id,x:target.x,y:target.y,age:0,windup:rules.windup,active:rules.active,radius:rules.radius,fired:false};
+    game.boss.nextAttack=Infinity;target.hp=100;return true;
+  };
   $('art-loading').hidden=true;
   $('menu-actions').hidden=false;
 }

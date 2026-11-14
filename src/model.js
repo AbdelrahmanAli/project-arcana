@@ -1118,7 +1118,8 @@ export class Match {
         this.emit(event.type,event);
         if(event.type==='bossAttack'){
           const rules=this.boss.attackRules(event.attack);
-          for(const zone of bossAttackZones(event.attack,event.x,event.y))this.bossEffects.push({id:this.id++,x:zone.x,y:zone.y,radius:rules.radius*zone.scale,damage:rules.damage,attack:event.attack,age:-zone.delay,life:.55,hit:false});
+          const groupId=this.id++;
+          for(const zone of bossAttackZones(event.attack,event.x,event.y))this.bossEffects.push({id:this.id++,groupId,hitFighters:[],x:zone.x,y:zone.y,sourceX:this.boss.x,sourceY:this.boss.y+36,radius:rules.radius*zone.scale,damage:rules.damage,attack:event.attack,age:-(rules.travel??.2)-zone.delay,travel:rules.travel??.2,life:event.attack==='nuclearStrike'?.8:.62,hit:false});
         }
       }
       this.players[1].x=this.boss.x;this.players[1].y=this.boss.y;
@@ -1126,10 +1127,15 @@ export class Match {
         effect.age+=dt;
         if(effect.age>=0&&!effect.hit){
           effect.hit=true;
-          for(const fighter of this.fightersOnBank(0))if(Math.hypot(fighter.x-effect.x,fighter.y-effect.y)<effect.radius)this.damage(fighter,effect.damage);
+          effect.hitFighters??=[];
+          for(const fighter of this.fightersOnBank(0))if(Math.hypot(fighter.x-effect.x,fighter.y-effect.y)<effect.radius&&!effect.hitFighters.includes(fighter.id)){
+            this.damage(fighter,effect.damage);
+            for(const sibling of this.bossEffects)if(sibling===effect||effect.groupId!==undefined&&sibling.groupId===effect.groupId)(sibling.hitFighters??=[]).push(fighter.id);
+          }
           if(effect.damage>0)this.mark('scorch',effect.x,effect.y,.45);
           if(effect.damage>0)this.damageAreaObjects(effect.x,effect.y,effect.radius*.75);
           if(['moltenFist','fissure'].includes(effect.attack))this.bossHazards.push({id:this.id++,x:effect.x,y:effect.y,radius:effect.radius+6,age:0,life:2.4,dps:7});
+          if(effect.attack==='nuclearStrike')this.bossHazards.push({id:this.id++,kind:'radiation',x:effect.x,y:effect.y,radius:effect.radius*.8,age:0,life:3.8,dps:9});
           if(effect.attack==='iceBeam')this.icePatches.push({id:this.id++,owner:0,x:effect.x,y:effect.y,radius:34,ttl:3});
         }
         if(effect.attack==='vortex'&&effect.age>=0&&effect.age<effect.life){

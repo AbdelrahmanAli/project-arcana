@@ -19,9 +19,9 @@ export function bossAttackFrame(age,life){
 // impact. These proportions preserve those shapes at gameplay scale.
 export const BOSS_ATTACK_VISUALS=Object.freeze({
   cannon:{width:2.5,height:2.7,anchor:.72,delivery:'ballistic'},
-  ricochet:{width:3.5,height:2.2,anchor:.65,delivery:'ballistic'},
-  broadside:{width:4.1,height:2.3,anchor:.67,delivery:'ballistic'},
-  turretSweep:{width:3.3,height:1.7,anchor:.65,delivery:'beam'},
+  missileBarrage:{width:3.1,height:2.8,anchor:.72,delivery:'ballistic'},
+  laserSweep:{width:3.7,height:2,anchor:.6,delivery:'beam'},
+  nuclearStrike:{width:3.4,height:3.8,anchor:.79,delivery:'ballistic'},
   chain:{width:3.5,height:2.3,anchor:.66,delivery:'beam'},
   spectralArc:{width:3.8,height:2.9,anchor:.76,delivery:'beam'},
   decoys:{width:3.4,height:3.7,anchor:.85,delivery:'ground'},

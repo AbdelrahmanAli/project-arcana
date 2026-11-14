@@ -92,6 +92,11 @@ try{
       const slug=attack.replace(/([A-Z])/g,'-$1').toLowerCase();
       await convert(page,`${id}-${slug}`,3,2,false);
     }
+    if(map==='riverside'){
+      await convert(page,`${id}-attack-poses`,4,2,false);
+      await convert(page,`${id}-missile-flight`,6,1,false);
+      await convert(page,`${id}-nuclear-flight`,6,1,false);
+    }
   }
   mkdirSync(metricDirectory,{recursive:true});
   writeFileSync(join(metricDirectory,'boss-motion-metrics.json'),JSON.stringify(layouts));

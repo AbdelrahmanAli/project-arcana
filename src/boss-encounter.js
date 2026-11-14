@@ -4,7 +4,7 @@ import {bossDirection} from './boss-animation.js';
 // Boss state has no soldier inventory, bank hazards, or controller input. The
 // authoritative match owns it; clients only render snapshots of this state.
 export const BOSS_DEFINITIONS = Object.freeze({
-  riverside: { id: 'siegebreaker', name: 'SIEGEBREAKER', attacks: ['cannon', 'ricochet', 'broadside', 'turretSweep'] },
+  riverside: { id: 'siegebreaker', name: 'SIEGEBREAKER', attacks: ['cannon', 'missileBarrage', 'laserSweep', 'nuclearStrike'] },
   storm: { id: 'nightWraith', name: 'NIGHT WRAITH', attacks: ['chain', 'spectralArc', 'decoys', 'thunderPulse'] },
   magma: { id: 'cinderGiant', name: 'CINDER GIANT', attacks: ['moltenFist', 'fissure', 'boulder', 'fragments'] },
   desert: { id: 'duneMaw', name: 'DUNE MAW', attacks: ['sandBlade', 'burrow', 'vortex', 'sandTeeth'] },
@@ -12,26 +12,26 @@ export const BOSS_DEFINITIONS = Object.freeze({
 });
 
 const ATTACK_RULES = Object.freeze({
-  cannon: { windup: .85, active: .45, recovery: .75, damage: 18, radius: 24 },
-  ricochet: { windup: 1.1, active: .65, recovery: .9, damage: 21, radius: 36 },
-  broadside: { windup: 1.05, active: .55, recovery: 1, damage: 23, radius: 32 },
-  turretSweep: { windup: 1, active: .95, recovery: 1, damage: 13, radius: 22 },
-  chain: { windup: .9, active: .55, recovery: .85, damage: 17, radius: 26 },
-  spectralArc: { windup: .8, active: .7, recovery: .8, damage: 14, radius: 25 },
+  cannon: { windup: .85, active: .65, recovery: .75, damage: 24, radius: 30, travel:.24 },
+  missileBarrage: { windup: 1.15, active: 1.2, recovery: .85, damage: 28, radius: 39, travel:.55 },
+  laserSweep: { windup: 1.05, active: 1, recovery: .85, damage: 27, radius: 28, travel:.17 },
+  nuclearStrike: { windup: 1.55, active: 1.2, recovery: 1.2, damage: 40, radius: 64, travel:.72 },
+  chain: { windup: .9, active: .55, recovery: .85, damage: 24, radius: 32, travel:.22 },
+  spectralArc: { windup: .8, active: .7, recovery: .8, damage: 21, radius: 31, travel:.24 },
   decoys: { windup: .75, active: 1, recovery: .75, damage: 0, radius: 0 },
-  thunderPulse: { windup: 1.15, active: .45, recovery: 1, damage: 22, radius: 38 },
-  moltenFist: { windup: .9, active: .6, recovery: .9, damage: 19, radius: 32 },
-  fissure: { windup: 1.2, active: .75, recovery: 1, damage: 16, radius: 28 },
-  boulder: { windup: 1.1, active: .8, recovery: 1, damage: 24, radius: 35 },
-  fragments: { windup: .8, active: .75, recovery: .85, damage: 12, radius: 20 },
-  sandBlade: { windup: .9, active: .7, recovery: .8, damage: 15, radius: 27 },
-  burrow: { windup: 1.2, active: .55, recovery: 1, damage: 22, radius: 32 },
-  vortex: { windup: 1, active: 1, recovery: .8, damage: 9, radius: 42 },
-  sandTeeth: { windup: .95, active: .5, recovery: .9, damage: 17, radius: 24 },
-  icicles: { windup: .9, active: .75, recovery: .85, damage: 14, radius: 20 },
-  iceBeam: { windup: 1.05, active: .7, recovery: .9, damage: 17, radius: 25 },
-  iceBoulder: { windup: 1.15, active: .85, recovery: 1, damage: 21, radius: 34 },
-  frostWave: { windup: .95, active: .65, recovery: .9, damage: 16, radius: 27 },
+  thunderPulse: { windup: 1.15, active: .45, recovery: 1, damage: 33, radius: 47, travel:.18 },
+  moltenFist: { windup: .9, active: .6, recovery: .9, damage: 28, radius: 40, travel:.2 },
+  fissure: { windup: 1.2, active: .75, recovery: 1, damage: 23, radius: 33, travel:.15 },
+  boulder: { windup: 1.1, active: .8, recovery: 1, damage: 34, radius: 43, travel:.48 },
+  fragments: { windup: .8, active: .75, recovery: .85, damage: 19, radius: 28, travel:.38 },
+  sandBlade: { windup: .9, active: .7, recovery: .8, damage: 22, radius: 33, travel:.19 },
+  burrow: { windup: 1.2, active: .55, recovery: 1, damage: 32, radius: 43, travel:.16 },
+  vortex: { windup: 1, active: 1, recovery: .8, damage: 13, radius: 48, travel:.15 },
+  sandTeeth: { windup: .95, active: .5, recovery: .9, damage: 24, radius: 30, travel:.14 },
+  icicles: { windup: .9, active: .75, recovery: .85, damage: 22, radius: 28, travel:.43 },
+  iceBeam: { windup: 1.05, active: .7, recovery: .9, damage: 24, radius: 31, travel:.18 },
+  iceBoulder: { windup: 1.15, active: .85, recovery: 1, damage: 32, radius: 44, travel:.48 },
+  frostWave: { windup: .95, active: .65, recovery: .9, damage: 23, radius: 34, travel:.15 },
 });
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -48,16 +48,19 @@ export function bossAttackZones(type,x,y){
   const row=(count,spacing,delay=.13)=>Array.from({length:count},(_,i)=>point(x+(i-(count-1)/2)*spacing,y,i*delay));
   const column=(count,spacing,delay=.12)=>Array.from({length:count},(_,i)=>point(x,y+(i-(count-1)/2)*spacing,i*delay));
   switch(type){
-    case 'cannon':return [point(x-33,y,0,.8),point(x+33,y,.13,.8)];
-    case 'ricochet':case 'chain':return [point(x-46,y,0),point(x+52,y+28,.28)];
-    case 'broadside':case 'fragments':case 'icicles':return row(3,53);
-    case 'turretSweep':case 'fissure':case 'iceBeam':return column(4,58);
+    case 'cannon':return [point(x-36,y,0,.85),point(x+36,y,.12,.85)];
+    case 'missileBarrage':return row(3,79,.17);
+    case 'laserSweep':return column(4,65,.12);
+    case 'nuclearStrike':return [point(x,y)];
+    case 'chain':return [point(x-53,y,0),point(x+53,y+28,.28)];
+    case 'fragments':case 'icicles':return row(3,67);
+    case 'fissure':case 'iceBeam':return column(4,65);
     case 'spectralArc':case 'sandBlade':return [point(x-54,y+18),point(x,y,.13),point(x+54,y+18,.26)];
     case 'thunderPulse':case 'moltenFist':case 'burrow':case 'iceBoulder':return [point(x,y,0,1.25)];
     case 'boulder':return [point(x,y,0,1.3),point(x-52,y+25,.22,.65),point(x+52,y+25,.32,.65)];
     case 'vortex':return [point(x,y,0,1.5),point(x,y,.32,1.1),point(x,y,.64,.75)];
     case 'sandTeeth':return [point(x-72,y),point(x+24,y,.12),point(x+72,y,.24)];
-    case 'frostWave':return row(4,48,.1);
+    case 'frostWave':return row(4,58,.1);
     case 'decoys':return [point(x-48,y,0,.7),point(x+48,y,.18,.7)];
     default:return [point(x,y)];
   }

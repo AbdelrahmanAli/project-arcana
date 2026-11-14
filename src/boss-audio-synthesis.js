@@ -8,9 +8,9 @@ export const BOSS_SOUND_PROFILES=Object.freeze({
     move:{interval:.34,volume:.12,sound:clip(.3,event('boom',0,.18,88,55,.6),event('metal',.025,.21,290,240,.24),event('scrape',.06,.22,110,90,.19))},
     attacks:{
       cannon:clip(.65,event('boom',0,.36,90,38,.9),event('crack',0,.14,620,330,.55),event('boom',.12,.38,78,32,.75),event('crack',.12,.13,570,300,.46)),
-      ricochet:clip(.68,event('metal',0,.26,1320,720,.8),event('metal',.18,.26,1020,540,.6),event('metal',.37,.24,760,390,.42),event('scrape',.06,.5,670,220,.18)),
-      broadside:clip(.8,event('boom',0,.36,78,38,.68),event('boom',.1,.4,76,36,.72),event('boom',.22,.42,72,32,.76),event('crack',0,.43,530,260,.34)),
-      turretSweep:clip(.73,event('metal',0,.22,210,330,.28),event('tone',.12,.52,430,1030,.47),event('scrape',.16,.52,760,420,.33)),
+      missileBarrage:clip(.9,event('wind',0,.56,480,105,.55),event('boom',.13,.3,128,46,.48),event('boom',.32,.32,117,43,.55),event('boom',.52,.35,105,36,.6),event('crack',.62,.18,720,290,.32)),
+      laserSweep:clip(.82,event('tone',0,.72,220,1170,.62),event('scrape',.08,.66,1250,490,.42),event('crack',.2,.15,1700,660,.4)),
+      nuclearStrike:clip(1.15,event('wind',0,.56,160,80,.39),event('boom',.38,.7,110,24,1),event('crack',.4,.32,780,150,.6),event('ghost',.58,.5,380,130,.26)),
     },
   },
   storm:{
