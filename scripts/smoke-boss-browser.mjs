@@ -9,7 +9,11 @@ try{
   const context=await browser.newContext({viewport:{width:470,height:940}});
   for(const map of ['riverside','storm','magma','desert','snow']){
     const page=await context.newPage();
+    const bossAudioResponses=[];
     page.on('pageerror',error=>errors.push(`${map}: ${error.message}`));
+    page.on('response',response=>{
+      if(response.url().includes('/audio/bosses/'))bossAudioResponses.push({url:response.url(),status:response.status()});
+    });
     await page.goto(origin,{waitUntil:'domcontentloaded'});
     await page.locator('#menu-play:not([disabled])').waitFor({timeout:120000});
     await page.locator('#menu-play').click();
@@ -25,6 +29,8 @@ try{
     await page.locator('#lineup-start').click();
     await page.locator('#boss-hud:not([hidden])').waitFor({timeout:30000});
     await page.locator('#match-countdown').waitFor({state:'hidden',timeout:10000});
+    await page.waitForFunction(expected=>performance.getEntriesByType('resource').some(entry=>entry.name.endsWith(`/audio/bosses/${expected}.wav`)),map,{timeout:10000});
+    if(!bossAudioResponses.some(response=>response.url.endsWith(`/audio/bosses/${map}.wav`)&&response.status===200))throw new Error(`${map} boss audio bank did not load`);
     const snapshot=await page.evaluate(()=>window.arcana.snapshot());
     if(!snapshot.bossMode||snapshot.boss.map!==map||snapshot.players.length!==2)throw new Error(`Invalid ${map} solo boss state`);
     if(snapshot.platformAttacks.length)throw new Error(`${map} platform attacked boss match`);

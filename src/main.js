@@ -437,6 +437,7 @@ function beginMatch(){
   cancelDealAnimation();
   cancelMapDealAnimation();
   started=false;starting=true;countdownElapsed=0;countdownStage='ready';countdownSuspended=false;sceneDirty=true;sound.init();clearInput();
+  if(game.bossMode)sound.loadBoss(game.map);
   $('match-countdown').hidden=false;$('match-countdown').classList.remove('fight');$('countdown-word').textContent='READY!';
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
   document.querySelector('.game-unit').classList.remove('ended','paused','menu-open');
@@ -2119,8 +2120,8 @@ async function boot(){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
         if(event.type==='bossHit')showNumber(1,event.amount);
         if(event.type==='shot')sound.play(event.weapon,event.x);
-        else if(event.type==='bossWindup')sound.play(({riverside:'platformAim',storm:'lightningCharge',magma:'volcanoRockLaunch',desert:'quicksand',snow:'iceFall'})[game.map],event.x);
-        else if(event.type==='bossAttack')sound.play(({riverside:'barrelBlast',storm:'lightningStrike',magma:'volcanoRockImpact',desert:'eagleHit',snow:'hailImpact'})[game.map],event.x);
+        else if(event.type==='bossWindup')sound.playBoss(game.map,`windup-${event.attack}`,game.boss.x);
+        else if(event.type==='bossAttack')sound.playBoss(game.map,`attack-${event.attack}`,event.x);
         else if(event.type==='fighterDeath')sound.play(`death-${event.characterId}`,event.x);
         else if(event.type!=='sandstorm'&&event.type!=='hail'&&event.type!=='tornado')sound.play(event.type,event.x);
         if(event.type==='heal'){
@@ -2140,6 +2141,7 @@ async function boot(){
       sound.lowHealth(localFighter().hp>0&&localFighter().hp<=LOW_HEALTH_THRESHOLD);
       sound.environment(game.map,!!game.sandstorm);
       sound.tornado(game.map===MAPS.STORM&&game.tornadoes.length>0);
+      sound.bossMotion(game.bossMode?game.map:null,game.bossMode&&game.boss.hp>0&&Math.hypot(game.boss.vx||0,game.boss.vy||0)>25,game.boss?.x,game.time);
       sound.platform(game.platform.phase,game.map);
     } else accumulator=0;
     for(const label of document.querySelectorAll('.opponent-toast'))if(performance.now()>Number(label.dataset.until||0))label.style.opacity=0;

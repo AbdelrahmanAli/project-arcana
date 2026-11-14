@@ -1,4 +1,5 @@
 import { Howl, Howler } from 'howler';
+import bossAudioSprites from './generated/boss-audio-sprites.json';
 
 const AUDIO_PREFS_KEY='tower-deal-audio-v1';
 function loadAudioPrefs(){
@@ -242,7 +243,8 @@ export class Sound {
   constructor(){
     const prefs=loadAudioPrefs();
     this.muted=prefs.muted===true;
-    this.ready=false;this.clips={};this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;
+    this.ready=false;this.clips={};this.bossAtlases={};this.bossStepMap=null;this.nextBossStepAt=0;
+    this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;
   }
   init(){
     if(this.ready){Howler.ctx?.resume();return;}
@@ -304,6 +306,26 @@ export class Sound {
     Howler.mute(this.muted);Howler.ctx?.resume();
   }
   play(name,x,rate=1){if(this.muted||!this.ready)return;const s=this.clips[name];if(s){const id=s.play();if(x!==undefined)s.stereo((x/480-.5)*.6,id);if(rate!==1)s.rate(rate,id);}}
+  loadBoss(map){
+    if(!this.ready||!bossAudioSprites[map]||this.bossAtlases[map])return;
+    this.bossAtlases[map]=new Howl({src:[`${import.meta.env.BASE_URL}audio/bosses/${map}.wav`],format:['wav'],sprite:bossAudioSprites[map].sprites,preload:true,pool:12});
+  }
+  playBoss(map,clip,x){
+    if(this.muted||!this.ready)return;
+    this.loadBoss(map);
+    const sound=this.bossAtlases[map];
+    if(!sound||!bossAudioSprites[map]?.sprites[clip])return;
+    const id=sound.play(clip);
+    sound.volume(clip==='move'?bossAudioSprites[map].moveVolume:clip.startsWith('windup-')?.15:.29,id);
+    if(x!==undefined)sound.stereo((x/480-.5)*.6,id);
+  }
+  bossMotion(map,moving,x,time){
+    if(!map||!moving||!this.ready){this.bossStepMap=null;this.nextBossStepAt=0;return;}
+    if(this.bossStepMap!==map){this.bossStepMap=map;this.nextBossStepAt=time;}
+    if(time<this.nextBossStepAt)return;
+    this.playBoss(map,'move',x);
+    this.nextBossStepAt=time+bossAudioSprites[map].moveInterval;
+  }
   burn(active){if(!this.ready||this.burning===active)return;this.burning=active;if(active)this.clips.burning.play();else this.clips.burning.stop();}
   lowHealth(active){if(!this.ready||this.heartbeatPlaying===active)return;this.heartbeatPlaying=active;if(active)this.clips.heartbeat.play();else this.clips.heartbeat.stop();}
   tornado(active){if(!this.ready||this.tornadoing===active)return;this.tornadoing=active;if(active)this.clips.tornado.play();else this.clips.tornado.stop();}
@@ -330,5 +352,5 @@ export class Sound {
     if(wet)this.clips.water.volume(.018);
   }
   toggle(){this.muted=!this.muted;Howler.mute(this.muted);saveAudioPrefs(this);return this.muted;}
-  stop(){this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;Howler.stop();}
+  stop(){this.burning=false;this.watering=false;this.storming=false;this.tornadoing=false;this.heartbeatPlaying=false;this.platformPhase=null;this.ambientMap=null;this.bossStepMap=null;this.nextBossStepAt=0;Howler.stop();}
 }
