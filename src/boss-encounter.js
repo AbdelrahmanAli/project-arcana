@@ -1,4 +1,4 @@
-import { BANK_BOUNDS, W } from './model.js';
+import { BANK_BOUNDS, W } from './arena-geometry.js';
 
 // Boss state has no soldier inventory, bank hazards, or controller input. The
 // authoritative match owns it; clients only render snapshots of this state.
@@ -34,6 +34,29 @@ const ATTACK_RULES = Object.freeze({
 });
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const BOSS_MOTION=Object.freeze({riverside:[54,10,.27],storm:[76,21,.38],magma:[32,5,.2],desert:[83,8,.31],snow:[29,7,.18]});
+const point=(x,y,delay=0,scale=1)=>({x:clamp(x,30,W-30),y:clamp(y,BANK_BOUNDS[0].minY+20,BANK_BOUNDS[0].maxY-20),delay,scale});
+
+// Every attack exposes its landing pattern during the windup. Staggered
+// impacts preserve a dodge route instead of filling the entire bank at once.
+export function bossAttackZones(type,x,y){
+  const row=(count,spacing,delay=.13)=>Array.from({length:count},(_,i)=>point(x+(i-(count-1)/2)*spacing,y,i*delay));
+  const column=(count,spacing,delay=.12)=>Array.from({length:count},(_,i)=>point(x,y+(i-(count-1)/2)*spacing,i*delay));
+  switch(type){
+    case 'cannon':return [point(x-33,y,0,.8),point(x+33,y,.13,.8)];
+    case 'ricochet':case 'chain':return [point(x-46,y,0),point(x+52,y+28,.28)];
+    case 'broadside':case 'fragments':case 'icicles':return row(3,53);
+    case 'turretSweep':case 'fissure':case 'iceBeam':return column(4,58);
+    case 'spectralArc':case 'sandBlade':return [point(x-54,y+18),point(x,y,.13),point(x+54,y+18,.26)];
+    case 'thunderPulse':case 'moltenFist':case 'burrow':case 'iceBoulder':return [point(x,y,0,1.25)];
+    case 'boulder':return [point(x,y,0,1.3),point(x-52,y+25,.22,.65),point(x+52,y+25,.32,.65)];
+    case 'vortex':return [point(x,y,0,1.5),point(x,y,.32,1.1),point(x,y,.64,.75)];
+    case 'sandTeeth':return [point(x-72,y),point(x+24,y,.12),point(x+72,y,.24)];
+    case 'frostWave':return row(4,48,.1);
+    case 'decoys':return [point(x-48,y,0,.7),point(x+48,y,.18,.7)];
+    default:return [point(x,y)];
+  }
+}
 
 export class BossEncounter {
   constructor(map, fighterCount = 1, random = Math.random) {
@@ -52,6 +75,8 @@ export class BossEncounter {
     this.sequence = 0;
     this.lastTargetId = null;
     this.weakPoint = 0;
+    this.hitFlash=0;
+    this.deathAge=0;
     this.current = null;
     this.random = random;
     this.defeated = false;
@@ -61,6 +86,7 @@ export class BossEncounter {
     if (this.defeated || !Number.isFinite(amount) || amount <= 0) return 0;
     const dealt = Math.min(this.hp, amount * (hitWeakPoint && this.weakPoint > 0 ? 1.5 : 1));
     this.hp -= dealt;
+    this.hitFlash=.16;
     if (this.hp <= 0) this.defeated = true;
     return dealt;
   }
@@ -70,7 +96,13 @@ export class BossEncounter {
     const events = [];
     const step = clamp(dt, 0, 1 / 30);
     this.elapsed += step;
+    if(!this.current||this.map==='storm'){
+      const [rangeX,rangeY,rate]=BOSS_MOTION[this.map];
+      this.x=W/2+Math.sin(this.elapsed*rate)*rangeX;
+      this.y=(BANK_BOUNDS[1].minY+BANK_BOUNDS[1].maxY)/2+Math.sin(this.elapsed*rate*.65)*rangeY;
+    }
     this.weakPoint = Math.max(0, this.weakPoint - step);
+    this.hitFlash=Math.max(0,this.hitFlash-step);
     const nextPhase = this.hp <= this.maxHp * .35 ? 2 : this.hp <= this.maxHp * .7 ? 1 : 0;
     if (nextPhase > this.phase) {
       this.phase = nextPhase;
@@ -102,8 +134,8 @@ export class BossEncounter {
     const types = BOSS_DEFINITIONS[this.map].attacks;
     const type = types[(this.sequence + Math.floor(this.random() * Math.min(2, types.length))) % types.length];
     this.sequence++;
-    this.current = { type, targetId: target.id, x: clamp(target.x, 35, W - 35), y: clamp(target.y, BANK_BOUNDS[0].minY + 25, BANK_BOUNDS[0].maxY - 25), age: 0, fired: false };
-    events.push({ type: 'bossWindup', attack: type, targetId: target.id, x: this.current.x, y: this.current.y, duration: ATTACK_RULES[type].windup });
+    this.current = { type, targetId: target.id, x: clamp(target.x, 35, W - 35), y: clamp(target.y, BANK_BOUNDS[0].minY + 25, BANK_BOUNDS[0].maxY - 25), age: 0, windup:ATTACK_RULES[type].windup, radius:ATTACK_RULES[type].radius, fired: false };
+    events.push({ type: 'bossWindup', attack: type, targetId: target.id, x: this.current.x, y: this.current.y, zones:bossAttackZones(type,this.current.x,this.current.y), duration: ATTACK_RULES[type].windup });
     return events;
   }
 

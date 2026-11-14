@@ -12,7 +12,7 @@ export function matchOptions(value) {
   if(!validDifficulty(difficulty))throw new RangeError('Unknown computer difficulty');
   const teamMode = value.teamMode || (format === '1v1' ? 'duel' : 'versus');
   if (!['1v1', '2v2'].includes(format)) throw new RangeError('Unknown match format');
-  if (format === '1v1' ? teamMode !== 'duel' : !['coop', 'versus'].includes(teamMode)) throw new RangeError('Unknown online team mode');
+  if (format === '1v1' ? teamMode !== 'duel' : !['coop', 'versus', 'boss'].includes(teamMode)) throw new RangeError('Unknown online team mode');
   if (!Object.values(GAME_MODES).includes(mode)) throw new RangeError('Unknown weapon mode');
   if (!MAP_TYPES.includes(map)) throw new RangeError('Unknown map');
   if (mode === GAME_MODES.CHOOSE_FIXED && !DROP_TYPES.includes(weapon)) {
@@ -27,7 +27,7 @@ export function fighterCount(format) {
 
 export function humanSeats(options) {
   if (options.format === '1v1') return [0, 1];
-  return options.teamMode === 'coop' ? [0, 2] : [0, 1, 2, 3];
+  return ['coop','boss'].includes(options.teamMode) ? [0, 2] : [0, 1, 2, 3];
 }
 
 export function availableSeat(seats, options, team = null) {
@@ -100,6 +100,10 @@ export function snapshot(match) {
     fixedWeapon: match.fixedWeapon,
     format: match.format,
     difficulty: match.difficulty,
+    bossMode:match.bossMode,
+    boss:match.bossMode?match.boss.snapshot():null,
+    bossEffects:match.bossEffects,
+    bossHazards:match.bossHazards,
     launches: match.launches,
     marksRevision: match.marksRevision,
     players: match.players,

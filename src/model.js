@@ -1,16 +1,13 @@
 import {AI_DIFFICULTIES,DEFAULT_DIFFICULTY,validDifficulty} from './ai-difficulty.js';
+import {BossEncounter,bossAttackZones} from './boss-encounter.js';
 import { CHARACTER_BY_ID, resolveLineup } from './characters.js';
-import { W, H, RIVER } from './arena-geometry.js';
+import { W, H, RIVER, BANK_BOUNDS } from './arena-geometry.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE, supplyPort, attackVent} from './platform.js';
 import {AI_MEMORY_SECONDS,hazardZones,dangerAt,pathDanger,safeDestination,advantageousBarrel,shotPlan,coverPosition,laserThreat,dodgeDestination} from './ai-tactics.js';
 
-export { W, H, RIVER };
+export { W, H, RIVER, BANK_BOUNDS };
 export {PLATFORM_TIMING, PLATFORM_GEOMETRY, PLATFORM_VOLLEY, PLATFORM_HEAL_CHANCE};
-export const BANK_BOUNDS = [
-  { minY: 590, maxY: 870 },
-  { minY: 70, maxY: 350 },
-];
 export const GRENADE_ARC_HEIGHT = 235;
 export const BLAST_RADIUS = { grenade: 60, missile: 58, nuclear: 52 };
 export const GRENADE_STUN_DURATION = 2.2;
@@ -137,6 +134,8 @@ function routeAroundCrates(start,target,crates,bank,zones=[]){
 export class Match {
   constructor(random = Math.random, options = {}) {
     this.random=random; this.time=0; this.id=0;
+    this.bossMode=!!options.bossMode;
+    this.hazardBanks=this.bossMode?[0]:[0,1];
     this.format=options.format||'1v1';
     const lineup=options.lineup||resolveLineup(()=>0,options.character||'elias',this.format);
     const roster=this.format==='2v2'?[lineup.player,lineup.opponent,lineup.teammate,lineup.opponent2]:[lineup.player,lineup.opponent];
@@ -158,14 +157,22 @@ export class Match {
     if(!Object.values(GAME_MODES).includes(this.mode))throw new RangeError('Unknown game mode');
     this.map=options.map||MAPS.RIVERSIDE;
     if(!MAP_TYPES.includes(this.map))throw new RangeError('Unknown map');
+    if(this.bossMode){
+      // Weapon collision and teammate AI share a target adapter. The separate
+      // encounter owns boss HP, phases, and attacks; this actor never uses
+      // soldier inventory, input, or ordinary map hazards.
+      this.boss=new BossEncounter(this.map,this.format==='2v2'?2:1,random);
+      const proxy=this.players[1];proxy.controller='boss';proxy.boss=true;proxy.x=this.boss.x;proxy.y=this.boss.y;proxy.hp=this.boss.hp;
+      if(this.format==='2v2')this.players.pop();
+    }
     if(this.mode===GAME_MODES.CHOOSE_FIXED&&!DROP_TYPES.includes(options.weapon))throw new RangeError('Choose Fixed Weapon requires a valid weapon');
     this.fixedWeapon=this.mode===GAME_MODES.RANDOM_FIXED?DROP_TYPES[Math.floor(this.random()*DROP_TYPES.length)]:this.mode===GAME_MODES.CHOOSE_FIXED?options.weapon:null;
-    this.bullets=[]; this.pickups=[]; this.flames=[]; this.platformAttacks=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];
+    this.bullets=[]; this.pickups=[]; this.flames=[]; this.platformAttacks=[]; this.effects=[]; this.beams=[]; this.events=[]; this.marks=[]; this.marksRevision=0;this.waste=[];this.bossEffects=[];this.bossHazards=[];
     this.mud=[];this.lightning=[];this.tornadoes=[];this.rocksInFlight=[];this.volcanicFire=[];this.ash=null;
     this.sandstorm=null;this.eagles=[];this.quicksand=[];this.mirages=[];this.icePatches=[];this.avalanches=[];this.hail=[];
     this.nextEnvironmentEvent=11;this.environmentCycle=0;this.nextMud=20;
-    if(this.map===MAPS.STORM){this.addMudPair(0);this.addMudPair(1);}
-    this.obstacles=this.makeObstacles();
+    if(this.map===MAPS.STORM){this.addMudPair(0);if(!this.bossMode)this.addMudPair(1);}
+    this.obstacles=this.makeObstacles().filter(obstacle=>!this.bossMode||obstacle.owner===0);
     this.placeFighters();
     if(this.map===MAPS.SNOW)this.addIcePatches();
     this.platform={phase:'idle',progress:0,firstAttack:false,secondAttackFired:false};
@@ -208,10 +215,10 @@ export class Match {
   addMudPair(index){
     const sites=[[118,737],[360,790],[305,670],[155,835]];
     const [x,y]=sites[index%sites.length];
-    for(const owner of [0,1])this.mud.push({id:this.id++,owner,x:owner===0?x:W-x,y:owner===0?y:2*RIVER.y-y,radius:40});
+    for(const owner of this.hazardBanks)this.mud.push({id:this.id++,owner,x:owner===0?x:W-x,y:owner===0?y:2*RIVER.y-y,radius:40});
   }
   addIcePatches(){
-    for(const owner of [0,1])for(let index=0;index<2;index++){
+    for(const owner of this.hazardBanks)for(let index=0;index<2;index++){
       const occupied=this.icePatches.filter(patch=>patch.owner===owner);
       const site=this.environmentalPoint(owner,occupied);
       this.icePatches.push({id:this.id++,owner,...site,radius:39});
@@ -234,14 +241,14 @@ export class Match {
     const kind=this.environmentCycle++%(this.map===MAPS.DESERT?4:this.map===MAPS.SNOW?2:3);
     if(this.map===MAPS.STORM){
       if(kind===2){
-        for(const owner of [0,1]){
+        for(const owner of this.hazardBanks){
           const bank=BANK_BOUNDS[owner],y=bank.minY+75+this.random()*(bank.maxY-bank.minY-150);
           const direction=this.random()<.5?1:-1;
           this.tornadoes.push({id:this.id++,owner,x:direction>0?68:W-68,y,dx:direction,age:0,warning:1,life:6,hit:[false,false],pullingByPlayer:{}});
         }
         this.emit('tornado');
       }else{
-        for(const wave of [0,1])for(const owner of [0,1]){
+        for(const wave of [0,1])for(const owner of this.hazardBanks){
           const start=wave*LIGHTNING_WAVE_DELAY,warning=start+1.2;
           const occupied=this.lightning.filter(strike=>strike.owner===owner);
           this.lightning.push({id:this.id++,owner,wave,...this.environmentalPoint(owner,occupied),age:0,start,warning,life:warning+.6,hit:false,charged:wave===0});
@@ -250,7 +257,7 @@ export class Match {
       }
     }else if(this.map===MAPS.MAGMA){
       if(kind===2){this.ash={age:0,life:8.5};this.emit('ash');}
-      else for(const owner of [0,1]){
+      else for(const owner of this.hazardBanks){
         const point=this.environmentalPoint(owner,kind===0?this.rocksInFlight:[]);
         const event={id:this.id++,owner,...point,age:0,warning:1.3,hit:false};
         if(kind===0)this.rocksInFlight.push({...event,life:1.75});
@@ -263,7 +270,7 @@ export class Match {
         this.sandstorm={age:0,life:8.5,direction,y:direction>0?-170:H+170};
         this.emit('sandstorm');
       }else if(kind===1){
-        for(const owner of [0,1]){
+        for(const owner of this.hazardBanks){
           const p=this.fightersOnBank(owner)[Math.floor(this.random()*this.fightersOnBank(owner).length)]||this.players[owner];
           this.eagles.push({id:this.id++,owner,anchorX:p.x,anchorY:p.y,x:p.x,y:p.y,
             entrySide:this.random()<.5?-1:1,age:0,target1:null,target2:null,target:null,
@@ -272,13 +279,13 @@ export class Match {
         }
       }else if(kind===2){
         let added=false;
-        for(const owner of [0,1])if(this.quicksand.filter(patch=>patch.owner===owner).length<4){
+        for(const owner of this.hazardBanks)if(this.quicksand.filter(patch=>patch.owner===owner).length<4){
           this.quicksand.push({id:this.id++,owner,...this.environmentalPoint(owner,this.quicksand.filter(patch=>patch.owner===owner)),age:0,open:0,occupied:false,radius:PHASE6_RULES.quicksandRadius});
           added=true;
         }
         if(added)this.emit('quicksand');
       }else{
-        for(const owner of [0,1]){
+        for(const owner of this.hazardBanks){
           const type=this.random()<.5?'syringe':this.dropWeaponType();
           this.mirages.push({id:this.id++,owner,...this.environmentalPoint(owner),type,age:0,warning:2,life:12,state:'sun',strikeAge:0});
         }
@@ -286,7 +293,7 @@ export class Match {
       }
     }else if(this.map===MAPS.SNOW){
       if(kind===0){
-        for(const owner of [0,1]){
+        for(const owner of this.hazardBanks){
           const bank=BANK_BOUNDS[owner],direction=owner===1?1:-1;
           this.avalanches.push({id:this.id++,owner,x:W/2,
             y:direction>0?bank.minY-AVALANCHE.edge:bank.maxY+AVALANCHE.edge,
@@ -294,7 +301,7 @@ export class Match {
         }
         this.emit('avalanche');
       }else{
-        for(const owner of [0,1]){
+        for(const owner of this.hazardBanks){
           const bank=BANK_BOUNDS[owner];
           for(let wave=0;wave<2;wave++){
             const direction=this.random()<.5?1:-1;
@@ -317,7 +324,7 @@ export class Match {
   }
   updateEnvironment(dt){
     if(this.map===MAPS.RIVERSIDE)return;
-    if(this.map===MAPS.STORM&&this.nextMud<=this.time&&this.mud.length<8){this.addMudPair(this.mud.length/2);this.nextMud+=20;}
+    if(this.map===MAPS.STORM&&this.nextMud<=this.time&&this.mud.length<8){this.addMudPair(Math.floor(this.mud.length/this.hazardBanks.length));this.nextMud+=20;}
     if(this.time>=this.nextEnvironmentEvent){this.startEnvironmentEvent();this.nextEnvironmentEvent=this.time+(this.map===MAPS.STORM?14:this.map===MAPS.DESERT?15:this.map===MAPS.SNOW?14:13);}
     for(const strike of this.lightning){
       strike.age+=dt;
@@ -702,13 +709,13 @@ export class Match {
       const end={x:origin.x,y:p.bank===0?0:H};
       const obstacleHit=this.nearestObstacleHit(origin,end);
       const victimHit=this.opponentsOf(p).filter(target=>target.dodgeTime<=0)
-        .map(target=>({target,hit:segmentRectHit(origin,end,{left:target.x-16,right:target.x+16,top:target.y-16,bottom:target.y+16})}))
+        .map(target=>({target,hit:segmentRectHit(origin,end,{left:target.x-(target.boss?55:16),right:target.x+(target.boss?55:16),top:target.y-(target.boss?42:16),bottom:target.y+(target.boss?42:16)})}))
         .filter(result=>result.hit).sort((a,b)=>distance(origin,a.hit)-distance(origin,b.hit))[0];
       const hits=[obstacleHit&&{kind:'obstacle',hit:obstacleHit.hit,obstacle:obstacleHit.obstacle},victimHit&&{kind:'player',hit:victimHit.hit,target:victimHit.target}].filter(Boolean);
       const first=hits.reduce((nearest,hit)=>!nearest||distance(origin,hit.hit)<distance(origin,nearest.hit)?hit:nearest,null);
       if(first?.kind==='obstacle')this.hitObstacle(first.obstacle,shotId);
       else if(first?.kind==='player'){
-        if(this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE))>0){
+        if(this.damage(first.target,def.damage+Math.round(charge*LASER_BONUS_DAMAGE),first.hit.x,first.hit.y)>0){
           first.target.laserHit=.55;
           if(charge===1)first.target.criticalLaserHit=.55;
           p.hits++;
@@ -730,6 +737,13 @@ export class Match {
   }
   damage(p,amount,x=p.x,y=p.y) {
     if(p.hp<=0||p.dodgeTime>0) return 0;
+    if(p.boss){
+      const weak=this.boss.weakPoint>0&&Math.hypot(x-this.boss.x,y-(this.boss.y+18))<42;
+      const dealt=this.boss.damage(amount,weak);p.hp=this.boss.hp;
+      if(dealt>0)this.emit('bossHit',{x:p.x,y:p.y,amount:dealt});
+      if(this.boss.defeated)this.emit('bossDeath',{x:p.x});
+      return dealt;
+    }
     const dealt=Math.min(p.hp,amount);
     p.hp=Math.max(0,p.hp-amount); p.hurt=.13;
     this.effects.push({id:this.id++,type:'blood',x,y,age:0,life:1.1,seed:this.random()});
@@ -739,6 +753,7 @@ export class Match {
     return dealt;
   }
   damageOverTime(p,amount){
+    if(p.boss)return 0;
     if(p.hp<=0||p.dodgeTime>0)return 0;
     const dealt=Math.min(p.hp,amount);
     p.hp-=dealt;p.hazardDamage+=dealt;
@@ -766,17 +781,17 @@ export class Match {
     for(const target of targets){
       const d=distance(target,b);
       if(d>=radius)continue;
-      const dealt=this.damage(target,b.damage*(1-.4*d/radius));
+      const dealt=this.damage(target,b.damage*(1-.4*d/radius),b.x,b.y);
       if(dealt>0)shooter.hits++;
-      if(dealt>0&&stunGrenade&&target.hp>0&&target.stun<=0){target.stun=GRENADE_STUN_DURATION;target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
+      if(dealt>0&&stunGrenade&&!target.boss&&target.hp>0&&target.stun<=0){target.stun=GRENADE_STUN_DURATION;target.charge=0;target.moving=false;this.emit('stun',{player:target.id});}
     }
     if(nuclear)this.waste.push({id:this.id++,x:b.x,y:b.y});
     this.emit(effect,{x:b.x}); b.life=0;
   }
   startPlatformVolley(phase){
-    if(this.map!==MAPS.RIVERSIDE)return;
+    if(this.bossMode||this.map!==MAPS.RIVERSIDE)return;
     const type=['fire','lightning','icicle'][Math.floor(this.random()*3)];
-    for(const owner of [0,1]){
+    for(const owner of this.hazardBanks){
       const fighters=this.fightersOnBank(owner);
       if(!fighters.length)continue;
       for(const [index,p] of fighters.entries()){
@@ -827,7 +842,7 @@ export class Match {
     this.launches++;
     const pairedType=this.mode===GAME_MODES.RANDOM_SAME?this.dropWeaponType():null;
     const weaponDrops=[];
-    for(let owner=0;owner<2;owner++) for(let slot=0;slot<(this.format==='2v2'?2:1);slot++) {
+    for(const owner of this.hazardBanks) for(let slot=0;slot<(this.format==='2v2'?2:1);slot++) {
       const {x:sx,y:sy}=supplyPort(owner,slot);
       const bounds=BANK_BOUNDS[owner],margin=20;
       const type=pairedType||this.dropWeaponType();
@@ -847,7 +862,7 @@ export class Match {
       this.effects.push({id:this.id++,type:'launch',x:sx,y:sy,age:0,life:.32,seed:owner});
     }
     const healingLaunch=this.random()<PLATFORM_HEAL_CHANCE;
-    for(const owner of [0,1]){
+    for(const owner of this.hazardBanks){
       if(!healingLaunch)continue;
       const weapon=weaponDrops.find(drop=>drop.owner===owner),bounds=BANK_BOUNDS[owner];
       const clear=point=>point.x>=48&&point.x<=W-48&&point.y>=bounds.minY+20&&point.y<=bounds.maxY-20&&
@@ -1041,6 +1056,7 @@ export class Match {
     dt=Math.min(dt,1/30); this.time+=dt;
     if(this.ending>0){
       this.ending-=dt;
+      if(this.bossMode&&this.boss.defeated)this.boss.deathAge+=dt;
       for(const attack of this.platformAttacks)attack.age+=dt;
       this.platformAttacks=this.platformAttacks.filter(attack=>attack.hit&&attack.age<attack.life);
       for(const p of this.players){
@@ -1078,6 +1094,41 @@ export class Match {
       if(controls.pistol)this.fire(p,0,'pistol');
     }
     this.think(dt);
+    if(this.bossMode){
+      for(const event of this.boss.update(dt,this.players)){
+        this.emit(event.type,event);
+        if(event.type==='bossAttack'){
+          const rules=this.boss.attackRules(event.attack);
+          for(const zone of bossAttackZones(event.attack,event.x,event.y))this.bossEffects.push({id:this.id++,x:zone.x,y:zone.y,radius:rules.radius*zone.scale,damage:rules.damage,attack:event.attack,age:-zone.delay,life:.55,hit:false});
+        }
+      }
+      this.players[1].x=this.boss.x;this.players[1].y=this.boss.y;
+      for(const effect of this.bossEffects){
+        effect.age+=dt;
+        if(effect.age>=0&&!effect.hit){
+          effect.hit=true;
+          for(const fighter of this.fightersOnBank(0))if(Math.hypot(fighter.x-effect.x,fighter.y-effect.y)<effect.radius)this.damage(fighter,effect.damage);
+          if(effect.damage>0)this.mark('scorch',effect.x,effect.y,.45);
+          if(effect.damage>0)this.damageAreaObjects(effect.x,effect.y,effect.radius*.75);
+          if(['moltenFist','fissure'].includes(effect.attack))this.bossHazards.push({id:this.id++,x:effect.x,y:effect.y,radius:effect.radius+6,age:0,life:2.4,dps:7});
+          if(effect.attack==='iceBeam')this.icePatches.push({id:this.id++,owner:0,x:effect.x,y:effect.y,radius:34,ttl:3});
+        }
+        if(effect.attack==='vortex'&&effect.age>=0&&effect.age<effect.life){
+          for(const fighter of this.fightersOnBank(0)){
+            const d=Math.hypot(fighter.x-effect.x,fighter.y-effect.y);
+            if(d<effect.radius*2.5&&d>5&&fighter.dodgeTime<=0)this.move(fighter,(effect.x-fighter.x)/d,(effect.y-fighter.y)/d,dt*.48);
+          }
+        }
+      }
+      this.bossEffects=this.bossEffects.filter(effect=>effect.age<effect.life);
+      for(const hazard of this.bossHazards){
+        hazard.age+=dt;
+        for(const fighter of this.fightersOnBank(0))if(Math.hypot(fighter.x-hazard.x,fighter.y-hazard.y)<hazard.radius)this.damageOverTime(fighter,hazard.dps*dt);
+      }
+      this.bossHazards=this.bossHazards.filter(hazard=>hazard.age<hazard.life);
+      for(const patch of this.icePatches)if(patch.ttl!==undefined)patch.ttl-=dt;
+      this.icePatches=this.icePatches.filter(patch=>patch.ttl===undefined||patch.ttl>0);
+    }
     this.updatePlatformAttacks(dt);
     this.updateEnvironment(dt);
     for(const i of this.pickups){
@@ -1127,8 +1178,8 @@ export class Match {
       if(b.life<=0||!standard(b))continue;
       const shooter=this.ownerOf(b.owner);
       for(const victim of this.opponentsOf(shooter)){
-        if(victim.dodgeTime<=0&&segmentDistance(victim,{x:b.prevX,y:b.prevY},b)<15){
-          if(this.damage(victim,b.damage)>0)shooter.hits++;
+        if(victim.dodgeTime<=0&&segmentDistance(victim,{x:b.prevX,y:b.prevY},b)<(victim.boss?52:15)){
+          if(this.damage(victim,b.damage,b.x,b.y)>0)shooter.hits++;
           b.life=0;break;
         }
       }
@@ -1168,7 +1219,7 @@ export class Match {
     this.effects=this.effects.filter(e=>e.age<e.life);
     for(const b of this.beams)b.age+=dt;
     this.beams=this.beams.filter(b=>b.age<b.life);
-    for(const p of this.players)if(p.hp<=0&&!p.deathRecorded){
+    for(const p of this.players)if(p.hp<=0&&!p.boss&&!p.deathRecorded){
       p.deathRecorded=true;
       this.effects.push({id:this.id++,type:'death',x:p.x,y:p.y,age:0,life:DEATH_DURATION+1,seed:this.random()});
       this.mark('blood',p.x,p.y+20,1.5);

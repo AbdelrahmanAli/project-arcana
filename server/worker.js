@@ -70,8 +70,10 @@ export class MatchRoom extends DurableObject {
       if (this.room && checkpoint) {
         const restored = new Match(Math.random, this.matchConfig());
         const aiState = restored.aiState;
+        const boss = restored.boss;
         this.match = Object.assign(restored, decodeCheckpoint(checkpoint.match));
         this.match.random = Math.random;
+        if(boss)this.match.boss=Object.assign(boss,this.match.boss);
         for (const attack of this.match.platformAttacks) if (!(attack.damaged instanceof Set)) attack.damaged = new Set();
         if (!(this.match.aiState instanceof Map)) this.match.aiState = aiState;
         this.inputs = Array.from({length:this.match.players.length},()=>({...EMPTY_INPUT}));
@@ -84,6 +86,7 @@ export class MatchRoom extends DurableObject {
   matchConfig() {
     return {
       ...this.room.options,
+      bossMode:this.room.options.teamMode==='boss',
       lineup: lineupFromSeats(this.room.seats),
       controllers: this.room.seats.map(seat => seat?.computer ? 'computer' : 'human'),
     };

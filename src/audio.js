@@ -272,6 +272,9 @@ export class Sound {
     this.clips.platformCue=new Howl({src:[platformCueWav()],format:['wav'],volume:.12,preload:true});
     this.clips.platformFire=new Howl({src:[fireWhooshWav()],format:['wav'],volume:.19,preload:true});
     this.clips.platformAim=new Howl({src:[wav(.24,470,.28,8)],format:['wav'],volume:.13,preload:true});
+    this.clips.bossPhase=new Howl({src:[wav(.75,145,.55,3)],format:['wav'],volume:.26,preload:true,pool:3});
+    this.clips.bossHit=new Howl({src:[wav(.16,110,.68,13)],format:['wav'],volume:.15,preload:true,pool:8});
+    this.clips.bossDeath=new Howl({src:[wav(1.1,57,.85,2.7)],format:['wav'],volume:.36,preload:true});
     this.clips.water=new Howl({src:[waterWav()],format:['wav'],volume:0,loop:true,preload:true});
     this.clips.rain=new Howl({src:[weatherWav('rain')],format:['wav'],volume:.045,loop:true,preload:true});
     this.clips.lava=new Howl({src:[weatherWav('lava')],format:['wav'],volume:.04,loop:true,preload:true});

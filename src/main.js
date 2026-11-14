@@ -10,6 +10,7 @@ import { fighterFacing, fighterMotion, WALK_SEQUENCE } from './fighter-animation
 import { directShotDepth, laserDepthSegments } from './projectile-depth.js';
 import { ashCloudVisuals } from './phase5-visuals.js';
 import { OnlineRoomClient } from './online.js';
+import {BOSS_DEFINITIONS,bossAttackZones} from './boss-encounter.js';
 import { inputForSeat, projectOnlineState } from './online-perspective.js';
 import './style.css';
 import './hud.css';
@@ -23,6 +24,7 @@ import './menu-scene.css';
 import './game-menus.css';
 import './combat-ui.css';
 import './typography.css';
+import './boss.css';
 
 const $=id=>document.getElementById(id);
 $('menu').style.setProperty('--menu-scene-art',`url("${import.meta.env.BASE_URL}art/arena.png")`);
@@ -31,8 +33,8 @@ let game=new Match(),started=false,starting=false,countdownElapsed=0,countdownSt
 let selectedMode=GAME_MODES.RANDOM,selectedWeapon=null,selectedMap=MAPS.RIVERSIDE;
 let selectedDifficulty=DEFAULT_DIFFICULTY;
 try {const saved=localStorage.getItem('division-difficulty-v1');if(validDifficulty(saved))selectedDifficulty=saved;}catch{/* Storage is optional. */}
-let selectedFormat='1v1',selectedCharacter='elias',lineupSelections={opponent:'random',teammate:'random',opponent2:'random'},resolvedLineup=null;
-let playKind='computer',onlineClient=null,onlineSeat=0,onlineToken=null,onlineStatus=null,onlineActive=false,onlineConnected=false,onlineFrame=-1,onlineTargets=null,onlineEventQueue=[];
+let selectedFormat='1v1',selectedBossMode=false,selectedCharacter='elias',lineupSelections={opponent:'random',teammate:'random',opponent2:'random'},resolvedLineup=null;
+let playKind='computer',onlineClient=null,onlineSeat=0,onlineToken=null,onlineStatus=null,onlineActive=false,onlineConnected=false,onlineFrame=-1,onlineTargets=null,onlineBossTarget=null,onlineEventQueue=[];
 let onlineTeamMode='duel',onlineSelectedTeam=1,invitedRoomId=null;
 const localFighter=()=>game.players[onlineActive?onlineSeat:0]||game.players[0];
 const visibleOpponent=()=>game.players.find(fighter=>fighter.team!==localFighter().team)||game.players[1];
@@ -53,6 +55,7 @@ const characterRollFrames=new Map();
 const characterDeathFrames=new Map();
 let arenaGroups={},waterTiles={},farBarrier,nearBarrier,rockBarrierTexture,snowBarrierTexture,volcanoVents=[],volcanicRockTexture,tornadoFrames=[],lightningFrames=[],mudTexture,ashCloudTexture,lavaProjectileFrames=[],lavaPoolFrames=[],burningRockFlightFrames=[],burningRockGroundFrames=[],rockCoolingFrames=[],mudLayer,environmentGround,environmentSky,lightningLayer,ashCloudLayer,ashPuffs=[],ashVentPuffs=[],rockFlightSprites=new Map(),tornadoSprites=new Map(),lightningSprites=new Map(),volcanicFireSprites=new Map(),mudSprites=new Map();
 let phase6Frames={},phase6Sprites=new Map(),phase6WeatherLayer,phase6WeatherDraw,sandstormSprites=[];
+const bossFrames=new Map(),bossAttackFrames=new Map(),bossAttackSprites=new Map(),bossHazardSprites=new Map(),bossDecoys=[];let bossSprite;
 let sceneDirty=true;
 const BASE_Y=PLATFORM_GEOMETRY.y;
 const PLATFORM_SIDE_FOAM_RISE=8;
@@ -256,6 +259,15 @@ function cancelMapDealAnimation(){
 function showMenuPanel(id){
   if(id!=='deal-panel')cancelDealAnimation();
   if(id!=='map-deal-panel')cancelMapDealAnimation();
+  if(id==='map-panel')for(const button of document.querySelectorAll('#map-panel .map-choice[data-map]')){
+    const map=button.dataset.map,description=button.querySelector('small');
+    if(map!=='random'&&description)description.textContent=selectedBossMode?`Face ${BOSS_DEFINITIONS[map].name}. Hazards remain on your bank.`:MAP_DETAILS[map];
+  }
+  if(id==='mode-panel'){
+    const same=$('mode-panel').querySelector('[data-mode="random-same"] small');
+    if(same)same.textContent=selectedBossMode?'Each launch deals one random weapon type to your team.':'Each launch deals one random weapon type to both banks.';
+  }
+  if(id==='deal-panel')$('deal-panel').querySelector('p').textContent=selectedBossMode?'Your bank will receive this weapon for the round.':'Both banks will be dealt this weapon for the round.';
   for(const panel of menuPanels)$(panel).classList.toggle('hidden',panel!==id);
   $('menu').dataset.screen=id;
   const heading=$(id).querySelector('h2');
@@ -270,6 +282,13 @@ function buildMenuArt(){
       const icon=document.createElement('span');icon.className=`rule-icon rule-icon-${button.dataset.mode}`;
       art.appendChild(icon);
     }else{
+      const isBoss=button.dataset.format?.startsWith('boss-')||button.dataset.onlineMode==='boss';
+      if(isBoss){
+        art.classList.add('boss-illustration');
+        for(const id of button.dataset.format==='boss-solo'?['elias']:['elias','mara']){const portrait=document.createElement('span');portrait.className=`character-portrait ${id}`;art.appendChild(portrait);}
+        const portrait=document.createElement('span');portrait.className='boss-menu-portrait';art.appendChild(portrait);
+        button.prepend(art);continue;
+      }
       const isTeamMatch=button.dataset.format==='2v2'||button.dataset.onlineMode==='coop'||button.dataset.onlineMode==='versus';
       const ids=isTeamMatch?['elias','mara','dorian','imani']:['elias','dorian'];
       art.classList.toggle('squad-illustration',isTeamMatch);
@@ -376,12 +395,12 @@ function prepareMatch(mapOverride=null){
   cancelMapDealAnimation();
   sound.stop();
   const map=mapOverride||selectedMap;
-  resetOnlineOptions();$('pause').setAttribute('aria-label','Pause game');game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map,format:selectedFormat,lineup:resolvedLineup,difficulty:selectedDifficulty});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;starting=false;paused=false;finishedShown=false;clearInput();
+  resetOnlineOptions();$('pause').setAttribute('aria-label','Pause game');game=new Match(Math.random,{mode:selectedMode,weapon:selectedWeapon,map,format:selectedFormat,lineup:resolvedLineup,difficulty:selectedDifficulty,bossMode:selectedBossMode});configureArena();marksDrawnRevision=-1;sceneDirty=true;started=false;starting=false;paused=false;finishedShown=false;clearInput();
   document.querySelectorAll('.damage-number').forEach(label=>label.remove());
   $('overlay').classList.add('hidden');$('overlay').classList.remove('result');
   document.querySelector('.game-unit').classList.remove('ended','paused');
   document.querySelector('.game-unit').classList.add('menu-open');
-  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,launchFxSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,platformAttackSprites])clearSpriteMap(map);
+  for(const map of [dropSprites,aerialSprites,wasteSprites,obstacleSprites,blastSprites,launchFxSprites,rockFlightSprites,tornadoSprites,lightningSprites,volcanicFireSprites,mudSprites,phase6Sprites,platformAttackSprites,bossAttackSprites,bossHazardSprites])clearSpriteMap(map);
   for(const sprite of sandstormSprites)sprite.visible=false;
   for(const sprite of [...flameSprites,...jetSprites])sprite.visible=false;
   toastUntil=0;$('toast').style.opacity=0;
@@ -431,7 +450,7 @@ function savedOnlineSeat(roomId){
   try{return sessionStorage.getItem(`division-seat-${roomId}`);}catch{return null;}
 }
 function disconnectOnline(){
-  const client=onlineClient;onlineClient=null;onlineActive=false;onlineConnected=false;onlineStatus=null;onlineToken=null;onlineTargets=null;onlineEventQueue=[];onlineFrame=-1;onlineSeat=0;
+  const client=onlineClient;onlineClient=null;onlineActive=false;onlineConnected=false;onlineStatus=null;onlineToken=null;onlineTargets=null;onlineBossTarget=null;onlineEventQueue=[];onlineFrame=-1;onlineSeat=0;
   client?.close();
 }
 function renderOnlineCharacters(){
@@ -512,11 +531,11 @@ function onlineRoomId(value){
 function startOnlineView(state){
   const seats=onlineStatus?.seats;
   if(!seats?.every(seat=>seat.characterId))return;
-  selectedFormat=state.format;selectedMode=state.mode;selectedMap=state.map;
+  selectedFormat=state.format;selectedMode=state.mode;selectedMap=state.map;selectedBossMode=!!state.bossMode;
   selectedWeapon=onlineStatus.options.weapon||null;
   resolvedLineup={player:seats[0].characterId,opponent:seats[1].characterId,...(seats.length===4?{teammate:seats[2].characterId,opponent2:seats[3].characterId}:{})};
   prepareMatch(state.map);
-  onlineFrame=-1;onlineTargets=null;onlineEventQueue=[];
+  onlineFrame=-1;onlineTargets=null;onlineBossTarget=null;onlineEventQueue=[];
   onlineActive=true;onlineConnected=true;starting=state.time===0;started=!starting;paused=false;finishedShown=false;
   $('start').disabled=false;
   $('menu').classList.add('hidden');$('overlay').classList.add('hidden');
@@ -537,11 +556,14 @@ function applyOnlineState(packet){
   if(!onlineActive)return;
   if(paused){paused=false;input.pistol=pistolAuto;$('overlay').classList.add('hidden');document.querySelector('.game-unit').classList.remove('paused');}
   const previous=game.players.map(p=>({x:p.x,y:p.y}));
+  const previousBoss=game.bossMode&&game.boss?{x:game.boss.x,y:game.boss.y}:null;
   onlineEventQueue.push(...(state.events||[]));
   Object.assign(game,state);
   game.events=[];
   onlineTargets=game.players.map(p=>({x:p.x,y:p.y}));
+  onlineBossTarget=game.bossMode?{x:game.boss.x,y:game.boss.y}:null;
   if(onlineFrame>=0)game.players.forEach((p,i)=>{if(previous[i]){p.x=previous[i].x;p.y=previous[i].y;}});
+  if(onlineFrame>=0&&previousBoss&&game.bossMode){game.boss.x=previousBoss.x;game.boss.y=previousBoss.y;}
   onlineFrame=packet.frame;sceneDirty=true;app.ticker.start();
 }
 function syncOnlineRematchButton(){
@@ -601,7 +623,7 @@ async function joinOnlineRoom(){
     let seat;
     const status=await client.status(roomId);
     onlineStatus=status;updateOnlineLobby();
-    const team=status.options.teamMode==='coop'?0:status.options.teamMode==='versus'?onlineSelectedTeam:undefined;
+    const team=['coop','boss'].includes(status.options.teamMode)?0:status.options.teamMode==='versus'?onlineSelectedTeam:undefined;
     try{seat=await client.join(roomId,selectedCharacter,saved,team);}
     catch(error){if(!saved)throw error;seat=await client.join(roomId,selectedCharacter,undefined,team);}
     onlineSeat=seat.seat;onlineToken=seat.token;onlineStatus=seat.status;
@@ -621,12 +643,14 @@ function openLineup(map){
   if(playKind==='online'){createOnlineRoom(map);return;}
   revealedMap=map;
   lineupActiveSlot=selectedFormat==='2v2'?'teammate':'opponent';
-  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()} · ${selectedDifficulty.toUpperCase()} AI`;
+  $('lineup-map').textContent=`${map.toUpperCase()} · ${selectedBossMode?BOSS_DEFINITIONS[map].name:selectedFormat.toUpperCase()} · ${selectedMode.replaceAll('-',' ').toUpperCase()}`;
+  $('lineup-panel').querySelector('h2').innerHTML=selectedBossMode?'BOSS <em>ENCOUNTER</em>':'SQUAD <em>SELECT</em>';
   renderLineup();showMenuPanel('lineup-panel');$('menu').classList.remove('hidden');
 }
 function renderLineup(){
   const choices=$('lineup-choices');
-  const slots=selectedFormat==='2v2'?['teammate','opponent','opponent2']:['opponent'];
+  const slots=selectedBossMode?(selectedFormat==='2v2'?['teammate']:[]):selectedFormat==='2v2'?['teammate','opponent','opponent2']:['opponent'];
+  if(!slots.length){choices.replaceChildren();const card=document.createElement('p');card.className='boss-briefing';card.textContent=`${BOSS_DEFINITIONS[revealedMap].name} awaits. Its weak point opens briefly between attacks.`;choices.appendChild(card);return;}
   if(!slots.includes(lineupActiveSlot))lineupActiveSlot=slots[0];
   choices.replaceChildren();
   const tabs=document.createElement('div');tabs.className='lineup-tabs';tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Choose lineup position');
@@ -749,7 +773,7 @@ $('menu-online').addEventListener('click',()=>{playKind='online';showOnlinePanel
 $('online-host').addEventListener('click',()=>showMenuPanel('online-format-panel'));
 $('online-format-back').addEventListener('click',()=>showMenuPanel('online-panel'));
 document.querySelectorAll('.online-format-choice').forEach(button=>button.addEventListener('click',()=>{
-  onlineTeamMode=button.dataset.onlineMode;selectedFormat=onlineTeamMode==='duel'?'1v1':'2v2';showMenuPanel('mode-panel');
+  onlineTeamMode=button.dataset.onlineMode;selectedBossMode=onlineTeamMode==='boss';selectedFormat=onlineTeamMode==='duel'?'1v1':'2v2';showMenuPanel('mode-panel');
 }));
 document.querySelectorAll('.online-team').forEach(button=>button.addEventListener('click',()=>{
   onlineSelectedTeam=Number(button.dataset.team);updateOnlineLobby();
@@ -758,7 +782,7 @@ $('online-join').addEventListener('click',joinOnlineRoom);
 $('online-code').addEventListener('keydown',event=>{if(event.key==='Enter')joinOnlineRoom();});
 $('online-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('online-invite-link').value);$('online-copy').textContent='COPIED';}catch{onlineError(new Error('Select and copy the invite link above.'));}});
 $('online-back').addEventListener('click',openMenu);
-document.querySelectorAll('.format-choice').forEach(button=>button.addEventListener('click',()=>{selectedFormat=button.dataset.format;showMenuPanel('mode-panel');}));
+document.querySelectorAll('.format-choice').forEach(button=>button.addEventListener('click',()=>{selectedBossMode=button.dataset.format.startsWith('boss-');selectedFormat=button.dataset.format==='boss-duo'||button.dataset.format==='2v2'?'2v2':'1v1';showMenuPanel('mode-panel');}));
 $('format-back').addEventListener('click',()=>showMenuPanel('menu-home'));
 $('mode-back').addEventListener('click',()=>showMenuPanel(playKind==='online'?'online-format-panel':'format-panel'));
 $('weapon-back').addEventListener('click',()=>showMenuPanel('mode-panel'));
@@ -925,9 +949,15 @@ function updateHud(){
   specialArt.classList.toggle('atlas-icon',slot?.type==='rifle'||slot?.type==='shotgun');
   if(slot&&WEAPON_ART_BOUNDS[slot.type])fitWeaponIcon(specialArt,slot.type);else clearWeaponIconFit(specialArt);
   $('health-value').textContent=Math.ceil(p.hp);updateHealth('player-hp',p.hp);updateHealth('opponent-hp',enemy.hp);
+  const bossHud=$('boss-hud');bossHud.hidden=!game.bossMode;
+  if(game.bossMode){
+    $('boss-name').textContent=game.boss.name;
+    $('boss-hp-fill').style.width=`${Math.max(0,game.boss.hp/game.boss.maxHp*100)}%`;
+    $('boss-phase').textContent=game.boss.weakPoint>0?'WEAK POINT EXPOSED':`PHASE ${game.boss.phase+1}`;
+  }
   const hud=$('opponent-hud'),playerHud=$('player-hud');
   playerHud.style.display=p.hp>0?'flex':'none';
-  hud.style.display=enemy.hp>0&&game.canSee(p,enemy,true)?'flex':'none';
+  hud.style.display=!game.bossMode&&enemy.hp>0&&game.canSee(p,enemy,true)?'flex':'none';
   const enemyWeapon=game.weapon(enemy),equipped=WEAPONS[enemyWeapon],badge=$('opponent-weapon');
   badge.title=equipped.name;badge.setAttribute('aria-label',`Opponent equipped weapon: ${equipped.name}${enemyWeapon==='laser'&&enemy.charge>0?`, charging ${Math.round(enemy.charge*100)} percent`:''}`);
   badge.firstElementChild.classList.toggle('atlas-icon',enemyWeapon==='pistol'||enemyWeapon==='rifle'||enemyWeapon==='shotgun');
@@ -978,6 +1008,7 @@ function updateHud(){
 function syncHudPositions(){
   const scale=$('arena').clientWidth/W;
   for(const fighter of game.players){
+    if(fighter.boss)continue;
     const hud=$(fighter.id===localFighter().id?'player-hud':fighter.id===visibleOpponent().id?'opponent-hud':`fighter-${fighter.id}-hud`);
     if(!hud)continue;
     hud.style.setProperty('--hud-scale',scale);
@@ -1463,6 +1494,72 @@ function render(){
       .stroke({color:0xff8e31,width:3,alpha:.25+.09*Math.sin(game.time*3)});
   }
   renderPlatformContact();
+  const liveBossHazards=new Set();
+  for(const hazard of game.bossHazards||[]){
+    liveBossHazards.add(hazard.id);
+    let sprite=bossHazardSprites.get(hazard.id);
+    if(!sprite){sprite=new Sprite(lavaPoolFrames[0]);sprite.anchor.set(.5);hazardLayer.addChild(sprite);bossHazardSprites.set(hazard.id,sprite);}
+    sprite.texture=lavaPoolFrames[Math.floor(hazard.age*9)%lavaPoolFrames.length];sprite.position.set(hazard.x,hazard.y+4);
+    sprite.width=hazard.radius*2.6;sprite.height=hazard.radius*1.8;sprite.alpha=Math.min(1,(hazard.life-hazard.age)*1.2);
+  }
+  for(const [id,sprite] of bossHazardSprites)if(!liveBossHazards.has(id)){sprite.destroy();bossHazardSprites.delete(id);}
+  bossSprite.visible=!!game.bossMode;
+  for(const decoy of bossDecoys)decoy.visible=false;
+  if(game.bossMode){
+    const boss=game.boss,frames=bossFrames.get(game.map),attackNames=BOSS_DEFINITIONS[game.map].attacks;
+    const frame=boss.hp<=0?(boss.deathAge>.35?7:6):boss.hitFlash>0?6:boss.current?(boss.current.fired?4+Math.floor(game.time*7)%2:2+Math.floor(game.time*5)%2):boss.weakPoint>0?4:Math.floor(game.time*1.8)%2;
+    bossSprite.texture=frames[frame];bossSprite.position.set(boss.x,boss.y-10+Math.sin(game.time*2.2)*1.7+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
+    bossSprite.tint=boss.weakPoint>0?0xffd4b6:0xffffff;
+    bossSprite.alpha=boss.hp<=0?Math.max(.75,1-boss.deathAge*.15):1;
+    if(boss.weakPoint>0&&boss.hp>0){
+      const cx=boss.x,cy=boss.y+18,pulse=.75+.25*Math.sin(game.time*19);
+      circle(muzzleDraw,cx,cy,10+pulse*4,0xff9b43,.18*pulse);
+      circle(muzzleDraw,cx,cy,4+pulse*2,0xffe3a0,.9);
+      circle(muzzleDraw,cx,cy,2,0xffffff,1);
+      for(let i=0;i<4;i++){
+        const angle=i*Math.PI/2+game.time*.7;
+        line(muzzleDraw,{x:cx+Math.cos(angle)*9,y:cy+Math.sin(angle)*9},{x:cx+Math.cos(angle)*(17+pulse*4),y:cy+Math.sin(angle)*(17+pulse*4)},1.6,0xffda85,pulse*.85);
+      }
+    }
+    if(game.map===MAPS.STORM&&boss.current?.type==='decoys'&&boss.hp>0){
+      for(const [index,decoy] of bossDecoys.entries()){
+        decoy.visible=true;decoy.texture=frames[0];decoy.position.set(boss.x+(index?95:-95),boss.y+(index?16:-12));decoy.width=150;decoy.height=150;decoy.alpha=.33+.07*Math.sin(game.time*9+index);decoy.tint=0xaaaaff;decoy.zIndex=boss.y+FIGHTER_DEPTH_OFFSET-1;
+      }
+    }
+    if(boss.hp<=0){
+      const fade=Math.max(0,1-boss.deathAge/1.4),color=game.map===MAPS.SNOW?0x89e4ff:game.map===MAPS.STORM?0xab8bff:game.map===MAPS.MAGMA?0xff6e20:game.map===MAPS.DESERT?0xffc96e:0xff9b51;
+      for(let i=0;i<11;i++){
+        const angle=i*2.4+boss.deathAge*.7,spread=25+boss.deathAge*72;
+        circle(draw,boss.x+Math.cos(angle)*spread,boss.y+Math.sin(angle)*spread*.48,2.5+(i%3),color,fade*.7);
+      }
+      draw.ellipse(boss.x,boss.y+30,30+boss.deathAge*68,14+boss.deathAge*32).stroke({color,width:3,alpha:fade*.75});
+    }
+    groundDraw.ellipse(boss.x,boss.y+48,65,18).fill({color:0x101614,alpha:.45});
+    const warning=boss.current;
+    if(warning&&!warning.fired)for(const zone of bossAttackZones(warning.type,warning.x,warning.y)){
+      const color=game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':game.map===MAPS.MAGMA?'fire':'missile';
+      drawTargetLock(groundDraw,zone.x,zone.y,warning.radius*zone.scale,game.time,color);
+      const travel=Math.max(0,Math.min(1,(warning.age/warning.windup-.4)/.6));
+      if(travel>0){
+        const sx=boss.x,sy=boss.y+48,px=sx+(zone.x-sx)*travel,py=sy+(zone.y-sy)*travel-22*Math.sin(Math.PI*travel);
+        const shotColor=game.map===MAPS.SNOW?0xc2f4ff:game.map===MAPS.STORM?0xb59bff:game.map===MAPS.MAGMA?0xff7b1f:game.map===MAPS.DESERT?0xf4ca75:0xffa843;
+        line(aerialProjectileDraw,{x:sx,y:sy},{x:px,y:py},2.2,shotColor,.38);
+        circle(aerialProjectileDraw,px,py,4+zone.scale*2,shotColor,.93);
+        circle(aerialProjectileDraw,px,py,2,0xffffff,.9);
+      }
+    }
+    const active=new Set();
+    for(const effect of game.bossEffects||[]){
+      active.add(effect.id);
+      if(effect.age<0){drawTargetLock(groundDraw,effect.x,effect.y,effect.radius,game.time,game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'fire');continue;}
+      let sprite=bossAttackSprites.get(effect.id);
+      if(!sprite){sprite=new Sprite(bossAttackFrames.get(game.map)[attackNames.indexOf(effect.attack)]);sprite.anchor.set(.5);obstacleLayer.addChild(sprite);bossAttackSprites.set(effect.id,sprite);}
+      const progress=Math.max(0,Math.min(1,effect.age/effect.life));
+      sprite.position.set(effect.x,effect.y-8*(1-progress));sprite.width=effect.radius*2.6*(.7+progress*.45);sprite.height=effect.radius*2.6*(.7+progress*.45);sprite.alpha=(1-progress)*.9;sprite.zIndex=effect.y+FIGHTER_DEPTH_OFFSET+12;
+      drawBlastZone(groundDraw,effect.x,effect.y,effect.radius,progress,game.map===MAPS.SNOW?'icicle':game.map===MAPS.STORM?'lightning':'fire');
+    }
+    for(const [id,sprite] of bossAttackSprites)if(!active.has(id)){sprite.destroy();bossAttackSprites.delete(id);}
+  }else for(const [id,sprite] of bossAttackSprites){sprite.destroy();bossAttackSprites.delete(id);}
   const activeLane=game.platformAttacks.find(attack=>!attack.hit&&attack.age>=0);
   const indicatorColor=activeLane?AREA_COLORS[activeLane.type].edge:0xffb553;
   const indicatorAlpha=platformState.phase==='idle'?.08+.07*Math.sin(game.time*2.5)**2:.12+.2*Math.sin(game.time*10)**2;
@@ -1526,6 +1623,7 @@ function render(){
   for(const p of game.players){
     const s=soldiers[p.id],frames=characterFrames.get(p.characterId),facing=fighterFacing(p.bank);
     const corpse=corpses[p.id];
+    if(p.boss){s.visible=false;corpse.visible=false;continue;}
     if(p.hp>0){
       const motion=fighterMotion(p),rolling=motion.pose==='roll',walking=motion.walking,sideways=motion.pose==='side';
       // Two planted poses between alternating steps stop the feet from skating.
@@ -1778,7 +1876,8 @@ async function boot(){
   const fighterIds=CHARACTERS.map(character=>character.id);
   const phase7Art=[...fighterIds.map(id=>`${id}-frontfire.webp`),...fighterIds.map(id=>`${id}-roll.webp`),...fighterIds.map(id=>`${id}-death.webp`)];
   const phase7SideArt=fighterIds.map(id=>`${id}-sidewalk.webp`);
-  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length;
+  const bossMaps=Object.keys(BOSS_DEFINITIONS);
+  const artCount=coreArt.length+phase8Art.length+phase2Art.length+phase5Art.length+phase6Art.length+phase7Art.length+phase7SideArt.length+bossMaps.length*2;
   let artLoaded=0;
   const loadArt=async(folder,path)=>{
     const art=await Assets.load(`${import.meta.env.BASE_URL}art/${folder}${path}`);
@@ -1804,12 +1903,15 @@ async function boot(){
   );
   const phase7Sheets=await Promise.all(phase7Art.map(path=>loadArt('phase7/',path)));
   const sideSheets=await Promise.all(phase7SideArt.map(path=>loadArt('phase7/',path)));
+  const bossSheets=await Promise.all(bossMaps.map(map=>loadArt('bosses/',`${BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase()}-sheet.webp`)));
+  const bossAttackSheets=await Promise.all(bossMaps.map(map=>loadArt('bosses/',`${BOSS_DEFINITIONS[map].id.replace(/([A-Z])/g,'-$1').toLowerCase()}-attacks.webp`)));
   for(const art of [bg,atlas,flameArt,blastArt,laserArt,stunLauncherArt,stunGrenadeArt,missileLauncherArt,missileArt,rockArt,healArt,nuclearLauncherArt,nuclearGrenadeArt,wasteArt,mushroomArt,crateArt,barrelArt])art.source.scaleMode='nearest';
   for(const art of [stormBg,magmaBg,volcanicRockArt,tornadoAnimationArt,ventArt,mudArt,lightningAnimationArt,ashCloudArt,lavaProjectileArt,lavaPoolArt,burningRockFlightArt,burningRockGroundArt,rockCoolingArt])art.source.scaleMode='nearest';
   for(const art of [desertBg,snowBg,snowBarrierArt,eagleArt,scorpionArt,quicksandArt,avalancheArt,hailCloudArt,hailIcicleArt,icePatchArt,sandstormArt,mirageArt])art.source.scaleMode='nearest';
   for(const art of [platformArt,launchFxArt])art.source.scaleMode='nearest';
   for(const art of phase7Sheets)art.source.scaleMode='nearest';
   for(const art of sideSheets)art.source.scaleMode='nearest';
+  for(const art of [...bossSheets,...bossAttackSheets])art.source.scaleMode='nearest';
   rockBarrierTexture=rockArt;snowBarrierTexture=snowBarrierArt;
   volcanicRockTexture=volcanicRockArt;mudTexture=mudArt;
   ashCloudTexture=ashCloudArt;
@@ -1838,6 +1940,10 @@ async function boot(){
     characterDeathFrames.set(id,{south:rows[0],north:rows[1]});
   }
   const cut=(art,cols,rows)=>Array.from({length:cols*rows},(_,i)=>new Texture({source:art.source,frame:new Rectangle(i%cols*art.width/cols,Math.floor(i/cols)*art.height/rows,art.width/cols,art.height/rows)}));
+  for(const [index,map] of bossMaps.entries()){
+    bossFrames.set(map,cut(bossSheets[index],4,2));
+    bossAttackFrames.set(map,cut(bossAttackSheets[index],4,1));
+  }
   tornadoFrames=cut(tornadoAnimationArt,8,1);
   lightningFrames=cut(lightningAnimationArt,6,1);
   lavaProjectileFrames=cut(lavaProjectileArt,6,1);lavaPoolFrames=cut(lavaPoolArt,6,1);
@@ -1884,6 +1990,8 @@ async function boot(){
   frontProjectileDraw=new Graphics();muzzleDraw=new Graphics();aerialProjectileDraw=new Graphics();aerialSpriteLayer=new Container();
   world.addChild(frontProjectileDraw,aerialProjectileDraw,aerialSpriteLayer);
   for(let i=0;i<4;i++){const s=new Sprite(textures[i%2*4]);s.anchor.set(.5);s.visible=false;soldiers.push(s);obstacleLayer.addChild(s);}
+  bossSprite=new Sprite(bossFrames.get(MAPS.RIVERSIDE)[0]);bossSprite.anchor.set(.5);bossSprite.visible=false;obstacleLayer.addChild(bossSprite);
+  for(let i=0;i<2;i++){const sprite=new Sprite(bossFrames.get(MAPS.STORM)[0]);sprite.anchor.set(.5);sprite.visible=false;bossDecoys.push(sprite);obstacleLayer.addChild(sprite);}
   for(let i=0;i<4;i++){const s=new Sprite(characterDeathFrames.get(fighterIds[i]).south[0].texture);s.anchor.set(.5);s.visible=false;corpses.push(s);obstacleLayer.addChild(s);}
   stunDraw=new Graphics();world.addChild(stunDraw);
   world.addChild(muzzleDraw);
@@ -1942,6 +2050,11 @@ async function boot(){
           const t=Math.min(1,dt/.055);
           fighter.x+=(target.x-fighter.x)*t;fighter.y+=(target.y-fighter.y)*t;
         });
+        if(onlineBossTarget&&game.bossMode){
+          const t=Math.min(1,dt/.055);game.boss.x+=(onlineBossTarget.x-game.boss.x)*t;game.boss.y+=(onlineBossTarget.y-game.boss.y)*t;
+          if(game.boss.current)game.boss.current.age+=dt;
+          if(game.boss.defeated)game.boss.deathAge+=dt;
+        }
         game.events=onlineEventQueue.splice(0);
       }else{
         accumulator+=dt;
@@ -1950,7 +2063,10 @@ async function boot(){
       const damageByPlayer=Array(game.players.length).fill(0);
       for(const event of game.events){
         if(event.type==='damage'){damageByPlayer[event.player]+=event.amount;continue;}
+        if(event.type==='bossHit')showNumber(1,event.amount);
         if(event.type==='shot')sound.play(event.weapon,event.x);
+        else if(event.type==='bossWindup')sound.play(({riverside:'platformAim',storm:'lightningCharge',magma:'volcanoRockLaunch',desert:'quicksand',snow:'iceFall'})[game.map],event.x);
+        else if(event.type==='bossAttack')sound.play(({riverside:'barrelBlast',storm:'lightningStrike',magma:'volcanoRockImpact',desert:'eagleHit',snow:'hailImpact'})[game.map],event.x);
         else if(event.type==='fighterDeath')sound.play(`death-${event.characterId}`,event.x);
         else if(event.type!=='sandstorm'&&event.type!=='hail'&&event.type!=='tornado')sound.play(event.type,event.x);
         if(event.type==='heal'){
@@ -1978,9 +2094,9 @@ async function boot(){
       const won=game.winner===localFighter().team,drawn=game.winner==='draw';
       $('overlay').classList.add('result');document.querySelector('.game-unit').classList.add('ended');
       const outcome=drawn?'DRAW':won?'VICTORY':'DEFEAT';
-      const survivors=game.players.filter(fighter=>fighter.hp>0).map(fighter=>CHARACTER_BY_ID[fighter.characterId]?.name).join(' & ');
+      const survivors=game.players.filter(fighter=>fighter.hp>0&&!fighter.boss).map(fighter=>CHARACTER_BY_ID[fighter.characterId]?.name).join(' & ');
       const omen=drawn?'Neither team survived.':won?localFighter().hp>0?'The other side fell. You remain.':`Your ally ${survivors} survived the fight.`:'Your side fell. The other team remains.';
-      showOverlay(drawn?'BOTH<br><em>FELL.</em>':won?localFighter().hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${localFighter().shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN',omen);
+      showOverlay(game.bossMode?(won?'BOSS<br><em>FELL.</em>':'THE BOSS<br><em>ENDURES.</em>'):drawn?'BOTH<br><em>FELL.</em>':won?localFighter().hp>0?'YOU<br><em>ADAPTED.</em>':'YOUR TEAM<br><em>SURVIVED.</em>':'YOU<br><em>FELL.</em>',`${outcome}${survivors?` · ${survivors} survived`:''} · ${Math.floor(game.time)} seconds · ${localFighter().shots} shots fired · ${game.launches} supply launches`,'PLAY AGAIN',game.bossMode?`${game.boss.name} · ${won?'Defeated':'Still standing'}`:omen);
       syncOnlineRematchButton();
     }
     const animating=starting||started&&!paused&&!game.finished;
@@ -1990,6 +2106,7 @@ async function boot(){
     if(!animating){app.renderer.render(app.stage);app.ticker.stop();}
   });
   // Read-only diagnostics for development and reproducible manual QA.
-  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,platform:game.platform,platformAttacks:game.platformAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
+  if(import.meta.env.DEV)window.arcana={snapshot:()=>JSON.parse(JSON.stringify({mode:game.mode,map:game.map,fixedWeapon:game.fixedWeapon,time:game.time,started,paused,finished:game.finished,players:game.players,bossMode:game.bossMode,boss:game.bossMode?(typeof game.boss.snapshot==='function'?game.boss.snapshot():game.boss):null,bossEffects:game.bossEffects,bossHazards:game.bossHazards,platform:game.platform,platformAttacks:game.platformAttacks,pickups:game.pickups,bullets:game.bullets.length,flames:game.flames.length,mud:game.mud,lightning:game.lightning,tornadoes:game.tornadoes,rocksInFlight:game.rocksInFlight,volcanicFire:game.volcanicFire,ash:game.ash,sandstorm:game.sandstorm,eagles:game.eagles,quicksand:game.quicksand,mirages:game.mirages,icePatches:game.icePatches,avalanches:game.avalanches,hail:game.hail})),renderer:app.renderer.type};
+  if(import.meta.env.DEV)window.arcana.forceBossDefeat=()=>{if(game.bossMode)game.damage(game.players[1],game.boss.hp);};
 }
 boot().catch(error=>{console.error(error);$('menu').classList.add('hidden');$('overlay').classList.remove('hidden');$('overlay-title').textContent='LOAD FAILED';$('overlay-copy').textContent=import.meta.env.DEV?String(error):'The game could not load its graphics. Please reload in a browser with WebGL enabled.';$('start').textContent='RELOAD';$('start').disabled=false;$('start').onclick=()=>location.reload();});

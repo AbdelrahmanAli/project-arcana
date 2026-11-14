@@ -1,0 +1,10 @@
+.boss-hud{position:absolute;z-index:40;left:50%;top:4%;transform:translateX(-50%);width:min(62%,340px);display:flex;flex-direction:column;align-items:center;gap:3px;color:#f8e8c6;font:700 clamp(11px,2vw,17px) 'Anton',sans-serif;letter-spacing:.14em;text-shadow:0 2px 2px #130d0c,0 0 8px #140e0c;pointer-events:none}
+.boss-hud[hidden]{display:none}
+.boss-hp-track{width:100%;height:11px;background:#261c17;border:2px solid #d1a663;box-shadow:0 2px 0 #18150f,0 0 9px #160b0b;overflow:hidden}
+.boss-hp-track i{display:block;height:100%;width:100%;background:linear-gradient(#ff8c64 0 20%,#b51926 30% 75%,#6d0a17);transition:width .16s linear}
+#boss-phase{font:700 10px 'Courier Prime',monospace;color:#ffe2a5;letter-spacing:.09em}
+.boss-briefing{padding:24px 12px;color:#e7c991;text-align:center;line-height:1.55;background:rgba(8,19,22,.68);border:1px solid rgba(214,171,98,.55)}
+.choice-illustration.boss-illustration .character-portrait{position:absolute;left:0;bottom:5px;width:48px;height:48px;background-size:192px 192px;z-index:2}
+.choice-illustration.boss-illustration .character-portrait+.character-portrait{left:24px;bottom:1px;margin:0;transform:none}
+.boss-menu-portrait{position:absolute;right:0;top:7px;width:82px;height:82px;background:url('/art/bosses/siegebreaker-sheet.webp') 0 0/400% 200% no-repeat;image-rendering:pixelated;filter:drop-shadow(0 4px 3px #000a)}
+@media(max-width:520px){.boss-menu-portrait{width:66px;height:66px;top:15px}.choice-illustration.boss-illustration .character-portrait{width:37px;height:37px;background-size:148px 148px}}

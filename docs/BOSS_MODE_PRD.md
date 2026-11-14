@@ -1,6 +1,6 @@
 # Boss mode plan
 
-**Status:** Proposed. No gameplay or art assets are implemented by this document.
+**Status:** Playable implementation completed on 2026-11-14. The encounter descriptions below remain the design target for future animation and attack refinements; the shipped patterns and effects are recorded in `src/boss-encounter.js` and the release review.
 
 ## Experience
 

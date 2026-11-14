@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BossEncounter, BOSS_DEFINITIONS } from '../src/boss-encounter.js';
+import { BossEncounter, BOSS_DEFINITIONS, bossAttackZones } from '../src/boss-encounter.js';
+import {BANK_BOUNDS} from '../src/arena-geometry.js';
 
 const fighter = (id, x) => ({ id, x, y: 760, bank: 0, hp: 100 });
 
@@ -31,4 +32,18 @@ test('boss windup, release, recovery and team targeting remain deterministic', (
   assert.equal(boss.damage(1000), remaining);
   assert.equal(boss.defeated, true);
   assert.equal(boss.damage(20), 0);
+});
+
+test('every boss attack marks a bounded player-bank pattern with a dodge route',()=>{
+  for(const [map,definition] of Object.entries(BOSS_DEFINITIONS)){
+    const boss=new BossEncounter(map,1,()=>.5);
+    for(const type of definition.attacks){
+      const zones=bossAttackZones(type,240,760);
+      assert.ok(zones.length>0&&zones.length<=4,`${map} ${type} zone count`);
+      assert.ok(zones.every(zone=>zone.x>=30&&zone.x<=450&&zone.y>=BANK_BOUNDS[0].minY&&zone.y<=BANK_BOUNDS[0].maxY),`${map} ${type} outside bank`);
+      assert.ok(zones.every(zone=>zone.delay>=0&&zone.delay<.7),`${map} ${type} impact timing`);
+    }
+    for(let tick=0;tick<900;tick++)boss.update(1/60,[fighter(0,200)]);
+    assert.ok(boss.x>=70&&boss.x<=410&&boss.y>=BANK_BOUNDS[1].minY&&boss.y<=BANK_BOUNDS[1].maxY);
+  }
 });
