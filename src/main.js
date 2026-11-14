@@ -12,6 +12,7 @@ import { ashCloudVisuals } from './phase5-visuals.js';
 import { OnlineRoomClient } from './online.js';
 import {BOSS_DEFINITIONS,bossAttackZones} from './boss-encounter.js';
 import {bossMotionFrame,bossAttackFrame,BOSS_ATTACK_VISUALS} from './boss-animation.js';
+import bossMotionMetrics from './generated/boss-motion-metrics.json';
 import { inputForSeat, projectOnlineState } from './online-perspective.js';
 import './style.css';
 import './hud.css';
@@ -1537,8 +1538,13 @@ function render(){
     const hover=game.map===MAPS.STORM?Math.sin(game.time*2.2)*1.4:0;
     const holdingAttackPose=attack&&(!boss.moving||attack.fired&&attack.age<attack.windup+.23);
     const motionIndex=boss.moving?bossMotionFrame(boss.facing??4,game.time,Math.hypot(boss.vx||0,boss.vy||0)):(boss.facing??4);
-    bossSprite.texture=boss.hp<=0||holdingAttackPose?frames[frame]:motionFrames[motionIndex];
-    bossSprite.position.set(boss.x,boss.y-10+hover+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));bossSprite.width=168;bossSprite.height=168;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
+    const usingPose=boss.hp<=0||holdingAttackPose;
+    const motionLayout=bossMotionMetrics[game.map],motionMetric=motionLayout.frames[motionIndex];
+    const motionHeight=motionLayout.targetHeight/motionMetric.h;
+    const motionOffset=motionLayout.targetContact-(motionMetric.bottom-.5)*motionHeight;
+    bossSprite.texture=usingPose?frames[frame]:motionFrames[motionIndex];
+    bossSprite.position.set(boss.x,boss.y-10+hover+(usingPose?0:motionOffset)+(boss.hp<=0?Math.min(14,boss.deathAge*18):0));
+    bossSprite.width=usingPose?168:motionHeight*motionLayout.xScale;bossSprite.height=usingPose?168:motionHeight;bossSprite.zIndex=boss.y+FIGHTER_DEPTH_OFFSET;
     bossSprite.tint=boss.hitFlash>0?0xffc6ad:boss.weakPoint>0?0xffd4b6:0xffffff;
     bossSprite.alpha=boss.hp<=0?Math.max(.75,1-boss.deathAge*.15):1;
     if(boss.weakPoint>0&&boss.hp>0){
